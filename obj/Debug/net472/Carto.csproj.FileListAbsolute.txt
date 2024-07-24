@@ -1,0 +1,9 @@
+D:\Documents\source\repos\Carto\bin\Debug\net472\Carto.dll
+D:\Documents\source\repos\Carto\bin\Debug\net472\Carto.pdb
+D:\Documents\source\repos\Carto\obj\Debug\net472\Carto.csproj.AssemblyReference.cache
+D:\Documents\source\repos\Carto\obj\Debug\net472\Carto.GeneratedMSBuildEditorConfig.editorconfig
+D:\Documents\source\repos\Carto\obj\Debug\net472\Carto.AssemblyInfoInputs.cache
+D:\Documents\source\repos\Carto\obj\Debug\net472\Carto.AssemblyInfo.cs
+D:\Documents\source\repos\Carto\obj\Debug\net472\Carto.csproj.CoreCompileInputs.cache
+D:\Documents\source\repos\Carto\obj\Debug\net472\Carto.dll
+D:\Documents\source\repos\Carto\obj\Debug\net472\Carto.pdb
