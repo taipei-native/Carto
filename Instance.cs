@@ -4,11 +4,16 @@ namespace Carto
     using Carto.Utils;
     using Colossal.Localization;
     using Colossal.Logging;
+    using Colossal.PSI.Common;
     using Game;
     using Game.City;
+    using Game.Modding;
     using Game.Prefabs;
     using Game.SceneFlow;
     using Game.UI;
+    using System.IO;
+    using System.Linq;
+    using System.Reflection;
     using Unity.Entities;
 
     public class Instance
@@ -135,5 +140,86 @@ namespace Carto
         /// （Carto模組的WaterSystem個體。）
         /// </summary>
         public static WaterSystem ModWater => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<WaterSystem>();
+
+        /// <summary>
+        /// The Carto mod's ZoningSystem instance.
+        /// （Carto模組的ZoningSystem個體。）
+        /// </summary>
+        public static ZoningSystem Zoning => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<ZoningSystem>();
+
+        /// <summary>
+        /// Zone Color Changer mod developed by TDW.
+        /// （由TDW開發的Zone Color Changer模組。）
+        /// </summary>
+        //  PDX Mods link: https://mods.paradoxplaza.com/mods/81568/Windows
+        //  （PDX Mods 連結：https://mods.paradoxplaza.com/mods/81568/Windows）
+        public static class ZCCMod
+        {
+            private static Assembly assembly;
+            private static bool ready = false;
+            private static string version = string.Empty;
+
+            /// <summary>
+            /// The constructor of Carto.Instance.ZCCMod.
+            /// （Carto.Instance.ZCCMod的建構函式。）
+            /// </summary>
+            static ZCCMod()
+            {
+                try
+                {
+                    foreach (ModManager.ModInfo modInfo in GameManager.instance.modManager)
+                    {
+                        if (modInfo.name.StartsWith("ZoneColorChanger"))
+                        {
+                            assembly = modInfo.asset.assembly;
+                            ready = true;
+                            version = assembly.GetName().Version.ToString();
+                            Log.Debug($"Instance.ZCCMod: Successfully retrieve the assembly of Zone Color Changer [{version}]. 成功獲取 Zone Color Changer [{version}] 模組組件。");
+                            break;
+                        }
+                    }
+
+                    if (!ready) Log.Debug($"Instance.ZCCMod: Failed to retrieve the assembly of Zone Color Changer. 無法獲取 Zone Color Changer 模組組件。");
+                }
+                catch
+                {
+                    Log.Debug($"Instance.ZCCMod: Zone Color Changer mod is not loaded. Zone Color Changer 模組尚未載入。");
+                }
+            }
+
+            /// <summary>
+            /// The assembly of the mod.
+            /// （模組的組件。）
+            /// </summary>
+            public static Assembly Assembly
+            {
+                get
+                {
+                    if (assembly == null )
+                    {
+                        throw new FileNotFoundException("Zone Color Changer mod is not loaded. Zone Color Changer 模組尚未載入。");
+                    }
+                    return assembly;
+                }
+            }
+
+            /// <summary>
+            /// The activation status of the mod.
+            /// （模組的啟用狀態。）
+            /// </summary>
+            public static bool Ready => ready;
+
+            /// <summary>
+            /// The version of the assembly of the mod which works smoothly with Carto mod.
+            /// （能與Carto模組正常運行的模組組件版本。）
+            /// </summary>
+            public const string SuggestedVersion = "1.1.0.0";
+
+            /// <summary>
+            /// The version of the assembly.
+            /// （模組組件的版本。）
+            /// </summary>
+            public static string Version => version;
+        }
     }
 }

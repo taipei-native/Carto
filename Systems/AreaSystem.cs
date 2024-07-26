@@ -1,6 +1,7 @@
 ﻿namespace Carto.Systems
 {
     using Carto.Geodata;
+    using Carto.Utils;
     using Colossal.Logging;
     using Game;
     using Game.Areas;
@@ -13,7 +14,6 @@
     using Unity.Collections;
     using Unity.Entities;
     using Unity.Mathematics;
-    using Carto.Utils;
 
     /// <summary>
     /// The system instance that manages the area properties, inheriting from GameSystemBase.

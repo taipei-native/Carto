@@ -1,6 +1,7 @@
 ﻿namespace Carto.Systems
 {
     using Carto.Geodata;
+    using Carto.Utils;
     using Colossal.Logging;
     using Game;
     using Game.Simulation;
@@ -8,7 +9,6 @@
     using System;
     using System.Collections.Generic;
     using System.Threading.Tasks;
-    using Carto.Utils;
 
     /// <summary>
     /// The system instance that manages the water body properties, inheriting from GameSystemBase.

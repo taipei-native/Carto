@@ -274,7 +274,6 @@ namespace Carto.Utils
                 {
                     List<CartoObject> nets = new List<CartoObject>();
                     nets.AddRange(Instance.Net.GetRoadsProperties());
-                    // TODO: Fix compatibility
                     nets.AddRange(Instance.Net.GetTracksProperties());
                     nets.AddRange(Instance.Net.GetPathwayProperties());
                     geodata = new Geodata(nets);

@@ -3,10 +3,8 @@
     using Carto.Systems;
     using Carto.Utils;
     using Colossal.IO.AssetDatabase;
-    using Colossal.Json;
     using Game;
     using Game.Modding;
-    using System.Collections.Generic;
     using System.IO;
 
     /// <summary>
@@ -47,6 +45,7 @@
             updateSystem.UpdateBefore<NetSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<TerrainSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<WaterSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.UpdateBefore<ZoningSystem>(SystemUpdatePhase.GameSimulation);
 
             Instance.Log.Info("Mod instance loaded. 模組實例載入完成。");
         }

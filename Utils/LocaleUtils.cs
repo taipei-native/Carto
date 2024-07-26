@@ -123,7 +123,7 @@ namespace Carto.Utils
                     }
                     catch
                     {
-                        m_Log.Warn($"Cannot add the locale ({fileName}); �L�k�K�[�y�t�ɮס]{fileName}�^");
+                        m_Log.Warn($"Cannot add the locale ({fileName}); 無法添加語系檔案（{fileName}）");
                     }
                 }
             }
@@ -150,7 +150,7 @@ namespace Carto.Utils
                     }
                     catch
                     {
-                        m_Log.Warn($"Cannot add the locale ({resourceName}); �L�k�K�[�y�t�ɮס]{resourceName}�^");
+                        m_Log.Warn($"Cannot add the locale ({resourceName}); 無法添加語系檔案（{resourceName}）");
                     }
                 }
             }

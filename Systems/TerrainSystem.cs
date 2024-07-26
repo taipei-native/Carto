@@ -1,6 +1,7 @@
 ﻿namespace Carto.Systems
 {
     using Carto.Geodata;
+    using Carto.Utils;
     using Colossal.Logging;
     using Colossal.Mathematics;
     using Game;
@@ -9,7 +10,6 @@
     using System;
     using System.Collections.Generic;
     using System.Threading.Tasks;
-    using Carto.Utils;
 
     /// <summary>
     /// The system instance that manages the terrain properties, inheriting from GameSystemBase.

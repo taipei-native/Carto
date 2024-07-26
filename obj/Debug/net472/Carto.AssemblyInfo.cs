@@ -11,13 +11,13 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("Carto")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("Taipei Native")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("0.1.1.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.1+6693ed1b09547580c66b3eec2c956eda6e098fd2")]
 [assembly: System.Reflection.AssemblyProductAttribute("Carto")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Carto")]
-[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersionAttribute("0.1.0.0")]
 
 // 由 MSBuild WriteCodeFragment 類別產生。
 

@@ -2,6 +2,8 @@
     "Assets.NAME[Pathway]": "Pathway",
     "Assets.NAME[Subway Track]": "Subway Track",
     "Assets.NAME[Train Track]": "Train Track",
+    "Assets.NAME[Unzoned]": "Unzoned",
+    "Assets.THEME[Carto Generic]": "Generic",
     "Options.SECTION[Carto.Carto.Mod]": "Carto",
     "Options.TAB[Carto.Carto.Mod.GeneralTab]": "General",
     "Options.GROUP[Carto.Carto.Mod.ExportGroup]": "Export",
