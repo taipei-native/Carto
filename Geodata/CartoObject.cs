@@ -42,12 +42,15 @@
             { "Asset", typeof(string) },
             { "Category", typeof(string) },
             { "Center", typeof(float3) },
+            { "Color", typeof(string) },
+            { "Density", typeof(string) },
             { "Direction", typeof(string) },
             { "Form", typeof(string) },
             { "Height", typeof(float) },
             { "Length", typeof(float) },
             { "Name", typeof(string) },
             { "Object", typeof(string) },
+            { "Theme", typeof(string) },
             { "Unlocked", typeof(bool) },
             { "Width", typeof(float) }
         };

@@ -5,6 +5,7 @@ namespace Carto
     using Colossal.PSI.Environment;
     using Game;
     using Game.Modding;
+    using Game.SceneFlow;
     using Game.Settings;
     using System.Collections.Generic;
     using System.Linq;
@@ -16,7 +17,7 @@ namespace Carto
     [FileLocation("ModsSettings" + "\\" + nameof(Carto) + "\\" + nameof(Carto))]
     [SettingsUITabOrder(GeneralTab, CustomExportTab)]
     [SettingsUIShowGroupName(ExportGroup, DangerGroup, SpatialFieldGroup, NonSpatialFieldGroup)]
-    [SettingsUIGroupOrder(ExportGroup, DangerGroup, FeatureGroup, SelectorGroup, SpatialFieldGroup, NonSpatialFieldGroup)]
+    [SettingsUIGroupOrder(ExportGroup, DangerGroup, FeatureGroup, MiscellaneousGroup, SelectorGroup, SpatialFieldGroup, NonSpatialFieldGroup)]
     public class Setting : ModSetting
     {
         /// <summary>
@@ -31,6 +32,8 @@ namespace Carto
         public bool m_Category = true;
         public bool m_Center = true;
         public bool m_CenterLine = true;
+        public bool m_Color = true;
+        public bool m_Density = true;
         public bool m_Depth = true;
         public bool m_Direction = true;
         public bool m_Edge = true;
@@ -39,6 +42,7 @@ namespace Carto
         public bool m_Height = true;
         public bool m_Length = true;
         public bool m_Object = true;
+        public bool m_Theme = true;
         public bool m_Unlocked = true;
         public bool m_Width = true;
         public ExportUtils.FeatureType m_Feature;
@@ -72,6 +76,19 @@ namespace Carto
         public bool NotCustomName => NamingFormat != ExportUtils.NamingFormats.Custom;
 
         /// <summary>
+        /// Detects whether Zone Color Changer mod is loaded.
+        /// （偵測 Zone Color Changer 模組是否被載入。）
+        /// </summary>
+        [SettingsUIHidden]
+        public bool ZCCNotReady
+        {
+            get
+            {
+                return !GameManager.instance.modManager.ListModsEnabled().Any(mod => mod.StartsWith("ZoneColorChanger"));
+            }
+        }
+
+        /// <summary>
         /// Detects whether current field is in the dictionary.
         /// （偵測目前的欄位是否在字典中。）
         /// </summary>
@@ -83,6 +100,8 @@ namespace Carto
         public bool NotInFieldArrayCategory => NotInFieldArray("Category");
         public bool NotInFieldArrayCenter => NotInFieldArray("Center");
         public bool NotInFieldArrayCenterLine => NotInFieldArray("CenterLine");
+        public bool NotInFieldArrayColor => NotInFieldArray("Color");
+        public bool NotInFieldArrayDensity => NotInFieldArray("Density");
         public bool NotInFieldArrayDepth => NotInFieldArray("Depth");
         public bool NotInFieldArrayDirection => NotInFieldArray("Direction");
         public bool NotInFieldArrayEdge => NotInFieldArray("Edge");
@@ -91,6 +110,7 @@ namespace Carto
         public bool NotInFieldArrayHeight => NotInFieldArray("Height");
         public bool NotInFieldArrayLength => NotInFieldArray("Length");
         public bool NotInFieldArrayObject => NotInFieldArray("Object");
+        public bool NotInFieldArrayTheme => NotInFieldArray("Theme");
         public bool NotInFieldArrayUnlocked => NotInFieldArray("Unlocked");
         public bool NotInFieldArrayWidth => NotInFieldArray("Width");
 
@@ -196,6 +216,7 @@ namespace Carto
         public const string DangerGroup = "DangerGroup";
         public const string CustomExportTab = "CustomExportTab";
         public const string FeatureGroup = "FeatureGroup";
+        public const string MiscellaneousGroup = "MiscellaneousGroup";
         public const string SelectorGroup = "SelectorGroup";
         public const string SpatialFieldGroup = "SpatialFieldGroup";
         public const string NonSpatialFieldGroup = "NonSpatialFieldGroup";
@@ -345,6 +366,29 @@ namespace Carto
         public bool ExportWater { get; set; } = true;
 
         /// <summary>
+        /// Whether to export zonings.
+        /// （決定是否輸出分區。）
+        /// </summary>
+        [SettingsUISection(CustomExportTab, FeatureGroup)]
+        [SettingsUIDisableByCondition(typeof(Setting), nameof(IsRasterFormat))]
+        public bool ExportZoning { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export unzoned zoning cells.
+        /// （決定是否要輸出未分區的分區單元。）
+        /// </summary>
+        [SettingsUISection(CustomExportTab, MiscellaneousGroup)]
+        public bool UseUnzoned { get; set; } = false;
+
+        /// <summary>
+        /// Whether to export the colors from Zone Color Changer mod instead of vanilla's.
+        /// （決定是否要輸出 Zone Color Changer 模組的顏色，而非遊戲原本的顏色。）
+        /// </summary>
+        [SettingsUISection(CustomExportTab, MiscellaneousGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(ZCCNotReady))]
+        public bool UseZCC { get; set; } = true;
+
+        /// <summary>
         /// Field export settings.
         /// （欄位輸出設定。）
         /// </summary>
@@ -437,6 +481,24 @@ namespace Carto
 
         [SettingsUIAdvanced]
         [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayColor))]
+        public bool ExportFieldColor
+        {
+            get => m_Color;
+            set => UpdateFieldStatus("Color", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayDensity))]
+        public bool ExportFieldDensity
+        {
+            get => m_Density;
+            set => UpdateFieldStatus("Density", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
         [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayDirection))]
         public bool ExportFieldDirection
         {
@@ -482,6 +544,15 @@ namespace Carto
 
         [SettingsUIAdvanced]
         [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayTheme))]
+        public bool ExportFieldTheme
+        {
+            get => m_Theme;
+            set => UpdateFieldStatus("Theme", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
         [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayUnlocked))]
         public bool ExportFieldUnlocked
         {
@@ -521,6 +592,8 @@ namespace Carto
             m_Category = true;
             m_Center = true;
             m_CenterLine = true;
+            m_Color = true;
+            m_Density = true;
             m_Depth = true;
             m_Direction = true;
             m_Edge = true;
@@ -529,10 +602,13 @@ namespace Carto
             m_Height = true;
             m_Length = true;
             m_Object = true;
+            m_Theme = true;
             m_Unlocked = true;
             m_Width = true;
             MapCenter = (0, 0);
             NamingFormat = ExportUtils.NamingFormats.Feature;
+            UseUnzoned = false;
+            UseZCC = true;
         }
     }
 }

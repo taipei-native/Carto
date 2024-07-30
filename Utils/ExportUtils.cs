@@ -47,7 +47,8 @@ namespace Carto.Utils
             Area,
             Net,
             Terrain,
-            Water
+            Water,
+            Zoning
         }
 
         /// <summary>
@@ -91,7 +92,8 @@ namespace Carto.Utils
             { FeatureType.Area, new Dictionary<string, bool>{ { "Area", false }, { "Center", false }, { "Edge", true }, { "Object", true }, { "Unlocked", true } }},
             { FeatureType.Net, new Dictionary<string, bool> { { "Asset", true }, { "Category", true }, { "CenterLine", true }, { "Direction", true }, { "Edge", true }, { "Form", true }, { "Height", false }, { "Length", false }, { "Object", true }, { "Width", false } }},
             { FeatureType.Terrain, new Dictionary<string, bool> { { "Elevation", true } }},
-            { FeatureType.Water, new Dictionary<string, bool> { { "Depth", true } }}
+            { FeatureType.Water, new Dictionary<string, bool> { { "Depth", true } }},
+            { FeatureType.Zoning, new Dictionary<string, bool> { { "Category", true }, { "Color", false }, { "Density", false }, { "Edge", true }, { "Object", true }, { "Theme", false } } }
         };
 
         /// <summary>
@@ -220,7 +222,7 @@ namespace Carto.Utils
             if (!MiscUtils.TryGetLongtitude(Instance.Settings.Longitude, out double lon))
             {
                 Setting.ExportError |= ExportErrors.Longitude;
-                m_Log.Warn($"Unable to parse latitude `{Instance.Settings.Longitude}`. 無法解析經度字串 `{Instance.Settings.Longitude}`。");
+                m_Log.Warn($"Unable to parse longitude `{Instance.Settings.Longitude}`. 無法解析經度字串 `{Instance.Settings.Longitude}`。");
             }
             else
             {
@@ -240,6 +242,9 @@ namespace Carto.Utils
             if (Instance.Settings.NamingFormat == NamingFormats.Custom) m_Log.Info($"NAMING   : Custom ({Instance.Settings.CustomFileName})");
             m_Log.Info($"LATITUDE : {lat}");
             m_Log.Info($"LONGITUDE: {lon}");
+            m_Log.Info(new string('-', 30));
+            m_Log.Info($"UseUnzoned: {Instance.Settings.UseUnzoned}");
+            m_Log.Info($"UseZCC    : {Instance.Settings.UseZCC}");
             m_Log.Info(new string('=', 30));
 
             Geodata geodata;
@@ -279,7 +284,16 @@ namespace Carto.Utils
                     geodata = new Geodata(nets);
                     ExportVectorGeodata(nets, geodata, "Net", true);
                 }
+                if (Instance.Settings.ExportZoning)
+                {
+                    List<CartoObject> zones = new List<CartoObject>();
+                    zones.AddRange(Instance.Zoning.GetZoningProperties());
+                    geodata = new Geodata(zones);
+                    ExportVectorGeodata(zones, geodata, "Zoning");
+                }
             }
+
+            m_Log.Info(string.Empty);
         }
     }
 }

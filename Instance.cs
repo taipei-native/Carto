@@ -4,7 +4,6 @@ namespace Carto
     using Carto.Utils;
     using Colossal.Localization;
     using Colossal.Logging;
-    using Colossal.PSI.Common;
     using Game;
     using Game.City;
     using Game.Modding;
@@ -12,7 +11,6 @@ namespace Carto
     using Game.SceneFlow;
     using Game.UI;
     using System.IO;
-    using System.Linq;
     using System.Reflection;
     using Unity.Entities;
 

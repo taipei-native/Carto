@@ -9,15 +9,15 @@ namespace Carto.Systems
     using Game.Tools;
     using Game.Zones;
     using Purpose = Colossal.Serialization.Entities.Purpose;
-    using Unity.Entities;
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Linq;
     using System.Reflection;
-    using System.Text.RegularExpressions;
     using Unity.Collections;
-    using UnityEngine;
+    using Unity.Entities;
     using Unity.Mathematics;
+    using UnityEngine;
 
     /// <summary>
     /// The system instance that manages the zoning properties, inheriting from GameSystemBase.
@@ -65,7 +65,7 @@ namespace Carto.Systems
         /// The dictionary that holds all nodes with roundabouts and the vertices that form the roundabout's left outer edge.
         /// （記載所有包含圓環（島）的節點與組成其左側外緣的字典。）
         /// </summary>
-        public static Dictionary<int, ZoningTypeInfo> ZoningTypes = new Dictionary<int, ZoningTypeInfo>();
+        public static Dictionary<ushort, ZoningTypeInfo> ZoningTypes = new Dictionary<ushort, ZoningTypeInfo>();
 
         /// <summary>
         /// The class to store the metadata of each zoning type.
@@ -101,7 +101,7 @@ namespace Carto.Systems
             /// The UID of each zoning type.
             /// （各個分區類型的唯一代碼。）
             /// </summary>
-            public int? Index { get; set; }
+            public ushort? Index { get; set; }
 
             /// <summary>
             /// The localized name of the zoning type.
@@ -129,10 +129,12 @@ namespace Carto.Systems
             {
                 string notSet = "Not Set";
                 string category = (Category == null) ? notSet : $"{Category}";
+                string color = (Color == null) ? notSet : Color;
                 string density = (Density == null) ? notSet : $"{Density}";
                 string index = (Index == null) ? notSet : $"{Index}";
                 string name = (PrefabName == null) ? notSet : Name;
-                return $"ZoningTypeInfo({index} [{name}], Category = {{{category}}}, Density = {density})";
+                string theme = (Theme == null) ? notSet : Theme;
+                return $"ZoningTypeInfo({index} [{name}], Category = {{{category}}}, Density = {density}, Theme = {theme}, Color = {color})";
             }
         }
 
@@ -154,7 +156,7 @@ namespace Carto.Systems
                     ComponentType.ReadOnly<Temp>()
                 }
             });
-            
+
             _themeQuery = GetEntityQuery(new EntityQueryDesc
             {
                 Any = new ComponentType[]
@@ -167,7 +169,7 @@ namespace Carto.Systems
                     ComponentType.ReadOnly<Temp>()
                 }
             });
-            
+
             _zoningTypeQuery = GetEntityQuery(new EntityQueryDesc
             {
                 Any = new ComponentType[]
@@ -202,15 +204,7 @@ namespace Carto.Systems
         /// This event triggers when the game is loaded.
         /// （這是當遊戲載入完成時，會被觸發的事件。）
         /// </summary>
-        protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
-        {
-            if (GameMode.GameOrEditor.HasFlag(mode))
-            {
-                List<CartoObject> zones = GetZoningProperties();
-                Geodata geodata = new Geodata(zones);
-                geodata.ToShapefile("ZoningBlockCenter.shp", "Center", true);
-            }
-        }
+        protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode) { }
 
         /// <summary>
         /// This event triggers when the system is updated.
@@ -230,59 +224,110 @@ namespace Carto.Systems
         /// </summary>
         public List<CartoObject> GetZoningProperties()
         {
-            bool zccReady = Instance.ZCCMod.Ready;
-            List<CartoObject> zoneList = new List<CartoObject>(); 
+            Assembly zcc = Assembly.GetExecutingAssembly();
+            bool zccIntegrity = true;
+            bool zccReady    = Instance.ZCCMod.Ready;
+            bool useCategory = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Category");
+            bool useColor    = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Color");
+            bool useDensity  = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Density");
+            bool useTheme    = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Theme");
+            ComponentSystemBase zccSystemInstance = Instance.Area;
+            List<CartoObject> zoneList = new List<CartoObject>();
             Dictionary<ThemePrefab, string> themePrefix = new Dictionary<ThemePrefab, string>();
+            Dictionary<string, Color> vanillaColors = new Dictionary<string, Color>();
             Dictionary<Entity, ZoningCategory> zoningTypeCategory = new Dictionary<Entity, ZoningCategory>();
+            object zccConfigUtilInstance = new object();
+            Type zccColor  = GetType();
+            Type zccSystem = GetType();
 
-            Assembly zcc = zccReady ? Instance.ZCCMod.Assembly : Assembly.GetExecutingAssembly();
-            Type zccConfigUtil  = zccReady ? zcc.GetType("ZoneColorChanger.Utilities.ConfigUtil") : GetType();
-            Type zccHslColor    = zccReady ? zcc.GetType("ZoneColorChanger.Domain.HslColor") : GetType();
-            Type zccMod         = zccReady ? zcc.GetType("ZoneColorChanger.Mod") : GetType();
-            Type zccSetting     = zccReady ? zcc.GetType("ZoneColorChanger.Setting") : GetType();
-            object zccConfigUtilInstance = zccReady ? zccConfigUtil.GetProperty("Instance").GetValue(zccConfigUtil) : new object();         // public static ConfigUtil Instance { get; }
-            object zccColorMode = zccReady ? zccConfigUtil.GetMethod("GetColorMode").Invoke(zccConfigUtilInstance, null) : new object();    // public ColorMode GetColorMode()
-            object zccSettingsInstance = zccReady ? zccMod.GetProperty("Settings").GetValue(zccMod) : new object();                         // public static Setting Settings { get; }
-            bool zccGroupThemes = zccReady ? (bool) zccSetting.GetProperty("GroupThemes").GetValue(zccSettingsInstance) : false;            // public bool GroupThemes { get; set; }
-
-            foreach (Entity _buildingRef in _buildingRefQuery.ToEntityArray(Allocator.Temp))
+            if (zccReady)
             {
-                try
+                zcc = Instance.ZCCMod.Assembly;
+
+                if (zcc.GetTypes().Any(type => type.FullName == "ZoneColorChanger.Systems.ZoneColorChangerSystem"))
                 {
-                    Entity buildingZonePrefab = EntityManager.GetComponentData<SpawnableBuildingData>(_buildingRef).m_ZonePrefab;
+                    zccSystem = zcc.GetType("ZoneColorChanger.Systems.ZoneColorChangerSystem");
+                }
+                else
+                {
+                    zccIntegrity = false;
+                    m_Log.Debug("ZoningSystem.GetZoningProperties(): Couldn't find the type `ZoneColorChanger.Systems.ZoneColorChangerSystem`. 無法找到型別 `ZoneColorChanger.Systems.ZoneColorChangerSystem`。");
+                }
 
-                    if (!zoningTypeCategory.TryGetValue(buildingZonePrefab, out _))
+                if (zcc.GetTypes().Any(type => type.FullName == "ZoneColorChanger.Domain.HslColor"))
+                {
+                    zccColor = zcc.GetType("ZoneColorChanger.Domain.HslColor");
+                }
+                else
+                {
+                    zccIntegrity = false;
+                    m_Log.Debug("ZoningSystem.GetZoningProperties(): Couldn't find the type `ZoneColorChanger.Domain.HslColor`. 無法找到型別 `ZoneColorChanger.Domain.HslColor`。");
+                }
+
+                Color HslConverter(object zccHslColor)
+                {
+                    if (zccIntegrity)
                     {
-                        ZoningCategory zoningCategory = ZoningCategory.None;
-                        EntityArchetype buildingObjectArchetype = EntityManager.GetComponentData<ObjectData>(_buildingRef).m_Archetype;
-                        NativeArray<ComponentType> buildingEntityComponentTypes = buildingObjectArchetype.GetComponentTypes();
-                        string[] buildingEntityComponentTypeNames = buildingEntityComponentTypes.Select(c => c.GetManagedType().Name).ToArray();
-
-                        if (buildingEntityComponentTypeNames.Contains("CommercialProperty")) zoningCategory |= ZoningCategory.Commercial;
-                        if (buildingEntityComponentTypeNames.Contains("IndustrialProperty") && !buildingEntityComponentTypeNames.Contains("OfficeProperty")) zoningCategory |= ZoningCategory.Industrial;
-                        if (buildingEntityComponentTypeNames.Contains("OfficeProperty")) zoningCategory |= ZoningCategory.Office;
-                        if (buildingEntityComponentTypeNames.Contains("ResidentialProperty")) zoningCategory |= ZoningCategory.Residential;
-
-                        zoningTypeCategory[buildingZonePrefab] = zoningCategory;
+                        float hue = (float)zccColor.GetProperty("Hue").GetValue(zccHslColor, null);
+                        float sat = (float)zccColor.GetProperty("Sat").GetValue(zccHslColor, null);
+                        float lum = (float)zccColor.GetProperty("Lum").GetValue(zccHslColor, null);
+                        return Color.HSVToRGB(hue, sat, lum);
+                    }
+                    else
+                    {
+                        return new Color();
                     }
                 }
-                catch (Exception ex)
+
+                zccSystemInstance = World.GetExistingSystemManaged(zccSystem);
+                IDictionary temp = (IDictionary) zccSystem.GetField("_vanillaColors", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(zccSystemInstance);
+                foreach (DictionaryEntry kvp in temp) vanillaColors[kvp.Key as string] = HslConverter(kvp.Value);
+            }
+
+            if (useCategory || useDensity)
+            {
+                foreach (Entity _buildingRef in _buildingRefQuery.ToEntityArray(Allocator.Temp))
                 {
-                    m_Log.Error($"An error occured at GetZoningProperties(); 於 GetZoningProperties() 發生一個錯誤； {ex}");
+                    try
+                    {
+                        Entity buildingZonePrefab = EntityManager.GetComponentData<SpawnableBuildingData>(_buildingRef).m_ZonePrefab;
+
+                        if (!zoningTypeCategory.TryGetValue(buildingZonePrefab, out _))
+                        {
+                            ZoningCategory zoningCategory = ZoningCategory.None;
+                            EntityArchetype buildingObjectArchetype = EntityManager.GetComponentData<ObjectData>(_buildingRef).m_Archetype;
+                            NativeArray<ComponentType> buildingEntityComponentTypes = buildingObjectArchetype.GetComponentTypes();
+                            string[] buildingEntityComponentTypeNames = buildingEntityComponentTypes.Select(c => c.GetManagedType().Name).ToArray();
+
+                            if (buildingEntityComponentTypeNames.Contains("CommercialProperty")) zoningCategory |= ZoningCategory.Commercial;
+                            if (buildingEntityComponentTypeNames.Contains("IndustrialProperty") && !buildingEntityComponentTypeNames.Contains("OfficeProperty")) zoningCategory |= ZoningCategory.Industrial;
+                            if (buildingEntityComponentTypeNames.Contains("OfficeProperty")) zoningCategory |= ZoningCategory.Office;
+                            if (buildingEntityComponentTypeNames.Contains("ResidentialProperty")) zoningCategory |= ZoningCategory.Residential;
+
+                            zoningTypeCategory[buildingZonePrefab] = zoningCategory;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        m_Log.Error($"An error occured at GetZoningProperties(); 於 GetZoningProperties() 發生一個錯誤； {ex}");
+                    }
                 }
             }
 
-            foreach (Entity _theme in _themeQuery.ToEntityArray(Allocator.Temp))
+            if (useTheme)
             {
-                try
+                foreach(Entity _theme in _themeQuery.ToEntityArray(Allocator.Temp))
                 {
-                    PrefabData themePrefabData = EntityManager.GetComponentData<PrefabData>(_theme);
-                    ThemePrefab themePrefab = m_Prefab.GetPrefab<ThemePrefab>(themePrefabData);
-                    themePrefix[themePrefab] = LocaleUtils.Translate($"Assets.THEME[{m_Prefab.GetPrefabName(_theme)}]");
-                }
-                catch (Exception ex)
-                {
-                    m_Log.Error($"An error occured at GetZoningProperties(); 於 GetZoningProperties() 發生一個錯誤； {ex}");
+                    try
+                    {
+                        PrefabData themePrefabData = EntityManager.GetComponentData<PrefabData>(_theme);
+                        ThemePrefab themePrefab = m_Prefab.GetPrefab<ThemePrefab>(themePrefabData);
+                        themePrefix[themePrefab] = LocaleUtils.Translate($"Assets.THEME[{m_Prefab.GetPrefabName(_theme)}]");
+                    }
+                    catch (Exception ex)
+                    {
+                        m_Log.Error($"An error occured at GetZoningProperties(); 於 GetZoningProperties() 發生一個錯誤； {ex}");
+                    }
                 }
             }
 
@@ -298,67 +343,56 @@ namespace Carto.Systems
 
                     // Retrieve the category of the zoning type. Expected output: ZoningCategory.Residential
                     // （獲取分區的分類。預期輸出：ZoningCategory.Residential）
-                    ZoningCategory zoningCategory = zoningTypeCategory.TryGetValue(_zoningType, out ZoningCategory value) ? value : ZoningCategory.None;
-                    zoningTypeInfo.Category = zoningCategory;
-
-                    // Retrieve the density of the zoning type. Expected output: ZoningDensity.Low
-                    // （獲取分區的密度。預期輸出：ZoningDensity.Low）
-                    ZoningDensity zoningTypeDensity = ZoningDensity.Generic;
-
-                    if (zoningCategory.HasFlag(ZoningCategory.Residential))
+                    if (useCategory || useDensity || Instance.Settings.UseUnzoned)
                     {
-                        if (zoningTypeData.m_MaxHeight < 12)
+                        ZoningCategory zoningCategory = zoningTypeCategory.TryGetValue(_zoningType, out ZoningCategory value) ? value : ZoningCategory.None;
+                        zoningTypeInfo.Category = zoningCategory;
+
+                        // Retrieve the density of the zoning type. Expected output: ZoningDensity.Low
+                        // （獲取分區的密度。預期輸出：ZoningDensity.Low）
+                        if (useDensity)
                         {
-                            zoningTypeDensity = ZoningDensity.Low;
-                        }
-                        else if (zoningTypeData.m_MaxHeight < 60)
-                        {
-                            zoningTypeDensity = ZoningDensity.Medium;
-                        }
-                        else
-                        {
-                            zoningTypeDensity = ZoningDensity.High;
+                            ZoningDensity zoningTypeDensity = ZoningDensity.Generic;
+
+                            if (zoningCategory.HasFlag(ZoningCategory.Residential))
+                            {
+                                if (zoningTypeData.m_MaxHeight < 12)
+                                {
+                                    zoningTypeDensity = ZoningDensity.Low;
+                                }
+                                else if (zoningTypeData.m_MaxHeight < 60)
+                                {
+                                    zoningTypeDensity = ZoningDensity.Medium;
+                                }
+                                else
+                                {
+                                    zoningTypeDensity = ZoningDensity.High;
+                                }
+                            }
+                            else if (zoningCategory.HasFlag(ZoningCategory.Commercial) || zoningCategory.HasFlag(ZoningCategory.Office))
+                            {
+                                if (zoningTypeData.m_MaxHeight < 20)
+                                {
+                                    zoningTypeDensity = ZoningDensity.Low;
+                                }
+                                else
+                                {
+                                    zoningTypeDensity = ZoningDensity.High;
+                                }
+                            }
+
+                            zoningTypeInfo.Density = zoningTypeDensity;
                         }
                     }
-                    else if (zoningCategory.HasFlag(ZoningCategory.Commercial) || zoningCategory.HasFlag(ZoningCategory.Office))
-                    {
-                        if (zoningTypeData.m_MaxHeight < 20)
-                        {
-                            zoningTypeDensity = ZoningDensity.Low;
-                        }
-                        else
-                        {
-                            zoningTypeDensity = ZoningDensity.High;
-                        }
-                    }
-
-                    zoningTypeInfo.Density = zoningTypeDensity;
 
                     // Retrieve the color of the zoning type. Expected output: "#FFAA00"
                     // （獲取分區的顏色。預期輸出："#FFAA00"）
-                    zoningTypeInfo.Color = "#" + ColorUtility.ToHtmlStringRGB(zoningTypePrefab.m_Color);
-
-                    if (zccReady && (zccColorMode.ToString() != "Default"))
-                    {
-                        string zoningTypePrefabName = m_Prefab.GetPrefabName(_zoningType);
-                        string zccZoneName = zccGroupThemes ? Regex.Replace(zoningTypePrefabName, @"^\w{2} ", string.Empty) : zoningTypePrefabName;
-                        object[] zccTryGetCustomColorParams = new object[] { zccZoneName, null };
-                        bool zccTryGetCustomColor = (bool)zccConfigUtil.GetMethod("TryGetCustomColor").Invoke(zccConfigUtilInstance, zccTryGetCustomColorParams); // public bool TryGetCustomColor(string key, out HslColor color)
-
-                        if (zccTryGetCustomColor)
-                        {
-                            object zccCustomHslColor = zccTryGetCustomColorParams[1];
-                            float zccCustomColorHue = (float)zccHslColor.GetProperty("Hue").GetValue(zccCustomHslColor);    // public float Hue { get; set; }
-                            float zccCustomColorSat = (float)zccHslColor.GetProperty("Sat").GetValue(zccCustomHslColor);    // public float Sat { get; set; }
-                            float zccCustomColorLum = (float)zccHslColor.GetProperty("Lum").GetValue(zccCustomHslColor);    // public float Lum { get; set; }
-                            Color zccCustomRGBColor = Color.HSVToRGB(zccCustomColorHue, zccCustomColorSat, zccCustomColorLum);
-                            zoningTypeInfo.Color = "#" + ColorUtility.ToHtmlStringRGB(zccCustomRGBColor);
-                        }
-                    }
+                    if (useColor) zoningTypeInfo.Color = "#" + ColorUtility.ToHtmlStringRGB(zoningTypePrefab.m_Color);
+                    if (useColor && !Instance.Settings.UseZCC && zccIntegrity) zoningTypeInfo.Color = "#" + ColorUtility.ToHtmlStringRGB(vanillaColors[m_Prefab.GetPrefabName(_zoningType)]);
 
                     // Retrieve the UID of the zoning type.
                     // （獲取分區類型的唯一代碼。）
-                    int zoningTypeIndex = zoningTypeData.m_ZoneType.m_Index;
+                    ushort zoningTypeIndex = zoningTypeData.m_ZoneType.m_Index;
                     zoningTypeInfo.Index = zoningTypeIndex;
 
                     // Retrieve the name of the zoning type.
@@ -367,14 +401,17 @@ namespace Carto.Systems
 
                     // Retrieve the theme of the zoning type. Expected output: "European"
                     // （獲取分區類型的主題風格。預期輸出："歐式"）
-                    if (zoningTypePrefab.Has<ThemeObject>())
+                    if (useTheme)
                     {
-                        ThemePrefab zoningTypeThemePrefab = zoningTypePrefab.GetComponent<ThemeObject>().m_Theme;
-                        zoningTypeInfo.Theme = themePrefix[zoningTypeThemePrefab];
-                    }
-                    else
-                    {
-                        zoningTypeInfo.Theme = LocaleUtils.Translate("Assets.THEME[Carto Generic]");
+                        if (zoningTypePrefab.Has<ThemeObject>())
+                        {
+                            ThemePrefab zoningTypeThemePrefab = zoningTypePrefab.GetComponent<ThemeObject>().m_Theme;
+                            zoningTypeInfo.Theme = themePrefix[zoningTypeThemePrefab];
+                        }
+                        else
+                        {
+                            zoningTypeInfo.Theme = LocaleUtils.Translate("Assets.THEME[Carto Generic]");
+                        }
                     }
 
                     ZoningTypes[zoningTypeIndex] = zoningTypeInfo;
@@ -389,19 +426,61 @@ namespace Carto.Systems
             {
                 try
                 {
-                    var edges = new Dictionary<string, List<float3>>();
-                    var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
-
                     Block zoningBlock = EntityManager.GetComponentData<Block>(_zoning);
-                    float3 zoningBlockCenter    = zoningBlock.m_Position;
-                    float2 zoningBlockDirection = zoningBlock.m_Direction;
-                    int2 zoningBlockShape       = zoningBlock.m_Size;
+                    NativeArray<Cell> zoningCells = EntityManager.GetBuffer<Cell>(_zoning).ToNativeArray(Allocator.Temp);
+                    float m = zoningBlock.m_Direction.x;
+                    float n = zoningBlock.m_Direction.y;
+                    int r = zoningBlock.m_Size.x;
+                    int s = zoningBlock.m_Size.y;
+                    float l = math.sqrt(m * m + n * n);
+                    float3 u = new float3(-n / l, 0, m / l) * 8;
+                    float3 v = new float3(m / l, 0, n / l) * 8;
+                    float3 p0 = zoningBlock.m_Position - r * u / 2 - s * v / 2;
 
-                    edges["Center"] = new List<float3> { zoningBlockCenter };
-                    type["Center"] = CartoObject.T;
+                    for (int i = 0; i < s; i++)
+                    {
+                        for (int j = 0; j < r; j++)
+                        {
+                            var edges = new Dictionary<string, List<float3>>();
+                            var props = new Dictionary<string, object>();
+                            var type = new Dictionary<string, string>();
 
-                    zoneList.Add(new CartoObject(edges, props, type));
+                            Cell cell = zoningCells[j + r * (s - i - 1)];
+                            CellFlags cellStatus = cell.m_State;
+                            ZoningTypeInfo zoningTypeInfo = ZoningTypes[cell.m_Zone.m_Index];
+
+                            if (!cellStatus.HasFlag(CellFlags.Blocked))
+                            {
+                                if (!Instance.Settings.UseUnzoned && (zoningTypeInfo.Category == ZoningCategory.None)) continue;
+
+                                // Retrieve the zoning type of each zoning block cell. Expected output: "Low Rent Housing"
+                                // （獲得每個分區單元的分區類別。預期輸出："低租金住宅"）
+                                props["Name"] = zoningTypeInfo.Name;
+
+                                if (useCategory) props["Category"] = zoningTypeInfo.Category.ToString();
+                                if (useColor) props["Color"] = zoningTypeInfo.Color;
+                                if (useDensity) props["Density"] = zoningTypeInfo.Density.ToString();
+
+                                // Retrieve the boundary of each zoning block cell. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
+                                // （獲得每個分區單元的邊界。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
+                                if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Edge"))
+                                {
+                                    float3 p1 = p0 + j * u + i * v;
+                                    float3 p2 = p0 + j * u + (i + 1) * v;
+                                    float3 p3 = p0 + (j + 1) * u + (i + 1) * v;
+                                    float3 p4 = p0 + (j + 1) * u + i * v;
+                                    edges["Edge"] = new List<float3> { p1, p2, p3, p4 };
+                                    type["Edge"] = CartoObject.P;
+                                }
+
+                                if (useTheme) props["Theme"] = zoningTypeInfo.Theme;
+
+                                if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Object")) props["Object"] = "Zoning";
+
+                                zoneList.Add(new CartoObject(edges, props, type));
+                            }
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
