@@ -1,10 +1,12 @@
 ﻿namespace Carto.Geodata
 {
     using BU = Utils.BinaryUtils;
+    using Carto.Domain;
     using Carto.Utils;
     using Colossal.Mathematics;
     using Colossal.Logging;
     using FU = Utils.FileUtils;
+    using GeometryType = Utils.ExportUtils.GeometryType;
     using System;
     using System.Collections.Generic;
     using System.IO;
@@ -64,7 +66,7 @@
         public void ToGeoJSON(string fileName, string field, bool suppressFieldError = false)
         {
             /*
-                # Source: （資料來源：）
+                # References: （資料來源：）
 
                 * Gillies, S., Butler, H. J., Daly, M., Doyle, A., & Schaub, T. (2016). The GeoJSON format
                     https://doi.org/10.17487/rfc7946
@@ -78,12 +80,12 @@
             {
                 if (!suppressFieldError)
                 {
-                    if ((!Objects[i].Edges.TryGetValue(field, out _)) || (!Objects[i].Type.TryGetValue(field, out string geomType)))
+                    if ((!Objects[i].Edges.TryGetValue(field, out _)) || (!Objects[i].Type.TryGetValue(field, out GeometryType geomType)))
                     {
                         throw new ArgumentException($"Couldn't find the field `{field}` in Edges or Type from the item at index {i}. 無法於索引{i}的物件的 Edges 或 Type 屬性中找到 `{field}` 欄位。");
                     }
 
-                    if (geomType == CartoObject.R)
+                    if (geomType == GeometryType.Raster)
                     {
                         throw new ArgumentException("Only Points, LineStrings and Polygons can be exported as GeoJSON. 只有點、線段和多邊形可以被輸出為 GeoJSON。");
                     }
@@ -97,21 +99,21 @@
 
             foreach (CartoObject obj in objs)
             {
-                string geomType = obj.Type[field];
+                GeometryType geomType = obj.Type[field];
                 var geometryContainer = new List<string>();
                 var propertiesContainer = new List<string>();
 
                 json.AppendLine($"\t\t{{\n\t\t\t\"type\": \"Feature\",\n\t\t\t\"id\": {objID},\n\t\t\t\"geometry\": {{");
                 json.Append($"\t\t\t\t\"type\": \"{geomType}\",\n\t\t\t\t\"coordinates\": ");
-                json.Append((geomType == CartoObject.T) ? "" : "[");
-                json.AppendLine((geomType == CartoObject.P) ? "\n\t\t\t\t\t[" : "");
+                json.Append((geomType == GeometryType.Point) ? "" : "[");
+                json.AppendLine((geomType == GeometryType.Polygon) ? "\n\t\t\t\t\t[" : "");
                 geometryContainer.AddRange(from float3 coord in obj.Edges[field]
                                            let wgs = Convert.ToWGS84((coord.x + _center.e, coord.z + _center.n, _center.z, _center.h))
                                            select $"\t\t\t\t\t\t[{wgs.lon}, {wgs.lat}, {coord.y}]");
 
                 // Polygon's last coordinate is its first coordinate.
                 // （多邊形的最後一個坐標是它的第一個坐標。）
-                if (geomType == CartoObject.P)
+                if (geomType == GeometryType.Polygon)
                 {
                     float3 coord = obj.Edges[field][0];
                     var (lat, lon) = Convert.ToWGS84((coord.x + _center.e, coord.z + _center.n, _center.z, _center.h));
@@ -119,8 +121,8 @@
                 }
 
                 json.AppendLine(string.Join(",\n", geometryContainer));
-                json.Append((geomType == CartoObject.P) ? "\t\t\t\t\t]\n" : "");
-                json.Append((geomType == CartoObject.T) ? "" : "\t\t\t\t]\n");
+                json.Append((geomType == GeometryType.Polygon) ? "\t\t\t\t\t]\n" : "");
+                json.Append((geomType == GeometryType.Point) ? "" : "\t\t\t\t]\n");
                 json.AppendLine("\t\t\t},\n\t\t\t\"properties\": {");
 
                 foreach (KeyValuePair<string, object> prop in obj.Properties)
@@ -203,6 +205,12 @@
                             propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@double.y}");
                             propertiesContainer.Add($"\t\t\t\t\"{k}.z\": {@double.z}");
                         }
+                    }
+                    else if (v is Address @Address)
+                    {
+                        propertiesContainer.Add($"\t\t\t\t\"{k}.district\": \"{@Address.District}\"");
+                        propertiesContainer.Add($"\t\t\t\t\"{k}.street\": \"{@Address.Street}\"");
+                        propertiesContainer.Add($"\t\t\t\t\"{k}.number\": {@Address.Number}");
                     }
                 }
 
@@ -303,12 +311,12 @@
             string pcsName;
             string tiffPath = MiscUtils.CombinePath(_contentFolder, "GeoTIFF", fileName);
 
-            if ((!obj.Values.TryGetValue(field, out _)) || (!obj.Type.TryGetValue(field, out string geomType)))
+            if ((!obj.Values.TryGetValue(field, out _)) || (!obj.Type.TryGetValue(field, out GeometryType geomType)))
             {
                 throw new ArgumentException($"Couldn't find the field `{field}` in Values or Type from the item at index 0. 無法於索引0的物件的 Values 或 Type 屬性中找到 `{field}` 欄位。");
             }
 
-            if (geomType != CartoObject.R)
+            if (geomType != GeometryType.Raster)
             {
                 throw new ArgumentException("Only Rasters can be exported as GeoTIFF. 只有網格可以被輸出為 GeoTIFF。");
             }
@@ -473,16 +481,16 @@
             */
 
             var bList = new List<byte>();
-            var pTypNames = CartoObject.PropertyTypes.Keys.ToList();
+            var pTypNames = ExportUtils.ExportFieldTypes.Keys.ToList();
             var propNames = Objects.SelectMany(carto => carto.Properties.Select(prop => prop.Key)).Distinct().ToList();
-            var propTypes = propNames.Select(propNameIndividual => CartoObject.PropertyTypes.ContainsKey(propNameIndividual) ? CartoObject.PropertyTypes[propNameIndividual] : null).ToList();
+            var propTypes = propNames.Select(propNameIndividual => ExportUtils.ExportFieldTypes.ContainsKey(propNameIndividual) ? ExportUtils.ExportFieldTypes[propNameIndividual] : null).ToList();
             string filePrefix = fileName.Split('.')[0];
             string cpgPath = MiscUtils.CombinePath(_contentFolder, "Shapefile", $"{filePrefix}.cpg");
             string dbfPath = MiscUtils.CombinePath(_contentFolder, "Shapefile", $"{filePrefix}.dbf");
             string prjPath = MiscUtils.CombinePath(_contentFolder, "Shapefile", $"{filePrefix}.prj");
             string shpPath = MiscUtils.CombinePath(_contentFolder, "Shapefile", $"{filePrefix}.shp");
             string shxPath = MiscUtils.CombinePath(_contentFolder, "Shapefile", $"{filePrefix}.shx");
-            string shpType = Objects[0].Type.TryGetValue(field, out string _t) ? _t : string.Empty;
+            GeometryType shpType = Objects[0].Type.TryGetValue(field, out GeometryType _t) ? _t : GeometryType.None;
 
             /// <summary>
             /// Get corresponding dBASE field symbols by data type.
@@ -539,19 +547,20 @@
                 {"float2",  new Dictionary<string, int>{ {"max",  15}, {"dec", 7}, {"dim", 2} }},
                 {"double2", new Dictionary<string, int>{ {"max",  20}, {"dec", 7}, {"dim", 2} }},
                 {"float3",  new Dictionary<string, int>{ {"max",  15}, {"dec", 7}, {"dim", 3} }},
-                {"double3", new Dictionary<string, int>{ {"max",  20}, {"dec", 7}, {"dim", 3} }}
+                {"double3", new Dictionary<string, int>{ {"max",  20}, {"dec", 7}, {"dim", 3} }},
+                {"Address", new Dictionary<string, int>{ {"max", 254}, {"dec", 0}, {"dim", 3} }}
             };
 
             for (int i = 0; i < Objects.Count; i++)
             {
                 if (!suppressFieldError)
                 {
-                    if ((!Objects[i].Edges.TryGetValue(field, out _)) || (!Objects[i].Type.TryGetValue(field, out string geomType)))
+                    if ((!Objects[i].Edges.TryGetValue(field, out _)) || (!Objects[i].Type.TryGetValue(field, out GeometryType geomType)))
                     {
                         throw new ArgumentException($"Couldn't find the field `{field}` in Edges or Type from the item at index {i}. 無法於索引{i}的物件的 Edges 或 Type 屬性中找到 `{field}` 欄位。");
                     }
 
-                    if (geomType == CartoObject.R)
+                    if (geomType == GeometryType.Raster)
                     {
                         throw new ArgumentException("Only Points, LineStrings and Polygons can be exported as ESRI Shapefile. 只有點、線段和多邊形可以被輸出為 ESRI Shapefile。");
                     }
@@ -580,15 +589,15 @@
             BU.Skip(bList, 1);                                      //  24 File length in 16-bit words (BIG ENDIAN). （位元組24：以16位元計的檔案長度（大端序）。） 
             BU.AddBytes(bList, 1000);                               //  28 Version, 1000. （位元組28：版本，1000。）
 
-            if (shpType == CartoObject.T)                           //  32 Shape type （位元組32：幾何類型。）
+            if (shpType == GeometryType.Point)                      //  32 Shape type （位元組32：幾何類型。）
             {
                 BU.AddBytes(bList, 11);
             }
-            else if (shpType == CartoObject.L)
+            else if (shpType == GeometryType.LineString)
             {
                 BU.AddBytes(bList, 13);
             }
-            else if (shpType == CartoObject.P)
+            else if (shpType == GeometryType.Polygon)
             {
                 BU.AddBytes(bList, 15);
             }
@@ -642,9 +651,21 @@
 
                     if (nd > 1)
                     {
-                        var newFieldNames = new List<string> { $"{fieldName}.x", $"{fieldName}.y" };
-                        if (nd > 2) newFieldNames.Add($"{fieldName}.z");
-                        foreach (string fName in newFieldNames) fillFieldDescripter(fName, catagory, maxLength, maxDecimal);
+                        List<string> newFieldNames = new List<string>();
+
+                        if (fieldType == typeof(Address))
+                        {
+                            string newFieldTitle = (fieldName == "Address") ? "Addr" : fieldName.Substring(0, 4);
+                            fillFieldDescripter($"{newFieldTitle}.dist", catagory, maxLength, maxDecimal);
+                            fillFieldDescripter($"{newFieldTitle}.strt", catagory, maxLength, maxDecimal);
+                            fillFieldDescripter($"{newFieldTitle}.nmbr", "N", 11, 0);
+                        }
+                        else
+                        {
+                            newFieldNames = new List<string> { $"{fieldName}.x", $"{fieldName}.y" };
+                            if (nd > 2) newFieldNames.Add($"{fieldName}.z");
+                            foreach (string fName in newFieldNames) fillFieldDescripter(fName, catagory, maxLength, maxDecimal);
+                        }
                     }
                     else
                     {
@@ -677,7 +698,7 @@
                 BU.Skip(bList, 1);                                  //   4 Content length in 16-bit words (BIG ENDIAN). （位元組4：以16位元計的內容長度（大端序）。）
                 _offset.Add((_ttLen + 100) / 2);
 
-                if (shpType == CartoObject.T)
+                if (shpType == GeometryType.Point)
                 {
                     float3 p = obj.Edges[field][0];
                     double3 _p = p + _trans;
@@ -694,7 +715,7 @@
                 }
                 else
                 {
-                    if (shpType == CartoObject.L)
+                    if (shpType == GeometryType.LineString)
                     {                                                       // === RECORD CONTENT OF .SHP（.shp 的記錄內容。）===
                         BU.AddBytes(bList, 13);                             //   8 Shape Type. （位元組0：幾何類型。）
                         BU.Skip(bList, 8);                                  //  12 Bounding box for X, Y （位元組4：X、Y邊界框範圍。）
@@ -735,7 +756,7 @@
 
                     // Polygon's last coordinate is its first coordinate.
                     // （多邊形的最後一個坐標是它的第一個坐標。）
-                    if (shpType == CartoObject.P)
+                    if (shpType == GeometryType.Polygon)
                     {
                         BU.AddBytes(bList, obj.Edges[field][0].x + _trans.x, obj.Edges[field][0].z + _trans.z);
                         _hList.Add(obj.Edges[field][0].y + _trans.y);
@@ -763,7 +784,7 @@
                 /// </summary>
                 string trimValue(object fieldRecord, string fieldName)
                 {
-                    string fieldType = CartoObject.PropertyTypes[fieldName].Name;
+                    string fieldType = ExportUtils.ExportFieldTypes[fieldName].Name;
                     Dictionary<string, int> fl = fieldLength[fieldType];
 
                     try
@@ -911,6 +932,12 @@
                                 BU.AddBytes(bList, trimValue(double3.z, name));
                                 break;
 
+                            case Address @Address:
+                                BU.AddBytes(bList, trimValue(Address.District, $"{name}.district"));
+                                BU.AddBytes(bList, trimValue(Address.Street, $"{name}.street"));
+                                BU.AddBytes(bList, trimValue(Address.Number, $"{name}.number"));
+                                break;
+
                             default:
                                 BU.AddBytes(bList, trimValue(data, name));
                                 break;
@@ -918,7 +945,7 @@
                     }
                     catch (NullReferenceException)
                     {
-                        for (int j = 0; j < fieldLength[CartoObject.PropertyTypes[name].Name]["max"]; j++)
+                        for (int j = 0; j < fieldLength[ExportUtils.ExportFieldTypes[name].Name]["max"]; j++)
                         {
                             BU.AddBytes(bList, " ");
                         }

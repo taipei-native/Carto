@@ -1,6 +1,6 @@
 ﻿namespace Carto.Systems
 {
-    using Carto.Geodata;
+    using Carto.Domain;
     using Carto.Utils;
     using Colossal.Logging;
     using Colossal.Mathematics;
@@ -12,13 +12,14 @@
     using Game.Prefabs;
     using Game.Tools;
     using Game.UI;
+    using GeometryType = Utils.ExportUtils.GeometryType;
     using Purpose = Colossal.Serialization.Entities.Purpose;
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using Unity.Collections;
     using Unity.Entities;
     using Unity.Mathematics;
-    using System.Linq;
 
     /// <summary>
     /// The system instance that manages the network properties, inheriting from GameSystemBase.
@@ -485,7 +486,7 @@
                 {
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
+                    var type = new Dictionary<string, GeometryType>();
 
                     // Retrieve the custom name for the pathway. Expected output: "Pathway"
                     // （獲取小徑的自訂名稱。預期輸出："Pathway"）
@@ -512,7 +513,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
                     {
                         edges["CenterLine"] = GetNetCenterLine(_path, EntityManager, 1, 1);
-                        type["CenterLine"] = CartoObject.L;
+                        type["CenterLine"] = GeometryType.LineString;
                     }
 
                     // Retrieve the pedestrian walking direction on the pathway. Expected output: "Both"
@@ -524,7 +525,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge"))
                     {
                         edges["Edge"] = GetNetEdge(_path, EntityManager, 3, 1);
-                        type["Edge"] = CartoObject.P;
+                        type["Edge"] = GeometryType.Polygon;
                     }
 
                     // Retrieve the form of the pathway. Expected output: "Normal"
@@ -806,7 +807,7 @@
                 {
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
+                    var type = new Dictionary<string, GeometryType>();
 
                     // Retrieve the custom name for the road. Expected output: "Oak Street"
                     // （獲取道路的自訂名稱。預期輸出："橡木街"）
@@ -841,7 +842,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
                     {
                         edges["CenterLine"] = GetNetCenterLine(_road, EntityManager, 1, 1);
-                        type["CenterLine"] = CartoObject.L;
+                        type["CenterLine"] = GeometryType.LineString;
                     }
 
                     // Retrieve the vehicle driving direction on the road. Expected output: "Forward"
@@ -862,7 +863,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge"))
                     {
                         edges["Edge"] = GetNetEdge(_road, EntityManager, 3, 1);
-                        type["Edge"] = CartoObject.P;
+                        type["Edge"] = GeometryType.Polygon;
                     }
 
                     // Retrieve the form of the road. Expected output: "Normal"
@@ -915,7 +916,7 @@
                 {
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
+                    var type = new Dictionary<string, GeometryType>();
 
                     // Retrieve the custom name for the roundabout. Expected output: "Small roundabout"
                     // （獲取圓環的自訂名稱。預期輸出："小型圓環島"）
@@ -965,7 +966,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
                     {
                         edges["CenterLine"] = roundaboutCenterline;
-                        type["CenterLine"] = CartoObject.L;
+                        type["CenterLine"] = GeometryType.LineString;
                     }
 
                     // Retrieve the vehicle driving direction on the road. Expected output: "Forward"
@@ -1008,7 +1009,7 @@
                 {
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
+                    var type = new Dictionary<string, GeometryType>();
 
                     // Retrieve the custom name for the road. Expected output: "Oak Street"
                     // （獲取道路的自訂名稱。預期輸出："橡木街"）
@@ -1028,7 +1029,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
                     {
                         edges["CenterLine"] = _trackData.Values.First();
-                        type["CenterLine"] = CartoObject.L;
+                        type["CenterLine"] = GeometryType.LineString;
                     }
 
                     // Retrieve the vehicle driving direction on the road. Expected output: "Forward"
@@ -1092,7 +1093,7 @@
                 {
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
+                    var type = new Dictionary<string, GeometryType>();
 
                     // Road properties are already handled in GetRoadsProperties().
                     // （道路的屬性已經在 GetRoadsProperties() 處理過了。）
@@ -1131,7 +1132,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
                     {
                         edges["CenterLine"] = GetNetCenterLine(_track, EntityManager, 1, 1);
-                        type["CenterLine"] = CartoObject.L;
+                        type["CenterLine"] = GeometryType.LineString;
                     }
 
                     // Retrieve the vehicle driving direction on the track. Expected output: "Forward"
@@ -1152,7 +1153,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge"))
                     {
                         edges["Edge"] = GetNetEdge(_track, EntityManager, 3, 1);
-                        type["Edge"] = CartoObject.P;
+                        type["Edge"] = GeometryType.Polygon;
                     }
 
                     // Retrieve the form of the track. Expected output: "Normal"
@@ -1207,7 +1208,7 @@
                 {
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
+                    var type = new Dictionary<string, GeometryType>();
 
                     // Retrieve the custom name for the track. Expected output: "Tram Track"
                     // （獲取軌道的自訂名稱。預期輸出："電車軌道"）
@@ -1234,7 +1235,7 @@
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
                     {
                         edges["CenterLine"] = _trackData.Values.First();
-                        type["CenterLine"] = CartoObject.L;
+                        type["CenterLine"] = GeometryType.LineString;
                     }
 
                     // Retrieve the vehicle driving direction on the track. Expected output: "Forward"

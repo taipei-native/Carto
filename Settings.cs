@@ -15,9 +15,9 @@ namespace Carto
     /// （處理模組設定選項的類別。）
     /// </summary>
     [FileLocation("ModsSettings" + "\\" + nameof(Carto) + "\\" + nameof(Carto))]
-    [SettingsUITabOrder(GeneralTab, CustomExportTab)]
+    [SettingsUITabOrder(GeneralTab, CustomExportTab, MiscellaneousTab)]
     [SettingsUIShowGroupName(ExportGroup, DangerGroup, SpatialFieldGroup, NonSpatialFieldGroup)]
-    [SettingsUIGroupOrder(ExportGroup, DangerGroup, FeatureGroup, MiscellaneousGroup, SelectorGroup, SpatialFieldGroup, NonSpatialFieldGroup)]
+    [SettingsUIGroupOrder(ExportGroup, DangerGroup, FeatureGroup, SelectorGroup, SpatialFieldGroup, NonSpatialFieldGroup, MiscellaneousGroup)]
     public class Setting : ModSetting
     {
         /// <summary>
@@ -27,8 +27,10 @@ namespace Carto
         /// <param name="mod">The mod instance.（模組實例。）</param>
         public Setting(IMod mod) : base(mod) { SetDefaults(); }
 
+        public bool m_Address = true;
         public bool m_Area = true;
         public bool m_Asset = true;
+        public bool m_Brand = true;
         public bool m_Category = true;
         public bool m_Center = true;
         public bool m_CenterLine = true;
@@ -37,14 +39,20 @@ namespace Carto
         public bool m_Depth = true;
         public bool m_Direction = true;
         public bool m_Edge = true;
+        public bool m_Employee = true;
         public bool m_Elevation = true;
         public bool m_Form = true;
         public bool m_Height = true;
+        public bool m_Household = true;
         public bool m_Length = true;
+        public bool m_Level = true;
         public bool m_Object = true;
+        public bool m_Product = true;
+        public bool m_Resident = true;
         public bool m_Theme = true;
         public bool m_Unlocked = true;
         public bool m_Width = true;
+        public bool m_Zoning = true;
         public ExportUtils.FeatureType m_Feature;
 
         /// <summary>
@@ -73,7 +81,7 @@ namespace Carto
         /// （偵測目前的檔案格式是否支援向量資料。）
         /// </summary>
         [SettingsUIHidden]
-        public bool NotCustomName => NamingFormat != ExportUtils.NamingFormats.Custom;
+        public bool NotCustomName => NamingFormat != ExportUtils.NamingFormat.Custom;
 
         /// <summary>
         /// Detects whether Zone Color Changer mod is loaded.
@@ -95,8 +103,10 @@ namespace Carto
         /// <param name="fieldName">Field name.（欄位名稱。）</param>
         public bool NotInFieldArray(string fieldName) => !ExportFieldArray[FeatureSelector].Contains(fieldName);
 
+        public bool NotInFieldArrayAddress => NotInFieldArray("Address");
         public bool NotInFieldArrayArea => NotInFieldArray("Area");
         public bool NotInFieldArrayAsset => NotInFieldArray("Asset");
+        public bool NotInFieldArrayBrand => NotInFieldArray("Brand");
         public bool NotInFieldArrayCategory => NotInFieldArray("Category");
         public bool NotInFieldArrayCenter => NotInFieldArray("Center");
         public bool NotInFieldArrayCenterLine => NotInFieldArray("CenterLine");
@@ -106,13 +116,19 @@ namespace Carto
         public bool NotInFieldArrayDirection => NotInFieldArray("Direction");
         public bool NotInFieldArrayEdge => NotInFieldArray("Edge");
         public bool NotInFieldArrayElevation => NotInFieldArray("Elevation");
+        public bool NotInFieldArrayEmployee => NotInFieldArray("Employee");
         public bool NotInFieldArrayForm => NotInFieldArray("Form");
         public bool NotInFieldArrayHeight => NotInFieldArray("Height");
+        public bool NotInFieldArrayHousehold => NotInFieldArray("Household");
         public bool NotInFieldArrayLength => NotInFieldArray("Length");
+        public bool NotInFieldArrayLevel => NotInFieldArray("Level");
         public bool NotInFieldArrayObject => NotInFieldArray("Object");
+        public bool NotInFieldArrayProduct => NotInFieldArray("Product");
+        public bool NotInFieldArrayResident => NotInFieldArray("Resident");
         public bool NotInFieldArrayTheme => NotInFieldArray("Theme");
         public bool NotInFieldArrayUnlocked => NotInFieldArray("Unlocked");
         public bool NotInFieldArrayWidth => NotInFieldArray("Width");
+        public bool NotInFieldArrayZoning => NotInFieldArray("Zoning");
 
         /// <summary>
         /// Detects whether current user interface is in either game or editor.
@@ -216,10 +232,11 @@ namespace Carto
         public const string DangerGroup = "DangerGroup";
         public const string CustomExportTab = "CustomExportTab";
         public const string FeatureGroup = "FeatureGroup";
-        public const string MiscellaneousGroup = "MiscellaneousGroup";
         public const string SelectorGroup = "SelectorGroup";
         public const string SpatialFieldGroup = "SpatialFieldGroup";
         public const string NonSpatialFieldGroup = "NonSpatialFieldGroup";
+        public const string MiscellaneousTab = "MiscellaneousTab";
+        public const string MiscellaneousGroup = "MiscellaneousGroup";
 
         /// <summary>
         /// The user-customized exported file format.
@@ -233,7 +250,7 @@ namespace Carto
         /// （使用者自訂的輸出檔案命名格式。）
         /// </summary>
         [SettingsUISection(GeneralTab, ExportGroup)]
-        public ExportUtils.NamingFormats NamingFormat { get; set; } = ExportUtils.NamingFormats.Feature;
+        public ExportUtils.NamingFormat NamingFormat { get; set; } = ExportUtils.NamingFormat.Feature;
 
         /// <summary>
         /// The user-customized file naming format.
@@ -342,6 +359,14 @@ namespace Carto
         public bool ExportArea { get; set; } = true;
 
         /// <summary>
+        /// Whether to export building features.
+        /// （決定是否輸出建築圖徵。）
+        /// </summary>
+        [SettingsUISection(CustomExportTab, FeatureGroup)]
+        [SettingsUIDisableByCondition(typeof(Setting), nameof(IsRasterFormat))]
+        public bool ExportBuilding { get; set; } = true;
+
+        /// <summary>
         /// Whether to export network features.
         /// （決定是否輸出網絡圖徵。）
         /// </summary>
@@ -372,21 +397,6 @@ namespace Carto
         [SettingsUISection(CustomExportTab, FeatureGroup)]
         [SettingsUIDisableByCondition(typeof(Setting), nameof(IsRasterFormat))]
         public bool ExportZoning { get; set; } = true;
-
-        /// <summary>
-        /// Whether to export unzoned zoning cells.
-        /// （決定是否要輸出未分區的分區單元。）
-        /// </summary>
-        [SettingsUISection(CustomExportTab, MiscellaneousGroup)]
-        public bool UseUnzoned { get; set; } = false;
-
-        /// <summary>
-        /// Whether to export the colors from Zone Color Changer mod instead of vanilla's.
-        /// （決定是否要輸出 Zone Color Changer 模組的顏色，而非遊戲原本的顏色。）
-        /// </summary>
-        [SettingsUISection(CustomExportTab, MiscellaneousGroup)]
-        [SettingsUIHideByCondition(typeof(Setting), nameof(ZCCNotReady))]
-        public bool UseZCC { get; set; } = true;
 
         /// <summary>
         /// Field export settings.
@@ -445,6 +455,15 @@ namespace Carto
 
         [SettingsUIAdvanced]
         [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayAddress))]
+        public bool ExportFieldAddress
+        {
+            get => m_Address;
+            set => UpdateFieldStatus("Address", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
         [SettingsUIHideByCondition(typeof (Setting), nameof(NotInFieldArrayArea))]
         public bool ExportFieldArea
         {
@@ -459,6 +478,15 @@ namespace Carto
         {
             get => m_Asset;
             set => UpdateFieldStatus("Asset", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayBrand))]
+        public bool ExportFieldBrand
+        {
+            get => m_Brand;
+            set => UpdateFieldStatus("Brand", value);
         }
 
         [SettingsUIAdvanced]
@@ -508,6 +536,15 @@ namespace Carto
 
         [SettingsUIAdvanced]
         [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayEmployee))]
+        public bool ExportFieldEmployee
+        {
+            get => m_Employee;
+            set => UpdateFieldStatus("Employee", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
         [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayForm))]
         public bool ExportFieldForm
         {
@@ -526,6 +563,15 @@ namespace Carto
 
         [SettingsUIAdvanced]
         [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayHousehold))]
+        public bool ExportFieldHousehold
+        {
+            get => m_Household;
+            set => UpdateFieldStatus("Household", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
         [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayLength))]
         public bool ExportFieldLength
         {
@@ -535,11 +581,38 @@ namespace Carto
 
         [SettingsUIAdvanced]
         [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayLevel))]
+        public bool ExportFieldLevel
+        {
+            get => m_Level;
+            set => UpdateFieldStatus("Level", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
         [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayObject))]
         public bool ExportFieldObject
         {
             get => m_Object;
             set => UpdateFieldStatus("Object", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayProduct))]
+        public bool ExportFieldProduct
+        {
+            get => m_Product;
+            set => UpdateFieldStatus("Product", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayResident))]
+        public bool ExportFieldResident
+        {
+            get => m_Resident;
+            set => UpdateFieldStatus("Resident", value);
         }
 
         [SettingsUIAdvanced]
@@ -569,6 +642,30 @@ namespace Carto
             set => UpdateFieldStatus("Width", value);
         }
 
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayZoning))]
+        public bool ExportFieldZoning
+        {
+            get => m_Zoning;
+            set => UpdateFieldStatus("Zoning", value);
+        }
+
+        /// <summary>
+        /// Whether to export unzoned zoning cells.
+        /// （決定是否要輸出未分區的分區單元。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
+        public bool UseUnzoned { get; set; } = false;
+
+        /// <summary>
+        /// Whether to export the colors from Zone Color Changer mod instead of vanilla's.
+        /// （決定是否要輸出 Zone Color Changer 模組的顏色，而非遊戲原本的顏色。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(ZCCNotReady))]
+        public bool UseZCC { get; set; } = true;
+
         /// <summary>
         /// This is the method to reset settings.
         /// （這是用來重置設定的方法。）
@@ -578,17 +675,21 @@ namespace Carto
             Contra = true;
             CustomFileName = string.Empty;
             ExportArea = true;
+            ExportBuilding = true;
             ExportError = ExportUtils.ExportErrors.None;
             ExportFormat = ExportUtils.ExportFormats.Shapefile;
             ExportNet = true;
             ExportTerrain = true;
             ExportWater = true;
+            ExportZoning = true;
             FeatureSelector = ExportUtils.FeatureType.Area;
             FieldStatus = MiscUtils.DeepCopy(ExportUtils.ExportFieldSettings);
             Latitude = "0";
             Longitude = "0";
+            m_Address = true;
             m_Area = true;
             m_Asset = true;
+            m_Brand = true;
             m_Category = true;
             m_Center = true;
             m_CenterLine = true;
@@ -598,15 +699,21 @@ namespace Carto
             m_Direction = true;
             m_Edge = true;
             m_Elevation = true;
+            m_Employee = true;
             m_Form = true;
             m_Height = true;
+            m_Household = true;
             m_Length = true;
+            m_Level = true;
             m_Object = true;
+            m_Product = true;
+            m_Resident = true;
             m_Theme = true;
             m_Unlocked = true;
             m_Width = true;
+            m_Zoning = true;
             MapCenter = (0, 0);
-            NamingFormat = ExportUtils.NamingFormats.Feature;
+            NamingFormat = ExportUtils.NamingFormat.Feature;
             UseUnzoned = false;
             UseZCC = true;
         }

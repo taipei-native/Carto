@@ -1,11 +1,13 @@
 namespace Carto.Utils
 {
+    using Carto.Domain;
     using Carto.Geodata;
     using Carto.Systems;
     using Colossal.Logging;
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using Unity.Mathematics;
 
     /// <summary>
     /// The class to store export properties.
@@ -45,6 +47,7 @@ namespace Carto.Utils
         public enum FeatureType
         {
             Area,
+            Building,
             Net,
             Terrain,
             Water,
@@ -52,35 +55,28 @@ namespace Carto.Utils
         }
 
         /// <summary>
-        /// The enum storing the file naming formats.
+        /// The enum storing the geometry types.
+        /// （儲存幾何類型的列舉。）
+        /// </summary>
+        public enum GeometryType
+        {
+            None,
+            Point,
+            LineString,
+            Polygon,
+            Raster
+        }
+
+        /// <summary>
+        /// The enum storing the file naming format.
         /// （儲存檔案命名格式的列舉。）
         /// </summary>
-        public enum NamingFormats
+        public enum NamingFormat
         {
             Custom,
             Feature,
             CityName_Feature,
             MapName_Feature,
-        }
-
-        /// <summary>
-        /// Get the field status of the designated feature type.
-        /// （獲得指定圖徵類型的欄位狀態。）
-        /// </summary>
-        /// <param name="featureType">The type of the feature.（圖徵的類型。）</param>
-        /// <param name="fieldName">The title of the field.（欄位的名稱。）</param>
-        /// <returns></returns>
-        public static bool GetFieldStatus(FeatureType featureType, string fieldName)
-        {
-            if (Instance.Settings.FieldStatus.TryGetValue(featureType, out Dictionary<string, bool> entries))
-            {
-                if (entries.ContainsKey(fieldName))
-                {
-                    return entries[fieldName];
-                }
-            }
-            
-            return false;
         }
 
         /// <summary>
@@ -90,10 +86,45 @@ namespace Carto.Utils
         public static Dictionary<FeatureType, Dictionary<string, bool>> ExportFieldSettings = new Dictionary<FeatureType, Dictionary<string, bool>>
         {
             { FeatureType.Area, new Dictionary<string, bool>{ { "Area", false }, { "Center", false }, { "Edge", true }, { "Object", true }, { "Unlocked", true } }},
+            { FeatureType.Building, new Dictionary<string, bool>{ { "Address", true }, { "Asset", true }, { "Brand", false }, { "Category", true }, { "Edge", true }, { "Employee", true }, { "Household", false }, { "Level", false }, { "Object", true }, { "Product", false }, { "Resident", true }, { "Zoning", true }  }},
             { FeatureType.Net, new Dictionary<string, bool> { { "Asset", true }, { "Category", true }, { "CenterLine", true }, { "Direction", true }, { "Edge", true }, { "Form", true }, { "Height", false }, { "Length", false }, { "Object", true }, { "Width", false } }},
             { FeatureType.Terrain, new Dictionary<string, bool> { { "Elevation", true } }},
             { FeatureType.Water, new Dictionary<string, bool> { { "Depth", true } }},
-            { FeatureType.Zoning, new Dictionary<string, bool> { { "Category", true }, { "Color", false }, { "Density", false }, { "Edge", true }, { "Object", true }, { "Theme", false } } }
+            { FeatureType.Zoning, new Dictionary<string, bool> { { "Color", false }, { "Density", false }, { "Edge", true }, { "Object", true }, { "Theme", false }, { "Zoning", true } }}
+        };
+
+        /// <summary>
+        /// The default field types.
+        /// （預設的欄位型別。）
+        /// </summary>
+        public static Dictionary<string, Type> ExportFieldTypes = new Dictionary<string, Type>
+        {
+            { "Area", typeof(float) },
+            { "Address", typeof(Address) },
+            { "Address.district", typeof(string) },
+            { "Address.street", typeof(string) },
+            { "Address.number", typeof(int) },
+            { "Asset", typeof(string) },
+            { "Brand", typeof(string) },
+            { "Category", typeof(string) },
+            { "Center", typeof(float3) },
+            { "Color", typeof(string) },
+            { "Density", typeof(string) },
+            { "Direction", typeof(string) },
+            { "Employee", typeof(int) },
+            { "Form", typeof(string) },
+            { "Height", typeof(float) },
+            { "Household", typeof(int) },
+            { "Length", typeof(float) },
+            { "Level", typeof(short) },
+            { "Name", typeof(string) },
+            { "Object", typeof(string) },
+            { "Product", typeof(string) },
+            { "Resident", typeof(int) },
+            { "Theme", typeof(string) },
+            { "Unlocked", typeof(bool) },
+            { "Width", typeof(float) },
+            { "Zoning", typeof(string) }
         };
 
         /// <summary>
@@ -192,20 +223,20 @@ namespace Carto.Utils
 
                 switch (Instance.Settings.NamingFormat)
                 {
-                    case NamingFormats.Custom:
+                    case NamingFormat.Custom:
                         string customName = MiscUtils.RemoveInvalidChars(Instance.Settings.CustomFileName.Replace("{City}", cityName).Replace("{Map}", mapName).Replace("{Feature}", translated));
                         if ((customName != null) && (customName != string.Empty)) return customName;
                         m_Log.Info($"The custom file name is invalid, changing to the default name. 自訂檔案名無效，改為使用預設名稱。");
                         return translated;
 
-                    case NamingFormats.Feature:
+                    case NamingFormat.Feature:
                         return translated;
 
-                    case NamingFormats.CityName_Feature:
+                    case NamingFormat.CityName_Feature:
                         if ((cityName != null) && (cityName != string.Empty)) return $"{cityName}_{translated}";
                         return $"{LocaleUtils.Translate("Carto.export.UNKNOWN[City]")}_{translated}";
 
-                    case NamingFormats.MapName_Feature:
+                    case NamingFormat.MapName_Feature:
                         if ((mapName != null) && (mapName != string.Empty)) return $"{mapName}_{translated}";
                         return $"{LocaleUtils.Translate("Carto.export.UNKNOWN[Map]")}_{translated}";
 
@@ -238,8 +269,8 @@ namespace Carto.Utils
             m_Log.Info("Export Settings");
             m_Log.Info(new string('-', 30));
             m_Log.Info($"FORMAT   : {Instance.Settings.ExportFormat}");
-            if (Instance.Settings.NamingFormat != NamingFormats.Custom) m_Log.Info($"NAMING   : {Instance.Settings.NamingFormat}");
-            if (Instance.Settings.NamingFormat == NamingFormats.Custom) m_Log.Info($"NAMING   : Custom ({Instance.Settings.CustomFileName})");
+            if (Instance.Settings.NamingFormat != NamingFormat.Custom) m_Log.Info($"NAMING   : {Instance.Settings.NamingFormat}");
+            if (Instance.Settings.NamingFormat == NamingFormat.Custom) m_Log.Info($"NAMING   : Custom ({Instance.Settings.CustomFileName})");
             m_Log.Info($"LATITUDE : {lat}");
             m_Log.Info($"LONGITUDE: {lon}");
             m_Log.Info(new string('-', 30));
@@ -275,6 +306,13 @@ namespace Carto.Utils
                     geodata = new Geodata(areas);
                     ExportVectorGeodata(areas, geodata, "Area");
                 }
+                if (Instance.Settings.ExportBuilding)
+                {
+                    List<CartoObject> buildings = new List<CartoObject>();
+                    buildings.AddRange(Instance.Building.GetBuildingsProperties());
+                    geodata = new Geodata(buildings);
+                    ExportVectorGeodata(buildings, geodata, "Building");
+                }
                 if (Instance.Settings.ExportNet)
                 {
                     List<CartoObject> nets = new List<CartoObject>();
@@ -294,6 +332,25 @@ namespace Carto.Utils
             }
 
             m_Log.Info(string.Empty);
+        }
+
+        /// <summary>
+        /// Get the field status of the designated feature type.
+        /// （獲得指定圖徵類型的欄位狀態。）
+        /// </summary>
+        /// <param name="featureType">The type of the feature.（圖徵的類型。）</param>
+        /// <param name="fieldName">The title of the field.（欄位的名稱。）</param>
+        public static bool GetFieldStatus(FeatureType featureType, string fieldName)
+        {
+            if (Instance.Settings.FieldStatus.TryGetValue(featureType, out Dictionary<string, bool> entries))
+            {
+                if (entries.ContainsKey(fieldName))
+                {
+                    return entries[fieldName];
+                }
+            }
+
+            return false;
         }
     }
 }

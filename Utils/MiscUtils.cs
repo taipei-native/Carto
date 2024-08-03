@@ -60,7 +60,7 @@ namespace Carto.Utils
         public static IEnumerable<string> GetFiles(string path)
         {
             /*
-                # Source: （資料來源：）
+                # References: （資料來源：）
 
                 * Marc Gravell. (2009). How to recursively list all the files in a directory in C#?
                     https://stackoverflow.com/a/929418
@@ -102,13 +102,26 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Retrieve the flag components from the combined enum.
+        /// （由混合的列舉中獲取其組成的旗標。）
+        /// </summary>
+        /// <typeparam name="T">The type of the enum.（列舉的型別。）</typeparam>
+        /// <param name="input">The combined enum.（混合的列舉。）</param>
+        public static T[] GetFlagComponents<T>(T input) where T : Enum
+        {
+            IEnumerable<T> values = Enum.GetValues(typeof(T)).Cast<T>();
+            if (values.Contains(input)) return new T[] { input };
+            return values.Where(v => input.Equals(v) || (input.HasFlag(v) && !v.Equals(default(T)))).ToArray();
+        }
+
+        /// <summary>
         /// Get index of maximum integer from an enumerable class.
         /// （獲得可遍歷的類別中，最大整數的索引值。）
         /// </summary>
         public static int GetIndexOfMaximum(IEnumerable<int> source)
         {
             /*
-                # Source: （資料來源：）
+                # References: （資料來源：）
 
                 * Jon Skeet. (2009). Obtain the index of the maximum element
                     https://stackoverflow.com/a/1136335
@@ -145,7 +158,7 @@ namespace Carto.Utils
         public static int GetIndexOfMinimum(IEnumerable<int> source)
         {
             /*
-                # Source: （資料來源：）
+                # References: （資料來源：）
 
                 * Jon Skeet. (2009). Obtain the index of the maximum element
                     https://stackoverflow.com/a/1136335
@@ -210,7 +223,7 @@ namespace Carto.Utils
         public static string[] ReadAllLines(string resource)
         {
             /*
-                # Source: （資料來源：）
+                # References: （資料來源：）
 
                 * Peter Duniho. (2015). Using File.ReadAllLines from embedded text file
                     https://stackoverflow.com/a/29912240
@@ -250,7 +263,7 @@ namespace Carto.Utils
         public static void RevealInFileExplorer(string path)
         {
             /*
-                # Source: （資料來源：）
+                # References: （資料來源：）
 
                 * manuc66. (2022). From dotnet how to open file in containing folder in the Linux file manager?
                     https://stackoverflow.com/a/73409251

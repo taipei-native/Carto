@@ -21,7 +21,13 @@ namespace Carto
         /// （Carto模組的AreaSystem個體。）
         /// </summary>
         public static AreaSystem Area => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<AreaSystem>();
-        
+
+        /// <summary>
+        /// The Carto mod's BuildingSystem instance.
+        /// （Carto模組的BuildingSystem個體。）
+        /// </summary>
+        public static BuildingSystem Building => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<BuildingSystem>();
+
         /// <summary>
         /// The system managing the city starting options.
         /// （管理城市開始選項的系統。）

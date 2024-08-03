@@ -1,6 +1,6 @@
 ﻿namespace Carto.Systems
 {
-    using Carto.Geodata;
+    using Carto.Domain;
     using Carto.Utils;
     using Colossal.Logging;
     using Game;
@@ -8,6 +8,7 @@
     using Game.Common;
     using Game.Tools;
     using Game.UI;
+    using GeometryType = Utils.ExportUtils.GeometryType;
     using Purpose = Colossal.Serialization.Entities.Purpose;
     using System;
     using System.Collections.Generic;
@@ -97,7 +98,7 @@
                 {
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
+                    var type = new Dictionary<string, GeometryType>();
 
                     // Retrieve the custom name for the district. Expected output: "Apple Hill"
                     // （獲取行政區的自訂名稱。預期輸出："蘋果高地"）
@@ -119,7 +120,7 @@
                         List<float3> distNodes = new List<float3>();
                         foreach (Node _node in EntityManager.GetBuffer<Node>(_district)) distNodes.Add(_node.m_Position);
                         edges["Edge"] = distNodes;
-                        type["Edge"] = CartoObject.P;
+                        type["Edge"] = GeometryType.Polygon;
                     }
 
                     if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Object")) props["Object"] = "District";
@@ -149,7 +150,7 @@
                 {
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
-                    var type = new Dictionary<string, string>();
+                    var type = new Dictionary<string, GeometryType>();
 
                     // Retrieve the debug name for the map tile. Expected output: "Map Tile 45543"
                     // （獲取地圖區塊的自訂名稱。預期輸出："Map Tile 45543"）
@@ -171,7 +172,7 @@
                         List<float3> tileNodes = new List<float3>();
                         foreach (Node _node in EntityManager.GetBuffer<Node>(_tile)) tileNodes.Add(_node.m_Position);
                         edges["Edge"] = tileNodes;
-                        type["Edge"] = CartoObject.P;
+                        type["Edge"] = GeometryType.Polygon;
                     }
 
                     // Retrieve the unlocked status of the map tile. Expected output: true

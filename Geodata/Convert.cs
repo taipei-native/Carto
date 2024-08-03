@@ -10,7 +10,7 @@
     {
 
         /*
-            # Source: （資料來源：）
+            # References: （資料來源：）
 
             * Manchuk, J. G., & Deutsch, C. V., (2009). Conversion of Latitude and Longitude to UTM Coordinates. Centre for Computational Geostatistics Report 11, 410.
               University of Alberta, Canada.

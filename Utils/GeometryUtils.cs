@@ -720,7 +720,7 @@
         public static Bezier4x3 Trim(Bezier4x3 curve, float t0, float t1)
         {
             /*
-                # Source: （資料來源：）
+                # References: （資料來源：）
 
                 * MvG. (2012). Drawing part of a Bézier curve by reusing a basic Bézier-curve-function?
                     https://stackoverflow.com/questions/878862/drawing-part-of-a-b%C3%A9zier-curve-by-reusing-a-basic-b%C3%A9zier-curve-function/11705483

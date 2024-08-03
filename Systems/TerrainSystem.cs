@@ -1,11 +1,12 @@
 ﻿namespace Carto.Systems
 {
-    using Carto.Geodata;
+    using Carto.Domain;
     using Carto.Utils;
     using Colossal.Logging;
     using Colossal.Mathematics;
     using Game;
     using Game.Simulation;
+    using GeometryType = Utils.ExportUtils.GeometryType;
     using Purpose = Colossal.Serialization.Entities.Purpose;
     using System;
     using System.Collections.Generic;
@@ -52,7 +53,7 @@
         {
             var values = new Dictionary<string, float[,]>();
             var props = new Dictionary<string, object>();
-            var type = new Dictionary<string, string>();
+            var type = new Dictionary<string, GeometryType>();
 
             try
             {
@@ -94,7 +95,7 @@
 
                     Task.WaitAll(tasks);
                     values["Elevation"] = terrElevation;
-                    type["Elevation"] = CartoObject.R;
+                    type["Elevation"] = GeometryType.Raster;
                 }
             }
             catch (Exception ex)
