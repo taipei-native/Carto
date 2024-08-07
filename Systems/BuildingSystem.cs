@@ -299,11 +299,12 @@ namespace Carto.Systems
         /// Searching for properties of all existing buildings.
         /// （搜尋現有所有建築的屬性。）
         /// </summary>
-        public List<CartoObject> GetBuildingsProperties()
+        public List<CartoObject> GetBuildingsProperties(out Dictionary<string, int> fieldLength)
         {
             List<CartoObject> buildList = new List<CartoObject>();
             Dictionary<ushort, ZoningType> zoningTypes;
             Dictionary<Entity, ZoningCategory?> zoningCategories;
+            fieldLength = new Dictionary<string, int>();
 
             if (true)
             {
@@ -336,23 +337,49 @@ namespace Carto.Systems
 
                     // Retrieve the name of the building.
                     // （獲取建築的名稱。）
-                    props["Name"] = m_Name.GetRenderedLabelName(_build);
+                    string buildName = m_Name.GetRenderedLabelName(_build);
+                    props["Name"] = buildName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", buildName);
 
                     // Retrieve the address of the building. Expected output: Address(210 Elizabeth Street, Sunnyside Dale)
                     //（獲取建築的地址。預期輸出：Address(210 伊莉莎白街, 朝陽溪谷)）
-                    if (useAddress) props["Address"] = new Address(_build, EntityManager);
+                    if (useAddress)
+                    {
+                        Address buildAddress = new Address(_build, EntityManager);
+                        props["Address"] = buildAddress;
+                        int limit = MiscUtils.GetFieldLength(fieldLength, "Address", buildAddress.GetLongestProperty());
+                        fieldLength["Address"] = limit;
+                        fieldLength["Address.district"] = limit;
+                        fieldLength["Address.street"]   = limit;
+                        fieldLength["Address.number"]   = limit;
+                    }
 
                     // Retrieve the asset name of the building. Expected output: EU Mixed 01 - L1 2x2
                     // （獲取建築的資產名稱。預期輸出：歐式混合 01 - L1 2x2）
-                    if (useAsset) props["Asset"] = LocaleUtils.TryTranslate($"Assets.NAME[{m_Prefab.GetPrefabName(buildPrefab)}]", out string translated) ? translated : m_Prefab.GetPrefabName(buildPrefab);
+                    if (useAsset)
+                    {
+                        string buildAsset = LocaleUtils.TryTranslate($"Assets.NAME[{m_Prefab.GetPrefabName(buildPrefab)}]", out string translated) ? translated : m_Prefab.GetPrefabName(buildPrefab);
+                        props["Asset"] = buildAsset;
+                        fieldLength["Asset"] = MiscUtils.GetFieldLength(fieldLength, "Asset", buildAsset);
+                    }
 
                     // Retrieve the name of the renter's brand. Expected output: Chachi Threads
                     // （獲取租客的品牌名稱。預期輸出：Chachi Threads）
-                    if (useBrand) props["Brand"] = hasShop ? buildStats.Brands[0] : string.Empty;
+                    if (useBrand)
+                    {
+                        string buildBrand = hasShop ? buildStats.Brands[0] : string.Empty;
+                        props["Brand"] = buildBrand;
+                        fieldLength["Brand"] = MiscUtils.GetFieldLength(fieldLength, "Brand", buildBrand);
+                    }
 
                     // Retrieve the category of the building. Expected output: Property
                     // （獲取建築的分類。預期輸出：Property）
-                    if (useCategory) props["Category"] = GetBuildingCategory(_build, EntityManager).ToString();
+                    if (useCategory)
+                    {
+                        string buildCategory = GetBuildingCategory(_build, EntityManager).ToString();
+                        props["Category"] = buildCategory;
+                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", buildCategory);
+                    }
 
                     // Retrieve the (incollidable) edge of the building. Expected output (per node): float3(-131.263f, 547.2352f, 819.4241f)
                     // （獲取建築物的（不可碰撞）邊緣。預期輸出：float3(-131.263f, 547.2352f, 819.4241f)）
@@ -372,11 +399,20 @@ namespace Carto.Systems
 
                     // Retrieve the level of the building. Expected output: 3
                     // （獲取建築的等級。預期輸出：3）
-                    if (useLevel) props["Level"] = (short)(EntityManager.HasComponent<SpawnableBuildingData>(buildPrefab) ? EntityManager.GetComponentData<SpawnableBuildingData>(buildPrefab).m_Level : 0);
+                    if (useLevel)
+                    {
+                        props["Level"] = (short)(EntityManager.HasComponent<SpawnableBuildingData>(buildPrefab) ? EntityManager.GetComponentData<SpawnableBuildingData>(buildPrefab).m_Level : 0);
+                        fieldLength["Level"] = 1;
+                    }
 
                     // Retrieve the product manufactured in the building. Expected output: Textiles
                     // （獲取建築內生產的商品。預期輸出：紡織品）
-                    if (useProduct) props["Product"] = hasShop ? buildStats.Products[0] : string.Empty;
+                    if (useProduct)
+                    {
+                        string buildProduct = hasShop ? buildStats.Products[0] : string.Empty;
+                        props["Product"] = buildProduct;
+                        fieldLength["Product"] = MiscUtils.GetFieldLength(fieldLength, "Product", buildProduct);
+                    }
 
                     // Retrieve the amount of residents in the building. Expected output: 48
                     // （獲取建築內的居民人數。預期輸出：48）
@@ -384,9 +420,19 @@ namespace Carto.Systems
 
                     // Retrieve the zoning purposes of the building. Expected output: Residential, Commercial
                     // （獲取建築的分區用途。預期輸出：Residential, Commercial）
-                    if (useZoning) props["Zoning"] = (EntityManager.HasComponent<SpawnableBuildingData>(buildPrefab)) ? zoningCategories[EntityManager.GetComponentData<SpawnableBuildingData>(buildPrefab).m_ZonePrefab].ToString() : "None";
+                    if (useZoning)
+                    {
+                        string buildZoning = EntityManager.HasComponent<SpawnableBuildingData>(buildPrefab) ? zoningCategories[EntityManager.GetComponentData<SpawnableBuildingData>(buildPrefab).m_ZonePrefab].ToString() : "None";
+                        props["Zoning"] = buildZoning;
+                        fieldLength["Zoning"] = MiscUtils.GetFieldLength(fieldLength, "Zoning", buildZoning);
+                    }
 
-                    if (useObject) props["Object"] = "Building";
+
+                    if (useObject)
+                    {
+                        props["Object"] = "Building";
+                        fieldLength["Object"] = 13;
+                    }
 
                     buildList.Add(new CartoObject(edges, props, type));
                 }

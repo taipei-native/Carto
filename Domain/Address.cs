@@ -5,6 +5,7 @@ namespace Carto.Domain
     using Game.Buildings;
     using System;
     using System.Globalization;
+    using System.Text;
     using Unity.Entities;
 
     /// <summary>
@@ -172,6 +173,21 @@ namespace Carto.Domain
         public override int GetHashCode()
         {
             return string.Join(".", new object[] { Number, Street, District }).GetHashCode();
+        }
+
+        /// <summary>
+        /// Get the longest property in bytes.
+        /// （獲得以位元組計算最長的屬性。）
+        /// </summary>
+        public string GetLongestProperty()
+        {
+            int district = Encoding.UTF8.GetByteCount(District);
+            int street   = Encoding.UTF8.GetByteCount(Street);
+            int number   = Encoding.UTF8.GetByteCount(Number.ToString());
+            int longest  = Math.Max(Math.Max(district, street), number);
+            if (longest == district) return District;
+            if (longest == street)   return Street;
+            else                     return Number.ToString();
         }
 
         private string Mask(string input)

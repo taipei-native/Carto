@@ -45,7 +45,7 @@
         /// <param name="bytes">The byte array requiring being appended to the file. （要求被添加於檔案結尾的位元組陣列。）</param>
         public void Append(byte[] bytes)
         {
-            using (FileStream fs = new FileStream(Path, FileMode.Append, FileAccess.Write))
+            using (FileStream fs = new FileStream(Path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
             {
                 fs.Write(bytes, 0, bytes.Length);
             }
@@ -63,7 +63,7 @@
         {
             index = Length;
             
-            using (FileStream fs = new FileStream(Path, FileMode.Append, FileAccess.Write))
+            using (FileStream fs = new FileStream(Path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
             {
                 fs.Write(bytes, 0, bytes.Length);
             }
@@ -189,7 +189,7 @@
 
             if ((index < Length - 1) && (index + buffer.Length <= Length - 1))
             {
-                using (FileStream fs = new FileStream(Path, FileMode.Open, FileAccess.ReadWrite))
+                using (FileStream fs = new FileStream(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
                 {
                     fs.Seek(index, SeekOrigin.Begin);
                     fs.Write(buffer, 0, buffer.Length);

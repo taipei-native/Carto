@@ -16,7 +16,7 @@ namespace Carto
     /// </summary>
     [FileLocation("ModsSettings" + "\\" + nameof(Carto) + "\\" + nameof(Carto))]
     [SettingsUITabOrder(GeneralTab, CustomExportTab, MiscellaneousTab)]
-    [SettingsUIShowGroupName(ExportGroup, DangerGroup, SpatialFieldGroup, NonSpatialFieldGroup)]
+    [SettingsUIShowGroupName(ExportGroup, SpatialFieldGroup, NonSpatialFieldGroup)]
     [SettingsUIGroupOrder(ExportGroup, DangerGroup, FeatureGroup, SelectorGroup, SpatialFieldGroup, NonSpatialFieldGroup, MiscellaneousGroup)]
     public class Setting : ModSetting
     {
@@ -52,6 +52,8 @@ namespace Carto
         public bool m_Theme = true;
         public bool m_Unlocked = true;
         public bool m_Width = true;
+        public bool m_WorldDepth = true;
+        public bool m_WorldElevation = true;
         public bool m_Zoning = true;
         public ExportUtils.FeatureType m_Feature;
 
@@ -128,6 +130,8 @@ namespace Carto
         public bool NotInFieldArrayTheme => NotInFieldArray("Theme");
         public bool NotInFieldArrayUnlocked => NotInFieldArray("Unlocked");
         public bool NotInFieldArrayWidth => NotInFieldArray("Width");
+        public bool NotInFieldArrayWorldDepth => NotInFieldArray("WorldDepth");
+        public bool NotInFieldArrayWorldElevation => NotInFieldArray("WorldElevation");
         public bool NotInFieldArrayZoning => NotInFieldArray("Zoning");
 
         /// <summary>
@@ -136,6 +140,13 @@ namespace Carto
         /// </summary>
         [SettingsUIHidden]
         public bool NotInGameOrEditor => !GameMode.GameOrEditor.HasFlag(Instance.Mode);
+
+        /// <summary>
+        /// Detects whether current save has a world heightmap.
+        /// （偵測目前的存檔是否有世界高度圖。）
+        /// </summary>
+        [SettingsUIHidden]
+        public bool NoWorldHeightmap => (Instance.GameTerrain.worldHeightmap == null) && !NotInGameOrEditor;
 
         /// <summary>
         /// All availible fields for each feature type.
@@ -230,6 +241,7 @@ namespace Carto
         public const string ExportGroup = "ExportGroup";
         public const string ExportButtons = "ExportButtons";
         public const string DangerGroup = "DangerGroup";
+        public const string DangerButtons = "DangerButtons";
         public const string CustomExportTab = "CustomExportTab";
         public const string FeatureGroup = "FeatureGroup";
         public const string SelectorGroup = "SelectorGroup";
@@ -306,31 +318,11 @@ namespace Carto
         }
 
         /// <summary>
-        /// The button to enable all fields to be exportted.
-        /// （用以啟用所有欄位輸出狀態的按鈕。）
+        /// The current running Carto version.
+        /// （目前執行中的Carto版本。）
         /// </summary>
-        [SettingsUIButton]
-        [SettingsUIConfirmation]
         [SettingsUISection(GeneralTab, DangerGroup)]
-        public bool EnableAllButton
-        {
-            set
-            {
-                var duplicate = MiscUtils.DeepCopy(FieldStatus);
-
-                foreach (KeyValuePair<ExportUtils.FeatureType, Dictionary<string, bool>> dict in duplicate)
-                {
-                    foreach (string key in new List<string>(dict.Value.Keys))
-                    {
-                        dict.Value[key] = true;
-                    }
-                }
-
-                FieldStatus = MiscUtils.DeepCopy(duplicate);
-                ApplyAndSave();
-                UpdateFieldVisual(FeatureSelector);
-            }
-        }
+        public string ModVersion => Instance.Version;
 
         /// <summary>
         /// The button to reset settings.
@@ -339,6 +331,7 @@ namespace Carto
         [SettingsUIButton]
         [SettingsUIConfirmation]
         [SettingsUISection(GeneralTab, DangerGroup)]
+        [SettingsUIButtonGroup(DangerButtons)]
         public bool ResetButton
         {
             set
@@ -451,6 +444,26 @@ namespace Carto
         {
             get => m_Elevation;
             set => UpdateFieldStatus("Elevation", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, SpatialFieldGroup)]
+        [SettingsUIDisableByCondition(typeof(Setting), nameof(NoWorldHeightmap))]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayWorldDepth))]
+        public bool ExportFieldWorldDepth
+        {
+            get => m_WorldDepth;
+            set => UpdateFieldStatus("WorldDepth", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, SpatialFieldGroup)]
+        [SettingsUIDisableByCondition(typeof(Setting), nameof(NoWorldHeightmap))]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayWorldElevation))]
+        public bool ExportFieldWorldElevation
+        {
+            get => m_WorldElevation;
+            set => UpdateFieldStatus("WorldElevation", value);
         }
 
         [SettingsUIAdvanced]
@@ -652,6 +665,13 @@ namespace Carto
         }
 
         /// <summary>
+        /// Whether to export GeoTIFFs as 16-bit depth.
+        /// （決定是否要輸出16位元GeoTIFF。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
+        public ExportUtils.GeoTIFFFormat TIFFFormat { get; set; } = ExportUtils.GeoTIFFFormat.Int16;
+
+        /// <summary>
         /// Whether to export unzoned zoning cells.
         /// （決定是否要輸出未分區的分區單元。）
         /// </summary>
@@ -665,6 +685,33 @@ namespace Carto
         [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
         [SettingsUIHideByCondition(typeof(Setting), nameof(ZCCNotReady))]
         public bool UseZCC { get; set; } = true;
+
+        /// <summary>
+        /// The button to enable all fields to be exportted.
+        /// （用以啟用所有欄位輸出狀態的按鈕。）
+        /// </summary>
+        [SettingsUIButton]
+        [SettingsUIConfirmation]
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
+        public bool EnableAllButton
+        {
+            set
+            {
+                var duplicate = MiscUtils.DeepCopy(FieldStatus);
+
+                foreach (KeyValuePair<ExportUtils.FeatureType, Dictionary<string, bool>> dict in duplicate)
+                {
+                    foreach (string key in new List<string>(dict.Value.Keys))
+                    {
+                        dict.Value[key] = true;
+                    }
+                }
+
+                FieldStatus = MiscUtils.DeepCopy(duplicate);
+                ApplyAndSave();
+                UpdateFieldVisual(FeatureSelector);
+            }
+        }
 
         /// <summary>
         /// This is the method to reset settings.
@@ -711,9 +758,12 @@ namespace Carto
             m_Theme = true;
             m_Unlocked = true;
             m_Width = true;
+            m_WorldDepth = true;
+            m_WorldElevation = true;
             m_Zoning = true;
             MapCenter = (0, 0);
             NamingFormat = ExportUtils.NamingFormat.Feature;
+            TIFFFormat = ExportUtils.GeoTIFFFormat.Int16;
             UseUnzoned = false;
             UseZCC = true;
         }

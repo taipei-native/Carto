@@ -48,10 +48,26 @@
             m_Objects = input;
         }
 
+        /// <summary>
+        /// The constructor of Carto.Geodata.Geodata.
+        /// （Carto.Geodata.Geodata 的建構函式。）
+        /// </summary>
+        public Geodata(List<CartoObject> input, Dictionary<string, int> fieldLengthDictionary)
+        {
+            m_Objects = input;
+            FieldLength = fieldLengthDictionary;
+        }
+
         private readonly (double e, double n, int z, string h) _center = Convert.ToUTM(Setting.MapCenter);
         private readonly string _contentFolder = Setting.ContentFolder;
         private readonly ILog m_Log = Instance.Log;
         private readonly List<CartoObject> m_Objects;
+
+        /// <summary>
+        /// The custom field length used by Shapefiles.
+        /// （供 Shapefile 使用的客製化欄位長度。）
+        /// </summary>
+        public Dictionary<string, int> FieldLength = new Dictionary<string, int>();
 
         /// <summary>
         /// The objects from the inputted list.
@@ -222,7 +238,6 @@
             }
 
             json.Append("\t]\n}");
-            m_Log.Info($"`{fileName}` has been exported. `{fileName}`已經輸出完成。");
         }
 
         /// <summary>
@@ -288,7 +303,7 @@
             double yPixelScale = 3.5;
             double zPixelScale = 1;
             float nodata = 1.70141E+38f;
-            float outputNodata;
+            float outputNodata = default;
             int firstStripIndex = 25066;
             int gaspIndex = 430;
             int geokIndex = 350;
@@ -298,6 +313,7 @@
             int noDataLen;
             int pcsEPSG;
             int pcsNLen;
+            int sampleFormat = default;
             int softIndex = 240;
             int spbyIndex = 16874;
             int spofIndex = 490;
@@ -326,13 +342,30 @@
                 throw new ArgumentException($"Argument `depth` expected 16 or 32, but received {depth}. 參數 `depth` 僅可為16或32，但被設為{depth}。");
             }
 
-            outputNodata = (depth == 16) ? -32768 : nodata;
+            switch (Instance.Settings.TIFFFormat)
+            {
+                case ExportUtils.GeoTIFFFormat.Norm16:  // Currently (August 2024) game only accepts R16_UNorm format, which can be regarded as a UInt16 format.
+                    sampleFormat = 1;                   // （目前（2024年8月）遊戲僅接受 R16_UNorm 格式，並且可被視為 UInt16 格式看待。）
+                    outputNodata = 0;
+                    break;
+                
+                case ExportUtils.GeoTIFFFormat.Int16:
+                    sampleFormat = 2;
+                    outputNodata = -32768;
+                    break;
+
+                case ExportUtils.GeoTIFFFormat.Float32:
+                    sampleFormat = 3;
+                    outputNodata = nodata;
+                    break;
+            }
+
             gdalNodata = $"{outputNodata: 0.00000e+000; -0.00000e+000}";
             noDataLen = gdalNodata.Length + 1;
 
             foreach (KeyValuePair<string, object> prop in Objects[0].Properties)
             {
-                if ((prop.Key == "Matrix") && (prop.Value is Dictionary<string, object> geometry))
+                if ((prop.Key == $"{field}Matrix") && (prop.Value is Dictionary<string, object> geometry))
                 {
                     foreach (KeyValuePair<string, object> geom in geometry)
                     {
@@ -370,23 +403,23 @@
             // Image File Directory （影像檔案目錄）
 
             BU.AddBytes(tiffBList, (ushort)18);                                 //   8 Number of tags. （位元組8：標籤數量。）
-            BU.AddTag(tiffBList, 256, TField.SH, 1, resolution.x);            //  10 Tag   256 (0x0100) ImageWidth （影像寬度）                      
-            BU.AddTag(tiffBList, 257, TField.SH, 1, resolution.z);            //  22 Tag   257 (0x0101) ImageLength （影像高度）
-            BU.AddTag(tiffBList, 258, TField.SH, 1, depth);                   //  34 Tag   258 (0x0102) BitsPerSample （每波段位元數）
-            BU.AddTag(tiffBList, 259, TField.SH, 1, 1);                       //  46 Tag   259 (0x0103) Compression （壓縮）
-            BU.AddTag(tiffBList, 262, TField.SH, 1, 1);                       //  58 Tag   262 (0x0106) PhotometricInterpretation （光度解讀）
-            BU.AddTag(tiffBList, 273, TField.LO, SPI, spofIndex);             //  70 Tag   273 (0x0111) StripOffsets （影像片段偏移） 
-            BU.AddTag(tiffBList, 277, TField.SH, 1, 1);                       //  82 Tag   277 (0x0115) SamplesPerPixel （每像素波段數）
-            BU.AddTag(tiffBList, 278, TField.SH, 1, 1);                       //  94 Tag   278 (0x0116) RowsPerStrip （每片段垂直列數）
-            BU.AddTag(tiffBList, 279, TField.SH, SPI, spbyIndex);             // 106 Tag   279 (0x0117) StripByteCounts （每片段位元組數）
-            BU.AddTag(tiffBList, 284, TField.SH, 1, 1);                       // 118 Tag   284 (0x011C) PlanarConfiguration （像素儲存方式）
-            BU.AddTag(tiffBList, 305, TField.AS, 9, softIndex);               // 130 Tag   305 (0x0131) Software （軟體）
-            BU.AddTag(tiffBList, 306, TField.AS, 20, timeIndex);              // 142 Tag   306 (0x0132) DateTime （日期與時間）
-            BU.AddTag(tiffBList, 339, TField.SH, 1, (depth == 16) ? 2 : 3);   // 154 Tag   339 (0x0153) SampleFormat （波段值類型）
+            BU.AddTag(tiffBList, 256, TField.SH, 1, resolution.x);              //  10 Tag   256 (0x0100) ImageWidth （影像寬度）                      
+            BU.AddTag(tiffBList, 257, TField.SH, 1, resolution.z);              //  22 Tag   257 (0x0101) ImageLength （影像高度）
+            BU.AddTag(tiffBList, 258, TField.SH, 1, depth);                     //  34 Tag   258 (0x0102) BitsPerSample （每波段位元數）
+            BU.AddTag(tiffBList, 259, TField.SH, 1, 1);                         //  46 Tag   259 (0x0103) Compression （壓縮）
+            BU.AddTag(tiffBList, 262, TField.SH, 1, 1);                         //  58 Tag   262 (0x0106) PhotometricInterpretation （光度解讀）
+            BU.AddTag(tiffBList, 273, TField.LO, SPI, spofIndex);               //  70 Tag   273 (0x0111) StripOffsets （影像片段偏移） 
+            BU.AddTag(tiffBList, 277, TField.SH, 1, 1);                         //  82 Tag   277 (0x0115) SamplesPerPixel （每像素波段數）
+            BU.AddTag(tiffBList, 278, TField.SH, 1, 1);                         //  94 Tag   278 (0x0116) RowsPerStrip （每片段垂直列數）
+            BU.AddTag(tiffBList, 279, TField.SH, SPI, spbyIndex);               // 106 Tag   279 (0x0117) StripByteCounts （每片段位元組數）
+            BU.AddTag(tiffBList, 284, TField.SH, 1, 1);                         // 118 Tag   284 (0x011C) PlanarConfiguration （像素儲存方式）
+            BU.AddTag(tiffBList, 305, TField.AS, 9, softIndex);                 // 130 Tag   305 (0x0131) Software （軟體）
+            BU.AddTag(tiffBList, 306, TField.AS, 20, timeIndex);                // 142 Tag   306 (0x0132) DateTime （日期與時間）
+            BU.AddTag(tiffBList, 339, TField.SH, 1, sampleFormat);              // 154 Tag   339 (0x0153) SampleFormat （波段值類型）
             BU.AddTag(tiffBList, 33550, TField.DO, 3, mdpsIndex);               // 166 Tag 33550 (0x830E) ModelPixelScaleTag （空間－像素縮放比例）
             BU.AddTag(tiffBList, 33922, TField.DO, 6, mdtpIndex);               // 178 Tag 33922 (0x8482) ModelTiepointTag （空間對位）
             BU.AddTag(tiffBList, 34735, TField.SH, 48, geokIndex);              // 190 Tag 34735 (0x87AF) GeoKeyDirectoryTag （座標／投影系統）
-            BU.AddTag(tiffBList, 34737, TField.AS, pcsNLen + 8, gaspIndex);     // 202 Tag 34737 (0x87B1) GeoAsciiParamsTag （ASCII參數）
+            BU.AddTag(tiffBList, 34737, TField.AS, pcsNLen + 14, gaspIndex);    // 202 Tag 34737 (0x87B1) GeoAsciiParamsTag （ASCII參數）
             BU.AddTag(tiffBList, 42113, TField.AS, noDataLen, gdalIndex);       // 214 Tag 42113 (0xA481) GDAL_NODATA （GDAL無資料值）
             BU.Skip(tiffBList, 14, "byte");                                     // 226 Next IFD offset. （下一個IFD的偏移）
 
@@ -426,16 +459,31 @@
             tiffBList.AddRange(bpsList);                                        // 490 + X Complete Tag 279 (StripByteCounts). （完成標籤279，每片段位元組數）
 
             // Fill the data. （填滿資料。）
-
+            
             if (depth == 16)
             {
-                for (int i = 0; i < resolution.x; i++)
+                if (Instance.Settings.TIFFFormat == ExportUtils.GeoTIFFFormat.Int16)
                 {
-                    for (int j = 0; j < resolution.z; j++)
+                    for (int i = 0; i < resolution.x; i++)
                     {
-                        float val = obj.Values[field][i, j];
-                        val = (val == nodata) ? outputNodata : val;
-                        tiffBList.AddRange(BitConverter.GetBytes(SystemConvert.ToInt16(val)));
+                        for (int j = 0; j < resolution.z; j++)
+                        {
+                            float val = obj.Values[field][i, j];
+                            val = (val == nodata) ? outputNodata : val;
+                            tiffBList.AddRange(BitConverter.GetBytes(SystemConvert.ToInt16(val)));
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < resolution.x; i++)
+                    {
+                        for (int j = 0; j < resolution.z; j++)
+                        {
+                            float val = obj.Values[field][i, j];
+                            val = (val == nodata) ? outputNodata : val;
+                            tiffBList.AddRange(BitConverter.GetBytes(SystemConvert.ToUInt16(val)));
+                        }
                     }
                 }
             }
@@ -455,8 +503,6 @@
             Directory.CreateDirectory(MiscUtils.CombinePath(_contentFolder, "GeoTIFF"));
             File.WriteAllText(tiffPath, string.Empty);
             File.WriteAllBytes(tiffPath, tiffBList.ToArray());
-
-            m_Log.Info($"`{fileName}` has been exported. `{fileName}`已經輸出完成。");
         }
 
         /// <summary>
@@ -673,7 +719,21 @@
                     }
                 }
 
-                buildFieldDescripter(GetSymbol(fieldType), (byte)fl["max"], (byte)fl["dec"], fl["dim"]);
+                if (FieldLength.TryGetValue(fieldName, out int newMaxLength))
+                {
+                    if (newMaxLength < fl["max"])
+                    {
+                        buildFieldDescripter(GetSymbol(fieldType), (byte)newMaxLength, (byte)fl["dec"], fl["dim"]);
+                    }
+                    else
+                    {
+                        buildFieldDescripter(GetSymbol(fieldType), (byte)fl["max"], (byte)fl["dec"], fl["dim"]);
+                    }
+                }
+                else
+                {
+                    buildFieldDescripter(GetSymbol(fieldType), (byte)fl["max"], (byte)fl["dec"], fl["dim"]);
+                }
             }
 
             BU.AddBytes(bList, (byte)13);                                                           //   n Field array terminator, 13 （位元組n：欄位陣列終止符，13。）
@@ -786,6 +846,8 @@
                 {
                     string fieldType = ExportUtils.ExportFieldTypes[fieldName].Name;
                     Dictionary<string, int> fl = fieldLength[fieldType];
+                    int newMaxLength = fl["max"];
+                    if (FieldLength.TryGetValue(fieldName, out int val)) newMaxLength = val < newMaxLength ? val : newMaxLength;
 
                     try
                     {
@@ -803,21 +865,22 @@
                         // （如果輸入值轉換成`long`的值和轉換成`double`的值相同，就表示輸入值是一個整數。）
                         long longR = SystemConvert.ToInt64(fieldRecord);
                         double doubleR = SystemConvert.ToDouble(fieldRecord);
+
                         if (longR == doubleR)
                         {
                             string lNum = $"{longR}";
-                            string spaceHolder1 = string.Empty;
+                            string spaceHolder1 = string.Empty; 
 
-                            if (Encoding.UTF8.GetBytes(lNum).Length > fl["max"])
+                            if (Encoding.UTF8.GetBytes(lNum).Length > newMaxLength)
                             {
-                                string dec = new string('#', fl["max"] - ((longR > 0) ? 6 : 7));
+                                string dec = new string('#', newMaxLength - ((longR > 0) ? 6 : 7));
                                 dec = "0." + dec + "e+00";
                                 lNum = longR.ToString(dec);
                             }
 
-                            if (fl["max"] - Encoding.UTF8.GetBytes(lNum).Length > 0)
+                            if (newMaxLength - Encoding.UTF8.GetBytes(lNum).Length > 0)
                             {
-                                spaceHolder1 = new string(' ', fl["max"] - Encoding.UTF8.GetBytes(lNum).Length);
+                                spaceHolder1 = new string(' ', newMaxLength - Encoding.UTF8.GetBytes(lNum).Length);
                             }
 
                             return spaceHolder1 + lNum;
@@ -833,16 +896,16 @@
                                 dNum = $"{Math.Round(doubleR, decPlaces - 1)}";
                             }
 
-                            if (Encoding.UTF8.GetBytes(dNum).Length > fl["max"])
+                            if (Encoding.UTF8.GetBytes(dNum).Length > newMaxLength)
                             {
-                                string dec = new string('#', fl["max"] - ((doubleR > 0) ? 6 : 7));
+                                string dec = new string('#', newMaxLength - ((doubleR > 0) ? 6 : 7));
                                 dec = "0." + dec + "e+00";
                                 dNum = doubleR.ToString(dec);
                             }
 
-                            if (fl["max"] - Encoding.UTF8.GetBytes(dNum).Length > 0)
+                            if (newMaxLength - Encoding.UTF8.GetBytes(dNum).Length > 0)
                             {
-                                spaceHolder2 = new string(' ', fl["max"] - Encoding.UTF8.GetBytes(dNum).Length);
+                                spaceHolder2 = new string(' ', newMaxLength - Encoding.UTF8.GetBytes(dNum).Length);
                             }
 
                             return spaceHolder2 + dNum;
@@ -856,16 +919,16 @@
                                 return (@bool ? "1" : "0");
 
                             case char @char:
-                                string spaceHolder1 = new string(' ', fl["max"] - Encoding.UTF8.GetBytes($"{@char}").Length);
+                                string spaceHolder1 = new string(' ', newMaxLength - Encoding.UTF8.GetBytes($"{@char}").Length);
                                 return $"{@char}" + spaceHolder1;
 
                             case string @string:
                                 string temp = @string;
-                                while (Encoding.UTF8.GetBytes($"{temp}").Length > fl["max"]) temp = temp.Substring(0, temp.Length - 1);
+                                while (Encoding.UTF8.GetBytes($"{temp}").Length > newMaxLength) temp = temp.Substring(0, temp.Length - 1);
 
-                                if (Encoding.UTF8.GetBytes($"{temp}").Length < fl["max"])
+                                if (Encoding.UTF8.GetBytes($"{temp}").Length < newMaxLength)
                                 {
-                                    string spaceHolder2 = new string(' ', fl["max"] - Encoding.UTF8.GetBytes($"{temp}").Length);
+                                    string spaceHolder2 = new string(' ', newMaxLength - Encoding.UTF8.GetBytes($"{temp}").Length);
                                     return $"{temp}" + spaceHolder2;
                                 }
                                 else
@@ -874,7 +937,7 @@
                                 }
                         }
                         // Other unexpected inputs will be handle here. （其餘未預期的輸入值會在這裡處理。 ）
-                        return new string(' ', fl["max"]);
+                        return new string(' ', newMaxLength);
                     }
                 }
 
@@ -1001,8 +1064,6 @@
             // Write the codepage file.（寫出字元編碼頁檔案。）
             File.WriteAllText(cpgPath, string.Empty, Encoding.UTF8);
             File.AppendAllText(cpgPath, "UTF-8", Encoding.UTF8);
-
-            m_Log.Info($"`{fileName}` has been exported. `{fileName}`已經輸出完成。");
         }
     }
 }

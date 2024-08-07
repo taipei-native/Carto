@@ -476,9 +476,10 @@
         /// Searching for properties of all existing pathways.
         /// （搜尋現有所有小徑的屬性。）
         /// </summary>
-        public List<CartoObject> GetPathwayProperties()
+        public List<CartoObject> GetPathwayProperties(out Dictionary<string, int> fieldLength)
         {
             List<CartoObject> pathList = new List<CartoObject>();
+            fieldLength = new Dictionary<string, int>();
 
             foreach (Entity _path in _pathwayQuery.ToEntityArray(Allocator.Temp))
             {
@@ -487,6 +488,16 @@
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
                     var type = new Dictionary<string, GeometryType>();
+                    bool useAsset = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset");
+                    bool useCategory = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category");
+                    bool useCenterLine = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine");
+                    bool useDirection = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction");
+                    bool useEdge = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge");
+                    bool useForm = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form");
+                    bool useHeight = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height");
+                    bool useLength = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length");
+                    bool useObject = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object");
+                    bool useWidth = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Width");
 
                     // Retrieve the custom name for the pathway. Expected output: "Pathway"
                     // （獲取小徑的自訂名稱。預期輸出："Pathway"）
@@ -499,18 +510,28 @@
                     }
 
                     props["Name"] = pathName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", pathName);
 
-                    // Retrieve the assset name for the pathway. Expected output: "Three-Lane One-Way Highway"
+                    // Retrieve the assset name for the pathway. Expected output: "Pathway"
                     // （獲取小徑的資產名稱。預期輸出："人行道"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset")) props["Asset"] = m_Name.GetRenderedLabelName(_path);
+                    if (useAsset)
+                    {
+                        string pathAsset = m_Name.GetRenderedLabelName(_path);
+                        props["Asset"] = pathAsset;
+                        fieldLength["Asset"] = MiscUtils.GetFieldLength(fieldLength, "Asset", pathAsset);
+                    }
 
                     // Retrieve the category of the pathway. Expected output: "Pathway"
                     // （獲取小徑的分類。預期輸出："Pathway"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category")) props["Category"] = Category["Pathway"];
+                    if (useCategory)
+                    {
+                        props["Category"] = Category["Pathway"];
+                        fieldLength["Category"] = 12;
+                    }
 
                     // Retrieve the nodes forming the centerline of the pathway segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成小徑中心線的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
+                    if (useCenterLine)
                     {
                         edges["CenterLine"] = GetNetCenterLine(_path, EntityManager, 1, 1);
                         type["CenterLine"] = GeometryType.LineString;
@@ -518,11 +539,15 @@
 
                     // Retrieve the pedestrian walking direction on the pathway. Expected output: "Both"
                     // （獲取行人在小徑上的步行方向。預期輸出："Both"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction")) props["Direction"] = "Both";
+                    if (useDirection)
+                    {
+                        props["Direction"] = "Both";
+                        fieldLength["Direction"] = 9;
+                    }
 
                     // Retrieve the edge of the pathway. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成小徑邊緣的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge"))
+                    if (useEdge)
                     {
                         edges["Edge"] = GetNetEdge(_path, EntityManager, 3, 1);
                         type["Edge"] = GeometryType.Polygon;
@@ -530,7 +555,7 @@
 
                     // Retrieve the form of the pathway. Expected output: "Normal"
                     // （獲取小徑的形式。預期輸出："Normal"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form"))
+                    if (useForm)
                     {
                         Entity pathEdgeComposition = EntityManager.GetComponentData<Composition>(_path).m_Edge;
                         NetCompositionData pathCompositionData = EntityManager.GetComponentData<NetCompositionData>(pathEdgeComposition);
@@ -539,11 +564,12 @@
                         if (pathFormFlag.HasFlag(CompositionFlags.General.Elevated)) pathForm = "Elevated";
                         if (pathFormFlag.HasFlag(CompositionFlags.General.Tunnel)) pathForm = "Tunnel";
                         props["Form"] = pathForm;
+                        fieldLength["Form"] = 13;
                     }
 
                     // Retrieve the mean height of the pathway segment. Expected output: 145.881424
                     // （獲取小徑區段的平均高度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height"))
+                    if (useHeight)
                     {
                         Bounds1 pathHeightBounds = EntityManager.GetComponentData<EdgeGeometry>(_path).m_Bounds.y;
                         props["Height"] = (pathHeightBounds.max + pathHeightBounds.min) / 2;
@@ -551,18 +577,22 @@
 
                     // Retrieve the length of the pathway segment. Expected output: 145.881424
                     // （獲取小徑區段的長度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length")) props["Length"] = EntityManager.GetComponentData<Curve>(_path).m_Length;
+                    if (useLength) props["Length"] = EntityManager.GetComponentData<Curve>(_path).m_Length;
 
                     // Retrieve the width of the pathway segment. Expected output: 3
                     // （獲取小徑區段的寬度。預期輸出：3）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Width"))
+                    if (useWidth)
                     {
                         Entity pathEdgeComposition = EntityManager.GetComponentData<Composition>(_path).m_Edge;
                         NetCompositionData pathCompositionData = EntityManager.GetComponentData<NetCompositionData>(pathEdgeComposition);
                         props["Width"] = pathCompositionData.m_Width;
                     }
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object")) props["Object"] = "Pathway";
+                    if (useObject)
+                    {
+                        props["Object"] = "Pathway";
+                        fieldLength["Object"] = 12;
+                    }
 
                     pathList.Add(new CartoObject(edges, props, type));
                 }
@@ -579,9 +609,21 @@
         /// Searching for properties of all existing roads.
         /// （搜尋現有所有道路的屬性。）
         /// </summary>
-        public List<CartoObject> GetRoadsProperties()
+        public List<CartoObject> GetRoadsProperties(out Dictionary<string, int> fieldLength)
         { 
             List<CartoObject> roadList = new List<CartoObject>();
+            fieldLength = new Dictionary<string, int>();
+            bool useAsset = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset");
+            bool useCategory = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category");
+            bool useCenterLine = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine");
+            bool useDirection = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction");
+            bool useEdge = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge");
+            bool useForm = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form");
+            bool useHeight = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height");
+            bool useLength = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length");
+            bool useObject = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object");
+            bool useWidth = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Width");
+
             RoundaboutAttachments.Clear();
             RoundaboutCenterVertices.Clear();
             RoundaboutInnerVertices.Clear();
@@ -814,14 +856,20 @@
                     Entity roadSection = EntityManager.GetComponentData<Aggregated>(_road).m_Aggregate;
                     string roadName = m_Name.GetRenderedLabelName(roadSection);
                     props["Name"] = roadName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", roadName);
 
                     // Retrieve the assset name for the road. Expected output: "Three-Lane One-Way Highway"
                     // （獲取道路的資產名稱。預期輸出："單向三線公路"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset")) props["Asset"] = m_Name.GetRenderedLabelName(_road);
+                    if (useAsset)
+                    {
+                        string roadAsset = m_Name.GetRenderedLabelName(_road);
+                        props["Asset"] = roadAsset;
+                        fieldLength["Asset"] = MiscUtils.GetFieldLength(fieldLength, "Asset", roadAsset);
+                    }
 
                     // Retrieve the category of the road. Expected output: "Highway"
                     // （獲取道路的分類。預期輸出："Highway"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category"))
+                    if (useCategory)
                     {
                         Entity roadPrefab = EntityManager.GetComponentData<PrefabRef>(_road).m_Prefab;
                         Entity roadUIGroup = EntityManager.GetComponentData<UIObjectData>(roadPrefab).m_Group;
@@ -835,11 +883,12 @@
                         if (EntityManager.HasComponent<TramTrack>(_road)) roadCategory = roadCategory + ";" + Category["TramTracks"];
 
                         props["Category"] = roadCategory;
+                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", roadCategory);
                     }
 
                     // Retrieve the nodes forming the centerline of the road segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成道路中心線的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
+                    if (useCenterLine)
                     {
                         edges["CenterLine"] = GetNetCenterLine(_road, EntityManager, 1, 1);
                         type["CenterLine"] = GeometryType.LineString;
@@ -847,7 +896,7 @@
 
                     // Retrieve the vehicle driving direction on the road. Expected output: "Forward"
                     // （獲取載具在道路上的行駛方向。預期輸出："Forward"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction"))
+                    if (useDirection)
                     {
                         Entity roadEdgeComposition = EntityManager.GetComponentData<Composition>(_road).m_Edge;
                         RoadComposition roadComposition= EntityManager.GetComponentData<RoadComposition>(roadEdgeComposition);
@@ -856,11 +905,12 @@
                         if (roadDirectionFlag.HasFlag(Game.Prefabs.RoadFlags.DefaultIsForward)) roadDirection = "Forward";
                         if (roadDirectionFlag.HasFlag(Game.Prefabs.RoadFlags.DefaultIsBackward)) roadDirection = "Backward";
                         props["Direction"] = roadDirection;
+                        fieldLength["Direction"] = 13;
                     }
 
                     // Retrieve the edge of the road. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成道路邊緣的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge"))
+                    if (useEdge)
                     {
                         edges["Edge"] = GetNetEdge(_road, EntityManager, 3, 1);
                         type["Edge"] = GeometryType.Polygon;
@@ -868,7 +918,7 @@
 
                     // Retrieve the form of the road. Expected output: "Normal"
                     // （獲取道路的形式。預期輸出："Normal"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form"))
+                    if (useForm)
                     {
                         Entity roadEdgeComposition = EntityManager.GetComponentData<Composition>(_road).m_Edge;
                         NetCompositionData roadCompositionData = EntityManager.GetComponentData<NetCompositionData>(roadEdgeComposition);
@@ -877,11 +927,12 @@
                         if (roadFormFlag.HasFlag(CompositionFlags.General.Elevated)) roadForm = "Elevated";
                         if (roadFormFlag.HasFlag(CompositionFlags.General.Tunnel)) roadForm = "Tunnel";
                         props["Form"] = roadForm;
+                        fieldLength["Form"] = 13;
                     }
 
                     // Retrieve the mean height of the road segment. Expected output: 145.881424
                     // （獲取道路區段的平均高度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height"))
+                    if (useHeight)
                     {
                         Bounds1 roadHeightBounds = EntityManager.GetComponentData<EdgeGeometry>(_road).m_Bounds.y;
                         props["Height"] = (roadHeightBounds.max + roadHeightBounds.min) / 2;
@@ -889,18 +940,22 @@
 
                     // Retrieve the length of the road segment. Expected output: 145.881424
                     // （獲取道路區段的長度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length")) props["Length"] = EntityManager.GetComponentData<Curve>(_road).m_Length;
+                    if (useLength) props["Length"] = EntityManager.GetComponentData<Curve>(_road).m_Length;
 
                     // Retrieve the width of the road segment. Expected output: 17
                     // （獲取道路區段的寬度。預期輸出：17）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Width"))
+                    if (useWidth)
                     {
                         Entity roadEdgeComposition = EntityManager.GetComponentData<Composition>(_road).m_Edge;
                         NetCompositionData roadCompositionData = EntityManager.GetComponentData<NetCompositionData>(roadEdgeComposition);
                         props["Width"] = roadCompositionData.m_Width;
                     }
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object")) props["Object"] = "Road";
+                    if (useObject)
+                    {
+                        props["Object"] = "Road";
+                        fieldLength["Object"] = 9;
+                    }
 
                     roadList.Add(new CartoObject(edges, props, type));
                 }
@@ -921,26 +976,23 @@
                     // Retrieve the custom name for the roundabout. Expected output: "Small roundabout"
                     // （獲取圓環的自訂名稱。預期輸出："小型圓環島"）
                     Entity roundaboutAttached = RoundaboutAttachments[_roundaboutData.Key];
-                    props["Name"] = (roundaboutAttached != Entity.Null) ? m_Name.GetRenderedLabelName(roundaboutAttached) : string.Empty;
+                    string roundaboutName = (roundaboutAttached != Entity.Null) ? m_Name.GetRenderedLabelName(roundaboutAttached) : string.Empty;
+                    props["Name"] = roundaboutName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", roundaboutName);
 
                     // Retrieve the assset name for the road. Expected output: "Small roundabout"
                     // （獲取道路的資產名稱。預期輸出："小型圓環島"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset"))
+                    if (useAsset)
                     {
-                        if (roundaboutAttached != Entity.Null)
-                        {
-                            Entity roundaboutPrefab = EntityManager.GetComponentData<PrefabRef>(roundaboutAttached).m_Prefab;
-                            props["Asset"] = LocaleUtils.Translate($"Assets.NAME[{m_Prefab.GetPrefabName(roundaboutPrefab)}]");
-                        }
-                        else
-                        {
-                            props["Asset"] = m_Name.GetRenderedLabelName(_roundaboutData.Key);
-                        }
+                        string roundaboutAsset = m_Name.GetRenderedLabelName(_roundaboutData.Key);
+                        if (roundaboutAttached != Entity.Null) roundaboutAsset = LocaleUtils.Translate($"Assets.NAME[{m_Prefab.GetPrefabName(EntityManager.GetComponentData<PrefabRef>(roundaboutAttached).m_Prefab)}]");
+                        props["Asset"] = roundaboutAsset;
+                        fieldLength["Asset"] = MiscUtils.GetFieldLength(fieldLength, "Asset", roundaboutAsset);
                     }
 
                     // Retrieve the category of the road. Expected output: "Small"
                     // （獲取道路的分類。預期輸出："Small"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category"))
+                    if (useCategory)
                     {
                         float roundaboutWidth = RoundaboutWidth[_roundaboutData.Key];
                         string roundaboutCategory = "Small";
@@ -956,6 +1008,7 @@
                             }
                         }
                         props["Category"] = roundaboutCategory;
+                        fieldLength["Category"] = 11;
                     }
 
                     // Retrieve the nodes forming the centerline of the road segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
@@ -963,7 +1016,7 @@
                     List<float3> roundaboutCenterline = _roundaboutData.Value;
                     roundaboutCenterline.Add(roundaboutCenterline[0]);
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
+                    if (useCenterLine)
                     {
                         edges["CenterLine"] = roundaboutCenterline;
                         type["CenterLine"] = GeometryType.LineString;
@@ -971,29 +1024,38 @@
 
                     // Retrieve the vehicle driving direction on the road. Expected output: "Forward"
                     // （獲取載具在道路上的行駛方向。預期輸出："Forward"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction"))
+                    if (useDirection)
                     {
-                        if (Instance.Traffic == "Left") props["Direction"] = "Forward";
-                        else props["Direction"] = "Backward";
+                        string roundaboutDirection = (Instance.Traffic == "Left") ? "Forward" : "Backward";
+                        props["Direction"] = roundaboutDirection;
+                        fieldLength["Direction"] = roundaboutDirection.Length + 5;
                     }
 
                     // Retrieve the form of the road. Expected output: "Normal"
                     // （獲取道路的形式。預期輸出："Normal"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form")) props["Form"] = "Normal";
+                    if (useForm)
+                    {
+                        props["Form"] = "Normal";
+                        fieldLength["Form"] = 11;
+                    }
 
                     // Retrieve the mean height of the road segment. Expected output: 145.881424
                     // （獲取道路區段的平均高度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height")) props["Height"] = _roundaboutData.Value[0].y;
+                    if (useHeight) props["Height"] = _roundaboutData.Value[0].y;
 
                     // Retrieve the length of the road segment. Expected output: 145.881424
                     // （獲取道路區段的長度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length")) props["Length"] = GeometryUtils.Length(roundaboutCenterline);
+                    if (useLength) props["Length"] = GeometryUtils.Length(roundaboutCenterline);
 
                     // Retrieve the width of the road segment. Expected output: 8
                     // （獲取道路區段的寬度。預期輸出：8）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Width")) props["Width"] = RoundaboutWidth[_roundaboutData.Key];
+                    if (useWidth) props["Width"] = RoundaboutWidth[_roundaboutData.Key];
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object")) props["Object"] = "Road";
+                    if (useObject)
+                    {
+                        props["Object"] = "Road";
+                        fieldLength["Object"] = 9;
+                    }
 
                     roadList.Add(new CartoObject(edges, props, type));
                 }
@@ -1014,19 +1076,30 @@
                     // Retrieve the custom name for the road. Expected output: "Oak Street"
                     // （獲取道路的自訂名稱。預期輸出："橡木街"）
                     Entity roadSection = EntityManager.GetComponentData<Aggregated>(_trackData.Keys.First()).m_Aggregate;
-                    props["Name"] = m_Name.GetRenderedLabelName(roadSection);
+                    string roundaboutTrackName = m_Name.GetRenderedLabelName(roadSection);
+                    props["Name"] = roundaboutTrackName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", roundaboutTrackName);
 
                     // Retrieve the assset name for the road. Expected output: "Three-Lane One-Way Highway"
                     // （獲取道路的資產名稱。預期輸出："單向三線公路"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset")) props["Asset"] = m_Name.GetRenderedLabelName(_trackData.Keys.First());
+                    if (useAsset)
+                    {
+                        string roundaboutTrackAsset = m_Name.GetRenderedLabelName(_trackData.Keys.First());
+                        props["Asset"] = roundaboutTrackAsset;
+                        fieldLength["Asset"] = MiscUtils.GetFieldLength(fieldLength, "Asset", roundaboutTrackAsset);
+                    }
 
-                    // Retrieve the category of the road. Expected output: "Small"
-                    // （獲取道路的分類。預期輸出："Small"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category")) props["Category"] = Category["TramTracks"];
+                    // Retrieve the category of the road. Expected output: "Tram"
+                    // （獲取道路的分類。預期輸出："Tram"）
+                    if (useCategory)
+                    {
+                        props["Category"] = Category["TramTracks"];
+                        fieldLength["Category"] = 9;
+                    }
 
                     // Retrieve the nodes forming the centerline of the road segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成道路中心線的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
+                    if (useCenterLine)
                     {
                         edges["CenterLine"] = _trackData.Values.First();
                         type["CenterLine"] = GeometryType.LineString;
@@ -1034,7 +1107,7 @@
 
                     // Retrieve the vehicle driving direction on the road. Expected output: "Forward"
                     // （獲取載具在道路上的行駛方向。預期輸出："Forward"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction"))
+                    if (useDirection)
                     {
                         CompositionFlags trackSideCompositionFlags = EntityManager.GetComponentData<Upgraded>(_trackData.Keys.First()).m_Flags;
                         bool leftSideTrack  = trackSideCompositionFlags.m_Left.HasFlag(CompositionFlags.Side.PrimaryTrack);
@@ -1052,21 +1125,31 @@
                         {
                             props["Direction"] = leftSideTrack ? "Backward" : "Forward";
                         }
+
+                        fieldLength["Direction"] = 13;
                     }
 
                     // Retrieve the form of the road. Expected output: "Normal"
                     // （獲取道路的形式。預期輸出："Normal"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form")) props["Form"] = "Normal";
+                    if (useForm)
+                    {
+                        props["Form"] = "Normal";
+                        fieldLength["Form"] = 11;
+                    }
 
                     // Retrieve the mean height of the road segment. Expected output: 145.881424
                     // （獲取道路區段的平均高度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height")) props["Height"] = _trackData.Values.First()[0].y;
+                    if (useHeight) props["Height"] = _trackData.Values.First()[0].y;
 
                     // Retrieve the length of the road segment. Expected output: 145.881424
                     // （獲取道路區段的長度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length")) props["Length"] = GeometryUtils.Length(_trackData.Values.First());
+                    if (useLength) props["Length"] = GeometryUtils.Length(_trackData.Values.First());
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object")) props["Object"] = "Track";
+                    if (useObject)
+                    {
+                        props["Object"] = "Track";
+                        fieldLength["Object"] = 10;
+                    }
 
                     roadList.Add(new CartoObject(edges, props, type));
                 }
@@ -1083,9 +1166,20 @@
         /// Searching for properties of all existing tracks.
         /// （搜尋現有所有軌道的屬性。）
         /// </summary>
-        public List<CartoObject> GetTracksProperties(bool ignoreRoads = true)
+        public List<CartoObject> GetTracksProperties(out Dictionary<string, int> fieldLength, bool ignoreRoads = true)
         {
             List<CartoObject> trackList = new List<CartoObject>();
+            fieldLength = new Dictionary<string, int>();
+            bool useAsset = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset");
+            bool useCategory = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category");
+            bool useCenterLine = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine");
+            bool useDirection = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction");
+            bool useEdge = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge");
+            bool useForm = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form");
+            bool useHeight = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height");
+            bool useLength = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length");
+            bool useObject = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object");
+            bool useWidth = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Width");
 
             foreach (Entity _track in _trackQuery.ToEntityArray(Allocator.Temp))
             {
@@ -1097,7 +1191,7 @@
 
                     // Road properties are already handled in GetRoadsProperties().
                     // （道路的屬性已經在 GetRoadsProperties() 處理過了。）
-                    if ((EntityManager.HasComponent<Road>(_track)) & ignoreRoads) continue;
+                    if ((EntityManager.HasComponent<Road>(_track)) && ignoreRoads) continue;
 
                     // Retrieve the custom name for the track. Expected output: "Tram Track"
                     // （獲取軌道的自訂名稱。預期輸出："電車軌道"）
@@ -1110,26 +1204,33 @@
                     }
 
                     props["Name"] = trackName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", trackName);
 
                     // Retrieve the assset name for the track. Expected output: "Double Train Track"
                     // （獲取軌道的資產名稱。預期輸出："雙軌鐵路"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset")) props["Asset"] = m_Name.GetRenderedLabelName(_track);
+                    if (useAsset)
+                    {
+                        string trackAsset = m_Name.GetRenderedLabelName(_track);
+                        props["Asset"] = trackAsset;
+                        fieldLength["Asset"] = MiscUtils.GetFieldLength(fieldLength, "Asset", trackAsset);
+                    }
 
                     // Retrieve the category of the track. Expected output: "Train"
                     // （獲取軌道的分類。預期輸出："Train"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category"))
+                    if (useCategory)
                     {
                         List<string> trackCategory = new List<string>();
                         if (EntityManager.HasComponent<TrainTrack>(_track)) trackCategory.Add(Category["TrainTracks"]);
                         if (EntityManager.HasComponent<SubwayTrack>(_track)) trackCategory.Add(Category["SubwayTracks"]);
                         if (EntityManager.HasComponent<TramTrack>(_track)) trackCategory.Add(Category["TramTracks"]);
 
-                        props["Category"] = string.Join(";", trackCategory);
+                        props["Category"] = string.Join(", ", trackCategory);
+                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", props["Category"]);
                     }
 
                     // Retrieve the nodes forming the centerline of the track segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成軌道中心線的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
+                    if (useCenterLine)
                     {
                         edges["CenterLine"] = GetNetCenterLine(_track, EntityManager, 1, 1);
                         type["CenterLine"] = GeometryType.LineString;
@@ -1137,7 +1238,7 @@
 
                     // Retrieve the vehicle driving direction on the track. Expected output: "Forward"
                     // （獲取載具在軌道上的行駛方向。預期輸出："Forward"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction"))
+                    if (useDirection)
                     {
                         Entity trackEdgeComposition = EntityManager.GetComponentData<Composition>(_track).m_Edge;
                         RoadComposition trackComposition = EntityManager.GetComponentData<RoadComposition>(trackEdgeComposition);
@@ -1146,11 +1247,12 @@
                         if (trackDirectionFlag.HasFlag(Game.Prefabs.RoadFlags.DefaultIsForward)) trackDirection = "Forward";
                         if (trackDirectionFlag.HasFlag(Game.Prefabs.RoadFlags.DefaultIsBackward)) trackDirection = "Backward";
                         props["Direction"] = trackDirection;
+                        fieldLength["Direction"] = 13;
                     }
 
                     // Retrieve the edge of the track. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成軌道邊緣的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Edge"))
+                    if (useEdge)
                     {
                         edges["Edge"] = GetNetEdge(_track, EntityManager, 3, 1);
                         type["Edge"] = GeometryType.Polygon;
@@ -1158,7 +1260,7 @@
 
                     // Retrieve the form of the track. Expected output: "Normal"
                     // （獲取軌道的形式。預期輸出："Normal"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form"))
+                    if (useForm)
                     {
                         Entity trackEdgeComposition = EntityManager.GetComponentData<Composition>(_track).m_Edge;
                         NetCompositionData trackCompositionData = EntityManager.GetComponentData<NetCompositionData>(trackEdgeComposition);
@@ -1167,11 +1269,12 @@
                         if (trackFormFlag.HasFlag(CompositionFlags.General.Elevated)) trackForm = "Elevated";
                         if (trackFormFlag.HasFlag(CompositionFlags.General.Tunnel)) trackForm = "Tunnel";
                         props["Form"] = trackForm;
+                        fieldLength["Form"] = 13;
                     }
 
                     // Retrieve the mean height of the track segment. Expected output: 145.881424
                     // （獲取軌道區段的平均高度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height"))
+                    if (useHeight)
                     {
                         Bounds1 trackHeightBounds = EntityManager.GetComponentData<EdgeGeometry>(_track).m_Bounds.y;
                         props["Height"] = (trackHeightBounds.max + trackHeightBounds.min) / 2;
@@ -1179,18 +1282,22 @@
 
                     // Retrieve the length of the track segment. Expected output: 145.881424
                     // （獲取軌道區段的長度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length")) props["Length"] = EntityManager.GetComponentData<Curve>(_track).m_Length;
+                    if (useLength) props["Length"] = EntityManager.GetComponentData<Curve>(_track).m_Length;
 
                     // Retrieve the width of the track segment. Expected output: 11
                     // （獲取軌道區段的寬度。預期輸出：11）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Width"))
+                    if (useWidth)
                     {
                         Entity trackEdgeComposition = EntityManager.GetComponentData<Composition>(_track).m_Edge;
                         NetCompositionData trackCompositionData = EntityManager.GetComponentData<NetCompositionData>(trackEdgeComposition);
                         props["Width"] = trackCompositionData.m_Width;
                     }
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object")) props["Object"] = "Track";
+                    if (useObject)
+                    {
+                        props["Object"] = "Track";
+                        fieldLength["Object"] = 10;
+                    }
 
                     trackList.Add(new CartoObject(edges, props, type));
                 }
@@ -1221,18 +1328,28 @@
                     }
 
                     props["Name"] = trackName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", trackName);
 
-                    // Retrieve the assset name for the track. Expected output: "Double Train Track"
-                    // （獲取軌道的資產名稱。預期輸出："雙軌鐵路"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Asset")) props["Asset"] = m_Name.GetRenderedLabelName(_trackData.Keys.First());
+                    // Retrieve the assset name for the track. Expected output: "Tram Track"
+                    // （獲取軌道的資產名稱。預期輸出："電車軌道"）
+                    if (useAsset)
+                    {
+                        string trackAsset = m_Name.GetRenderedLabelName(_trackData.Keys.First());
+                        props["Asset"] = trackAsset;
+                        fieldLength["Asset"] = MiscUtils.GetFieldLength(fieldLength, "Asset", trackAsset);
+                    }
 
                     // Retrieve the category of the track. Expected output: "Tram"
                     // （獲取軌道的分類。預期輸出："Tram"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Category")) props["Category"] = Category["TramTracks"];
+                    if (useCategory)
+                    {
+                        props["Category"] = Category["TramTracks"];
+                        fieldLength["Category"] = 9;
+                    }
 
                     // Retrieve the nodes forming the centerline of the track segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成軌道中心線的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "CenterLine"))
+                    if (useCenterLine)
                     {
                         edges["CenterLine"] = _trackData.Values.First();
                         type["CenterLine"] = GeometryType.LineString;
@@ -1240,7 +1357,7 @@
 
                     // Retrieve the vehicle driving direction on the track. Expected output: "Forward"
                     // （獲取載具在軌道上的行駛方向。預期輸出："Forward"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Direction"))
+                    if (useDirection)
                     {
                         Entity trackEdgeComposition = EntityManager.GetComponentData<Composition>(_trackData.Keys.First()).m_Edge;
                         RoadComposition trackComposition = EntityManager.GetComponentData<RoadComposition>(trackEdgeComposition);
@@ -1249,21 +1366,30 @@
                         if (trackDirectionFlag.HasFlag(Game.Prefabs.RoadFlags.DefaultIsForward)) trackDirection = "Forward";
                         if (trackDirectionFlag.HasFlag(Game.Prefabs.RoadFlags.DefaultIsBackward)) trackDirection = "Backward";
                         props["Direction"] = trackDirection;
+                        fieldLength["Direction"] = 13;
                     }
 
                     // Retrieve the form of the track. Expected output: "Normal"
                     // （獲取軌道的形式。預期輸出："Normal"）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Form")) props["Form"] = "Normal";
+                    if (useForm)
+                    {
+                        props["Form"] = "Normal";
+                        fieldLength["Form"] = 11;
+                    }
 
                     // Retrieve the mean height of the track segment. Expected output: 145.881424
                     // （獲取軌道區段的平均高度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Height")) props["Height"] = _trackData.Values.First()[0].y;
+                    if (useHeight) props["Height"] = _trackData.Values.First()[0].y;
 
                     // Retrieve the length of the track segment. Expected output: 145.881424
                     // （獲取軌道區段的長度。預期輸出：145.881424）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Length")) props["Length"] = GeometryUtils.Length(_trackData.Values.First());
+                    if (useLength) props["Length"] = GeometryUtils.Length(_trackData.Values.First());
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Net, "Object")) props["Object"] = "Track";
+                    if (useObject)
+                    {
+                        props["Object"] = "Track";
+                        fieldLength["Object"] = 11;
+                    }
 
                     trackList.Add(new CartoObject(edges, props, type));
                 }

@@ -134,6 +134,12 @@ namespace Carto
         }
 
         /// <summary>
+        /// The current running Carto version.
+        /// （目前執行中的 Carto 版本。）
+        /// </summary>
+        public static string Version => Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyFileVersionAttribute>().Version;
+
+        /// <summary>
         /// The system managing the world water allocation.
         /// （管理世界內水的安置的系統。）
         /// </summary>

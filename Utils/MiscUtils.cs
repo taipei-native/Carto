@@ -1,5 +1,6 @@
 namespace Carto.Utils
 {
+    using Carto.Domain;
     using Colossal.Json;
     using Colossal.Logging;
     using System;
@@ -10,11 +11,41 @@ namespace Carto.Utils
     using System.Linq;
     using System.Reflection;
     using System.Runtime.InteropServices;
+    using System.Text;
 
     public class MiscUtils
     {
         private static readonly ILog m_Log = Instance.Log;
         
+        /// <summary>
+        /// Combine the field length dictionary.
+        /// （合併欄位長度字典。）
+        /// </summary>
+        /// <param name="dictionaries">The inputted field length dictionaries.（輸入的欄位長度字典。）</param>
+        public static Dictionary<string, int> CombineFieldLengthDictionaries(params Dictionary<string, int>[] dictionaries)
+        {
+            Dictionary<string, int> result = new Dictionary<string, int>();
+
+            foreach(Dictionary<string, int> dictionary in dictionaries)
+            {
+                foreach(KeyValuePair<string, int> kvp in dictionary)
+                {
+                    int newValue = kvp.Value;
+
+                    if (result.TryGetValue(kvp.Key, out int val))
+                    {
+                        result[kvp.Key] = newValue > val ? newValue : val;
+                    }
+                    else
+                    {
+                        result[kvp.Key] = newValue;
+                    }
+                }
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// Combine paths based on current OS platform.
         /// （根據目前的OS平臺結合路徑。）
@@ -50,6 +81,29 @@ namespace Carto.Utils
         public static Dictionary<ExportUtils.FeatureType, Dictionary<string, bool>> DeepCopy(Dictionary<ExportUtils.FeatureType, Dictionary<string, bool>> original)
         {
             return original.ToDictionary(kvp => kvp.Key, kvp => new Dictionary<string, bool>(kvp.Value));
+        }
+
+        /// <summary>
+        /// Get the appropriate field length according to old and new field lengths.
+        /// （根據新舊欄位長度，獲得適當的欄位長度。）
+        /// </summary>
+        /// <param name="collection">The dictionary recording each field's length.（紀錄每個欄位長度的字典。）</param>
+        /// <param name="field">The name of the field.（欄位的名稱。）</param>
+        /// <param name="variable">The new data.（新資料。）</param>
+        public static int GetFieldLength(Dictionary<string, int> collection, string field, object variable)
+        {
+            int TakeTheLongest(string fld, int nlen)
+            {
+                if (collection.TryGetValue(fld, out int oldLength))
+                {
+                    if (nlen + 5 > oldLength) return nlen + 5;
+                    return oldLength;
+                }
+
+                return nlen + 5;
+            }
+
+            return TakeTheLongest(field, Encoding.UTF8.GetByteCount(variable.ToString()));
         }
 
         /// <summary>
@@ -111,7 +165,7 @@ namespace Carto.Utils
         {
             IEnumerable<T> values = Enum.GetValues(typeof(T)).Cast<T>();
             if (values.Contains(input)) return new T[] { input };
-            return values.Where(v => input.Equals(v) || (input.HasFlag(v) && !v.Equals(default(T)))).ToArray();
+            return values.Where(v => input.HasFlag(v) && !v.Equals(default(T))).ToArray();
         }
 
         /// <summary>
@@ -213,6 +267,37 @@ namespace Carto.Utils
                 m_Log.Warn($"An error occured at GetOSPlatform(), returning default \"WINDOWS\". 於 GetOSPlatform() 發生一個錯誤，回傳預設值 \"WINDOWS\"。");
                 return "WINDOWS";
             }
+        }
+
+        /// <summary>
+        /// Check whether a file is locked.
+        /// （確認檔案是否被鎖定。）
+        /// </summary>
+        /// <param name="path">The path to the file.（指向檔案的連結。）</param>
+        public static bool IsFileLocked(string path)
+        {
+            /*
+                # References: （資料來源：）
+                
+                * ChrisW. (2009). Is there a way to check if a file is in use?
+                    https://stackoverflow.com/a/937558
+            */
+
+            if (!File.Exists(path)) return false;
+            
+            try
+            {
+                using(FileStream fs = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                    fs.Close();
+                }
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

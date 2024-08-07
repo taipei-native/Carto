@@ -146,13 +146,16 @@ namespace Carto.Systems
         /// Searching for properties of all existing zonings.
         /// （搜尋現有所有分區的屬性。）
         /// </summary>
-        public List<CartoObject> GetZoningProperties()
+        public List<CartoObject> GetZoningProperties(out Dictionary<string, int> fieldLength)
         {
             bool useColor    = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Color");
             bool useDensity  = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Density");
+            bool useEdge     = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Edge");
+            bool useObject   = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Object");
             bool useTheme    = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Theme");
             bool useZoning   = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Zoning");
             List<CartoObject> zoneList = new List<CartoObject>();
+            fieldLength = new Dictionary<string, int>();
 
             Dictionary<ushort, ZoningType> zoningTypes = GetZoningTypes(useColor, useDensity, useTheme, useZoning);
 
@@ -183,20 +186,32 @@ namespace Carto.Systems
                             CellFlags cellStatus = cell.m_State;
                             ZoningType zoningTypeInfo = zoningTypes[cell.m_Zone.m_Index];
 
-                            if (!cellStatus.HasFlag(CellFlags.Blocked))
+                            // Blocked: The cell is inzonable due to zone-breaking entities. Shared: The cell overlaps one or more cells in the same position.
+                            // （Blocked: 分區單元因破壞分區的實體而無法使用。Shared: 分區單元與一個或多個分區單元在相同位置上重疊。）
+                            if (!cellStatus.HasFlag(CellFlags.Blocked) && !cellStatus.HasFlag(CellFlags.Shared))
                             {
                                 if (!Instance.Settings.UseUnzoned && (zoningTypeInfo.Category == ZoningCategory.None)) continue;
 
                                 // Retrieve the zoning type of each zoning block cell. Expected output: "Low Rent Housing"
                                 // （獲得每個分區單元的分區類別。預期輸出："低租金住宅"）
                                 props["Name"] = zoningTypeInfo.Name;
+                                fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", zoningTypeInfo.Name);
 
-                                if (useColor) props["Color"] = zoningTypeInfo.Color;
-                                if (useDensity) props["Density"] = zoningTypeInfo.Density.ToString();
+                                if (useColor)
+                                {
+                                    props["Color"] = zoningTypeInfo.Color;
+                                    fieldLength["Color"] = 7;
+                                }
+
+                                if (useDensity)
+                                {
+                                    props["Density"] = zoningTypeInfo.Density.ToString();
+                                    fieldLength["Density"] = MiscUtils.GetFieldLength(fieldLength, "Density", zoningTypeInfo.Density.ToString());
+                                }
 
                                 // Retrieve the boundary of each zoning block cell. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                                 // （獲得每個分區單元的邊界。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                                if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Edge"))
+                                if (useEdge)
                                 {
                                     float3 p1 = p0 + j * u + i * v;
                                     float3 p2 = p0 + j * u + (i + 1) * v;
@@ -206,10 +221,23 @@ namespace Carto.Systems
                                     type["Edge"] = GeometryType.Polygon;
                                 }
 
-                                if (useTheme) props["Theme"] = zoningTypeInfo.Theme;
-                                if (useZoning) props["Zoning"] = zoningTypeInfo.Category.ToString();
+                                if (useTheme)
+                                {
+                                    props["Theme"] = zoningTypeInfo.Theme;
+                                    fieldLength["Theme"] = MiscUtils.GetFieldLength(fieldLength, "Theme", zoningTypeInfo.Theme);
+                                }
 
-                                if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Zoning, "Object")) props["Object"] = "Zoning";
+                                if (useZoning)
+                                {
+                                    props["Zoning"] = zoningTypeInfo.Category.ToString();
+                                    fieldLength["Zoning"] = MiscUtils.GetFieldLength(fieldLength, "Zoning", zoningTypeInfo.Category.ToString());
+                                }
+
+                                if (useObject)
+                                {
+                                    props["Object"] = "Zoning";
+                                    fieldLength["Object"] = 11;
+                                }
 
                                 zoneList.Add(new CartoObject(edges, props, type));
                             }

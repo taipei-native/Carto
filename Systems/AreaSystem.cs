@@ -88,9 +88,10 @@
         /// Searching for properties of all existing districts.
         /// （搜尋現有所有行政區的屬性。）
         /// </summary>
-        public List<CartoObject> GetDistrictsProperties()
+        public List<CartoObject> GetDistrictsProperties(out Dictionary<string, int> fieldLength)
         {   
             List<CartoObject> distList = new List<CartoObject>();
+            fieldLength = new Dictionary<string, int>();
 
             foreach (Entity _district in _districtQuery.ToEntityArray(Allocator.Temp))
             {
@@ -99,23 +100,28 @@
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
                     var type = new Dictionary<string, GeometryType>();
+                    bool useArea = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Area");
+                    bool useCenter = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Center");
+                    bool useEdge = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Edge");
+                    bool useObject = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Object");
 
                     // Retrieve the custom name for the district. Expected output: "Apple Hill"
                     // （獲取行政區的自訂名稱。預期輸出："蘋果高地"）
                     string distName = m_Name.GetRenderedLabelName(_district);
                     props["Name"] = distName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", distName);
 
                     // Retrieve the area of the district. Expected output: 447895
                     // （獲取行政區的面積。預期輸出：447895）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Area")) props["Area"] = EntityManager.GetComponentData<Geometry>(_district).m_SurfaceArea;
+                    if (useArea) props["Area"] = EntityManager.GetComponentData<Geometry>(_district).m_SurfaceArea; 
 
                     // Retrieve the center position of the district. Expected output: float3(-131.263f, 547.2352f, 819.4241f)
                     // （獲取行政區的中心點。預期輸出：float3(-131.263f, 547.2352f, 819.4241f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Center")) props["Center"] = EntityManager.GetComponentData<Geometry>(_district).m_CenterPosition;
+                    if (useCenter) props["Center"] = EntityManager.GetComponentData<Geometry>(_district).m_CenterPosition;
 
                     // Retrieve the nodes forming the boundary of the district. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成行政區邊界的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Edge"))
+                    if (useEdge)
                     {
                         List<float3> distNodes = new List<float3>();
                         foreach (Node _node in EntityManager.GetBuffer<Node>(_district)) distNodes.Add(_node.m_Position);
@@ -123,7 +129,11 @@
                         type["Edge"] = GeometryType.Polygon;
                     }
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Object")) props["Object"] = "District";
+                    if (useObject)
+                    {
+                        props["Object"] = "District";
+                        fieldLength["Object"] = 13;
+                    }
 
                     distList.Add(new CartoObject(edges, props, type));
                 }
@@ -140,9 +150,10 @@
         /// Searching for properties of all existing map tiles.
         /// （搜尋現有所有地圖區塊的屬性。） 
         /// </summary>
-        public List<CartoObject> GetMapTilesProperties()
+        public List<CartoObject> GetMapTilesProperties(out Dictionary<string, int> fieldLength)
         {
             List<CartoObject> tileList = new List<CartoObject>();
+            fieldLength = new Dictionary<string, int>();
 
             foreach (Entity _tile in _mapTileQuery.ToEntityArray(Allocator.Temp))
             {
@@ -151,23 +162,29 @@
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
                     var type = new Dictionary<string, GeometryType>();
+                    bool useArea = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Area");
+                    bool useCenter = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Center");
+                    bool useEdge = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Edge");
+                    bool useObject = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Object");
+                    bool useUnlocked = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Unlocked");
 
                     // Retrieve the debug name for the map tile. Expected output: "Map Tile 45543"
                     // （獲取地圖區塊的自訂名稱。預期輸出："Map Tile 45543"）
                     string tileName = m_Name.GetDebugName(_tile);
                     props["Name"] = tileName;
+                    fieldLength["Name"] = MiscUtils.GetFieldLength(fieldLength, "Name", tileName);
 
                     // Retrieve the area of the map tile. Expected output: 447895
                     // （獲取地圖區塊的面積。預期輸出：447895）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Area")) props["Area"] = EntityManager.GetComponentData<Geometry>(_tile).m_SurfaceArea;
+                    if (useArea) props["Area"] = EntityManager.GetComponentData<Geometry>(_tile).m_SurfaceArea;
 
                     // Retrieve the center position of the map tile. Expected output: float3(-131.263f, 547.2352f, 819.4241f)
                     // （獲取地圖區塊的中心點。預期輸出：float3(-131.263f, 547.2352f, 819.4241f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Center")) props["Center"] = EntityManager.GetComponentData<Geometry>(_tile).m_CenterPosition;
+                    if (useCenter) props["Center"] = EntityManager.GetComponentData<Geometry>(_tile).m_CenterPosition;
 
                     // Retrieve the nodes forming the boundary of the map tile. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
                     // （獲取組成地圖區塊邊界的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Edge"))
+                    if (useEdge)
                     {
                         List<float3> tileNodes = new List<float3>();
                         foreach (Node _node in EntityManager.GetBuffer<Node>(_tile)) tileNodes.Add(_node.m_Position);
@@ -177,9 +194,13 @@
 
                     // Retrieve the unlocked status of the map tile. Expected output: true
                     // （獲取地圖區塊的解鎖狀態。預期輸出：True）
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Unlocked")) props["Unlocked"] = !EntityManager.HasComponent<Native>(_tile);
+                    if (useUnlocked) props["Unlocked"] = !EntityManager.HasComponent<Native>(_tile);
 
-                    if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Area, "Object")) props["Object"] = "Map Tile";
+                    if (useObject)
+                    {
+                        props["Object"] = "Map Tile";
+                        fieldLength["Object"] = 13;
+                    }
 
                     tileList.Add(new CartoObject(edges, props, type));
                 }

@@ -4,9 +4,12 @@ namespace Carto.Utils
     using Carto.Geodata;
     using Carto.Systems;
     using Colossal.Logging;
+    using Game.UI;
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
+    using System.Reflection;
     using Unity.Mathematics;
 
     /// <summary>
@@ -26,7 +29,9 @@ namespace Carto.Utils
         {
             None = 0,
             Latitude = 1,
-            Longitude = 2
+            Longitude = 2,
+            ShareViolation = 4,
+            MissingSpatialFields = 8
         }
 
         /// <summary>
@@ -68,6 +73,17 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// The enum storing the availible GeoTIFF formats.
+        /// （儲存GeoTIFF格式的列舉。）
+        /// </summary>
+        public enum GeoTIFFFormat
+        {
+            Int16,
+            Norm16,
+            Float32
+        }
+
+        /// <summary>
         /// The enum storing the file naming format.
         /// （儲存檔案命名格式的列舉。）
         /// </summary>
@@ -88,8 +104,8 @@ namespace Carto.Utils
             { FeatureType.Area, new Dictionary<string, bool>{ { "Area", false }, { "Center", false }, { "Edge", true }, { "Object", true }, { "Unlocked", true } }},
             { FeatureType.Building, new Dictionary<string, bool>{ { "Address", true }, { "Asset", true }, { "Brand", false }, { "Category", true }, { "Edge", true }, { "Employee", true }, { "Household", false }, { "Level", false }, { "Object", true }, { "Product", false }, { "Resident", true }, { "Zoning", true }  }},
             { FeatureType.Net, new Dictionary<string, bool> { { "Asset", true }, { "Category", true }, { "CenterLine", true }, { "Direction", true }, { "Edge", true }, { "Form", true }, { "Height", false }, { "Length", false }, { "Object", true }, { "Width", false } }},
-            { FeatureType.Terrain, new Dictionary<string, bool> { { "Elevation", true } }},
-            { FeatureType.Water, new Dictionary<string, bool> { { "Depth", true } }},
+            { FeatureType.Terrain, new Dictionary<string, bool> { { "Elevation", true }, { "WorldElevation", false } }},
+            { FeatureType.Water, new Dictionary<string, bool> { { "Depth", true }, { "WorldDepth", false } }},
             { FeatureType.Zoning, new Dictionary<string, bool> { { "Color", false }, { "Density", false }, { "Edge", true }, { "Object", true }, { "Theme", false }, { "Zoning", true } }}
         };
 
@@ -126,6 +142,32 @@ namespace Carto.Utils
             { "Width", typeof(float) },
             { "Zoning", typeof(string) }
         };
+
+        /// <summary>
+        /// The features available in the raster type.
+        /// （適用於網格類型的圖徵。）
+        /// </summary>
+        public static FeatureType[] RasterFeatures => new FeatureType[] { FeatureType.Terrain, FeatureType.Water};
+
+        /// <summary>
+        /// The title of spatial fields.
+        /// （空間欄位的名稱。）
+        /// </summary>
+        public static Dictionary<FeatureType, string[]> SpatialFields => new Dictionary<FeatureType, string[]>
+        {
+            { FeatureType.Area,     new string[] { "Edge" } },
+            { FeatureType.Building, new string[] { "Edge" } },
+            { FeatureType.Net,      new string[] { "CenterLine", "Edge" } },
+            { FeatureType.Terrain,  new string[] { "Elevation", "WorldElevation" } },
+            { FeatureType.Water,    new string[] { "Depth", "WorldDepth" } },
+            { FeatureType.Zoning,   new string[] { "Edge" } },
+        };
+
+        /// <summary>
+        /// The features available in the vector type.
+        /// （適用於向量類型的圖徵。）
+        /// </summary>
+        public static FeatureType[] VectorFeatures => new FeatureType[] { FeatureType.Area, FeatureType.Building, FeatureType.Net, FeatureType.Zoning };
 
         /// <summary>
         /// The method handling the validation of settings and export of the files.
@@ -174,6 +216,7 @@ namespace Carto.Utils
                 {
                     case ExportFormats.GeoJSON:
                         input.ToGeoJSON($"{fileName}.json", target, suppressFieldError);
+                        m_Log.Info($"File exported. 已輸出檔案。({fileName}.json)");
                         break;
 
                     //case ExportFormats.GeoPackage:
@@ -181,102 +224,212 @@ namespace Carto.Utils
                     //    break;
 
                     case ExportFormats.GeoTIFF:
-                        input.ToGeoTIFF($"{fileName}.tif", target);
+                        int depth = Instance.Settings.TIFFFormat == GeoTIFFFormat.Float32 ? 32 : 16;
+                        input.ToGeoTIFF($"{fileName}.tif", target, depth);
+                        m_Log.Info($"File exported. 已輸出檔案。({fileName}.tif)");
                         break;
 
                     case ExportFormats.Shapefile:
                         input.ToShapefile($"{fileName}.shp", target, suppressFieldError);
+                        m_Log.Info($"File exported. 已輸出檔案。({fileName}.shp)");
                         break;
                 }
             }
 
-            string GetFileName(string feature)
+            string GetFileName(string feature, bool verbose = true)
             {
-                string translated = string.Empty;
-
-                if (feature.Split('_').Length > 1)
-                {
-                    List<string> stringList = new List<string>();
-
-                    foreach (string section in feature.Split('_'))
-                    {
-                        if (LocaleUtils.TryTranslate($"Options.OPTION[Carto.Carto.Mod.Setting.Export{section}]", out string featureType))
-                        {
-                            stringList.Add(featureType);
-                        }
-                        else if (LocaleUtils.TryTranslate($"Options.OPTION[Carto.Carto.Mod.Setting.ExportField{section}]", out string fieldName))
-                        {
-                            stringList.Add(fieldName);
-                        }
-                        else
-                        {
-                            stringList.Add(section);
-                        }
-                    }
-
-                    translated = string.Join("_", stringList);
-                }
-                else
-                {
-                    translated = LocaleUtils.Translate($"Options.OPTION[Carto.Carto.Mod.Setting.Export{feature}]");
-                }
-
                 switch (Instance.Settings.NamingFormat)
                 {
                     case NamingFormat.Custom:
-                        string customName = MiscUtils.RemoveInvalidChars(Instance.Settings.CustomFileName.Replace("{City}", cityName).Replace("{Map}", mapName).Replace("{Feature}", translated));
+                        string customName = MiscUtils.RemoveInvalidChars(Instance.Settings.CustomFileName.Replace("{City}", cityName).Replace("{Map}", mapName).Replace("{Feature}", feature));
                         if ((customName != null) && (customName != string.Empty)) return customName;
-                        m_Log.Info($"The custom file name is invalid, changing to the default name. 自訂檔案名無效，改為使用預設名稱。");
-                        return translated;
+                        if (verbose) m_Log.Info($"The custom file name is invalid, changing to the default name. 自訂檔案名無效，改為使用預設名稱。");
+                        return feature;
 
                     case NamingFormat.Feature:
-                        return translated;
+                        return feature;
 
                     case NamingFormat.CityName_Feature:
-                        if ((cityName != null) && (cityName != string.Empty)) return $"{cityName}_{translated}";
-                        return $"{LocaleUtils.Translate("Carto.export.UNKNOWN[City]")}_{translated}";
+                        if ((cityName != null) && (cityName != string.Empty)) return $"{cityName}_{feature}";
+                        return $"{LocaleUtils.Translate("Carto.export.UNKNOWN[City]")}_{feature}";
 
                     case NamingFormat.MapName_Feature:
-                        if ((mapName != null) && (mapName != string.Empty)) return $"{mapName}_{translated}";
-                        return $"{LocaleUtils.Translate("Carto.export.UNKNOWN[Map]")}_{translated}";
+                        if ((mapName != null) && (mapName != string.Empty)) return $"{mapName}_{feature}";
+                        return $"{LocaleUtils.Translate("Carto.export.UNKNOWN[Map]")}_{feature}";
 
                     default:
-                        return translated;
+                        return feature;
                 }
             }
+
+            List<string> GetSettingsString()
+            {
+                List<string> fieldSettings = new List<string>();
+                FeatureType[] systems = Enum.GetValues(typeof(FeatureType)).Cast<FeatureType>().ToArray();
+                systems = (Instance.Settings.ExportFormat == ExportFormats.GeoJSON) ? systems.Where(s => RasterFeatures.Contains(s)).ToArray() : systems.Where(s => VectorFeatures.Contains(s)).ToArray();
+
+                for (int i = 0; i < systems.Length; i++)
+                {
+                    string system = systems[i].ToString().ToUpper();
+                    string titleSpaces = new string(' ', 14 - system.Length);
+                    bool systemStatus  = (bool) Instance.Settings.GetType().GetProperty($"Export{systems[i]}").GetValue(Instance.Settings, null);
+                    fieldSettings.Add($"{system}{titleSpaces}{systemStatus}");
+
+                    if (systemStatus)
+                    {
+                        string[] fieldNames = Instance.Settings.ExportFieldArray[systems[i]];
+
+                        for (int j = 0; j < fieldNames.Length; j++)
+                        {
+                            string field = (fieldNames[j].Length > 11) ? $"{fieldNames[j].Substring(0, 9)}..".ToLower() : fieldNames[j].ToLower();
+                            string fieldSpaces = new string(' ', 12 - field.Length);
+                            string fieldStatus = Instance.Settings.FieldStatus[systems[i]][fieldNames[j]] ? "-" : "False";
+                            string decoration = (j == fieldNames.Length - 1) ? "└ " : "├ ";
+                            fieldSettings.Add($"{decoration}{field}{fieldSpaces}{fieldStatus}");
+                        }
+                    }
+                    else
+                    {
+                        fieldSettings.Add("└ (omitted)   -");
+                    }
+
+                    if (i != systems.Length - 1) fieldSettings.Add(string.Empty);
+                }
+
+                return fieldSettings;
+            }
+
+            bool GuaranteeFileAccess(out List<string> accessFailed, out List<string> noSpatialFields)
+            {
+                accessFailed = new List<string>();
+                noSpatialFields = new List<string>();
+                List<string> extension = new List<string>();
+                string root = string.Empty;
+                bool result = true;
+
+                switch (Instance.Settings.ExportFormat)
+                {
+                    case ExportFormats.GeoJSON:
+                        extension.Add("json");
+                        root = Path.Combine(Setting.ContentFolder, "GeoJSON");
+                        break;
+                    
+                    //case ExportFormats.GeoPackage:
+
+                    case ExportFormats.GeoTIFF:
+                        extension.Add("tif");
+                        root = Path.Combine(Setting.ContentFolder, "GeoTIFF");
+                        break;
+                    
+                    case ExportFormats.Shapefile:
+                        extension.AddRange(new List<string> { "cpg", "dbf", "prj", "shp", "shx" });
+                        root = Path.Combine(Setting.ContentFolder, "Shapefile");
+                        break;
+                }
+
+                foreach (FeatureType feature in Enum.GetValues(typeof(FeatureType)).Cast<FeatureType>().ToArray())
+                {
+                    if ((bool) Instance.Settings.GetType().GetProperty($"Export{feature}").GetValue(Instance.Settings, null))
+                    {
+                        string[] validFields = SpatialFields[feature].Where(f => Instance.Settings.FieldStatus[feature][f]).ToArray();
+
+                        if (validFields.Length > 0)
+                        {
+                            foreach (string field in validFields)
+                            {
+                                string fileNameFormat = validFields.Length == 1 ? $"{feature}" : $"{feature}_{field}";
+                                string[] fileNames = extension.Select(ext => Path.Combine(root, $"{GetFileName(fileNameFormat, false)}.{ext}")).ToArray();
+                                
+                                foreach(string fileName in fileNames)
+                                {
+                                    if (MiscUtils.IsFileLocked(fileName))
+                                    {
+                                        result = false;
+                                        accessFailed.Add(fileName);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            noSpatialFields.Add(feature.ToString());
+                        }
+                    }
+                }
+
+                return result;
+            }
+
+            m_Log.Info(new string('=', 30));
+            string version = Instance.Version;
+            string versionSpaces = new string(' ', 15 - version.Length);
+            m_Log.Info($"Export Settings{versionSpaces}{version}");
+            m_Log.Info(new string('-', 30));
+            m_Log.Info($"FORMAT        {Instance.Settings.ExportFormat}");
+            if (Instance.Settings.NamingFormat != NamingFormat.Custom) m_Log.Info($"NAMING        {Instance.Settings.NamingFormat}");
+            if (Instance.Settings.NamingFormat == NamingFormat.Custom) m_Log.Info($"NAMING        Custom ({Instance.Settings.CustomFileName})");
+            m_Log.Info($"LATITUDE      {Instance.Settings.Latitude}");
+            m_Log.Info($"LONGITUDE     {Instance.Settings.Longitude}");
+            m_Log.Info($"TIFF_FORMAT   {Instance.Settings.TIFFFormat}");
+            m_Log.Info($"UNZONED       {Instance.Settings.UseUnzoned}");
+            m_Log.Info($"ZCC_COLORS    {Instance.Settings.UseZCC}");
+            m_Log.Info(new string('-', 30));
+            GetSettingsString().ForEach(line => m_Log.Info(line));
+            m_Log.Info(new string('=', 30));
+
+            Setting.ExportError = default;
 
             if (!MiscUtils.TryGetLatitude(Instance.Settings.Latitude, out double lat))
             {
                 Setting.ExportError |= ExportErrors.Latitude;
-                m_Log.Warn($"Unable to parse latitude `{Instance.Settings.Latitude}`. 無法解析緯度字串 `{Instance.Settings.Latitude}。`");
+                m_Log.Warn($"Unable to parse latitude string.  無法解析緯度字串。(\"{Instance.Settings.Latitude}\")");
             }
             if (!MiscUtils.TryGetLongtitude(Instance.Settings.Longitude, out double lon))
             {
                 Setting.ExportError |= ExportErrors.Longitude;
-                m_Log.Warn($"Unable to parse longitude `{Instance.Settings.Longitude}`. 無法解析經度字串 `{Instance.Settings.Longitude}`。");
+                m_Log.Warn($"Unable to parse longitude string. 無法解析經度字串。(\"{Instance.Settings.Longitude}\")");
             }
             else
             {
                 Setting.MapCenter = (lat, lon);
             }
 
-            if (Setting.ExportError.HasFlag(ExportErrors.Latitude) || Setting.ExportError.HasFlag(ExportErrors.Longitude))
+            if (!GuaranteeFileAccess(out List<string> failed, out List<string> noSpatial))
             {
-                return;  // TODO: Raise the error prompt UI
-            };
+                Setting.ExportError |= ExportErrors.ShareViolation;
+                m_Log.Warn("Unable to access following files: 無法存取以下檔案：");
+                failed.ForEach(file => m_Log.Warn($"  {file}"));
+            }
 
-            m_Log.Info(new string('=', 30));
-            m_Log.Info("Export Settings");
-            m_Log.Info(new string('-', 30));
-            m_Log.Info($"FORMAT   : {Instance.Settings.ExportFormat}");
-            if (Instance.Settings.NamingFormat != NamingFormat.Custom) m_Log.Info($"NAMING   : {Instance.Settings.NamingFormat}");
-            if (Instance.Settings.NamingFormat == NamingFormat.Custom) m_Log.Info($"NAMING   : Custom ({Instance.Settings.CustomFileName})");
-            m_Log.Info($"LATITUDE : {lat}");
-            m_Log.Info($"LONGITUDE: {lon}");
-            m_Log.Info(new string('-', 30));
-            m_Log.Info($"UseUnzoned: {Instance.Settings.UseUnzoned}");
-            m_Log.Info($"UseZCC    : {Instance.Settings.UseZCC}");
-            m_Log.Info(new string('=', 30));
+            if (noSpatial.Count > 0)
+            {
+                Setting.ExportError |= ExportErrors.MissingSpatialFields;
+                m_Log.Info("Following feature types don't have any spatial fields selected: 以下圖徵類型未選取任何空間欄位：");
+                noSpatial.ForEach(feature => m_Log.Info($"  {feature}"));
+            }
+
+            if (Setting.ExportError != ExportErrors.None)
+            {
+                List<string> errors = new List<string>();
+
+                foreach (ExportErrors error in MiscUtils.GetFlagComponents(Setting.ExportError))
+                {
+                    string errorString = LocaleUtils.Translate($"Carto.export.ERROR[{error}]");
+                    if (error == ExportErrors.ShareViolation) errorString = errorString.Replace("{FILES}", string.Join(LocaleUtils.Translate("Carto.common.SEPARATER"), failed.Select(path => $"`{path}`").ToArray()));
+                    if (error == ExportErrors.MissingSpatialFields)
+                    {
+                        List<string> features = new List<string>();
+                        foreach (string feature in noSpatial) features.Add(LocaleUtils.Translate($"Options.Carto.Carto.Mod.FEATURETYPE[{feature}]"));
+                        errorString = errorString.Replace("{FEATURES}", string.Join(LocaleUtils.Translate("Carto.common.SEPARATER"), features));
+                    }
+
+                    errors.Add(errorString);
+                }
+
+                ErrorDialog exportErrorDialog = new ErrorDialog { severity = ErrorDialog.Severity.Warning, localizedTitle = "Common.WARNING", localizedMessage = "Carto.export.ERRORTEXT", errorDetails = string.Join("\n\n", errors), actions = ErrorDialog.Actions.None };
+                ErrorDialogManager.ShowErrorDialog(exportErrorDialog);
+                return;
+            };
 
             Geodata geodata;
 
@@ -301,32 +454,33 @@ namespace Carto.Utils
                 if (Instance.Settings.ExportArea)
                 {
                     List<CartoObject> areas = new List<CartoObject>();
-                    areas.AddRange(Instance.Area.GetDistrictsProperties());
-                    areas.AddRange(Instance.Area.GetMapTilesProperties());
-                    geodata = new Geodata(areas);
+                    Dictionary<string, int> areaFields = new Dictionary<string, int>();
+                    areas.AddRange(Instance.Area.GetDistrictsProperties(out Dictionary<string, int> districtFields));
+                    areas.AddRange(Instance.Area.GetMapTilesProperties(out Dictionary<string, int> mapTileFields));
+                    geodata = new Geodata(areas, MiscUtils.CombineFieldLengthDictionaries(districtFields, mapTileFields));
                     ExportVectorGeodata(areas, geodata, "Area");
                 }
                 if (Instance.Settings.ExportBuilding)
                 {
                     List<CartoObject> buildings = new List<CartoObject>();
-                    buildings.AddRange(Instance.Building.GetBuildingsProperties());
-                    geodata = new Geodata(buildings);
+                    buildings.AddRange(Instance.Building.GetBuildingsProperties(out Dictionary<string, int> buildingField));
+                    geodata = new Geodata(buildings, buildingField);
                     ExportVectorGeodata(buildings, geodata, "Building");
                 }
                 if (Instance.Settings.ExportNet)
                 {
                     List<CartoObject> nets = new List<CartoObject>();
-                    nets.AddRange(Instance.Net.GetRoadsProperties());
-                    nets.AddRange(Instance.Net.GetTracksProperties());
-                    nets.AddRange(Instance.Net.GetPathwayProperties());
-                    geodata = new Geodata(nets);
+                    nets.AddRange(Instance.Net.GetRoadsProperties(out Dictionary<string, int> roadFields));
+                    nets.AddRange(Instance.Net.GetTracksProperties(out Dictionary<string, int> trackFields));
+                    nets.AddRange(Instance.Net.GetPathwayProperties(out Dictionary<string, int> pathFields));
+                    geodata = new Geodata(nets, MiscUtils.CombineFieldLengthDictionaries(roadFields, trackFields, pathFields));
                     ExportVectorGeodata(nets, geodata, "Net", true);
                 }
                 if (Instance.Settings.ExportZoning)
                 {
                     List<CartoObject> zones = new List<CartoObject>();
-                    zones.AddRange(Instance.Zoning.GetZoningProperties());
-                    geodata = new Geodata(zones);
+                    zones.AddRange(Instance.Zoning.GetZoningProperties(out Dictionary<string, int> zoningField));
+                    geodata = new Geodata(zones, zoningField);
                     ExportVectorGeodata(zones, geodata, "Zoning");
                 }
             }

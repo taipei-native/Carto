@@ -11,6 +11,10 @@
     using System;
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Unity.Collections;
+    using Unity.Mathematics;
+    using UnityEngine;
+    using UnityEngine.Rendering;
 
     /// <summary>
     /// The system instance that manages the terrain properties, inheriting from GameSystemBase.
@@ -57,12 +61,11 @@
 
             try
             {
+                TerrainHeightData _terrain = m_Terrain.GetHeightData();
+                Bounds3 terrBounds = TerrainUtils.GetBounds(ref _terrain);
+
                 if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Terrain, "Elevation"))
                 {
-                    TerrainHeightData _terrain = m_Terrain.GetHeightData();
-                    Bounds3 terrBounds = TerrainUtils.GetBounds(ref _terrain);
-                    props["Object"] = "Terrain";
-
                     // Retrive the raster properties.
                     //（獲取網格屬性。）
                     Dictionary<string, object> terrMatrix = new Dictionary<string, object>
@@ -72,7 +75,7 @@
                         { "resolution", _terrain.resolution },
                         { "scale", _terrain.scale }
                     };
-                    props["Matrix"] = terrMatrix;
+                    props["ElevationMatrix"] = terrMatrix;
 
                     // Retrieve the height matrices.
                     // （獲取高度矩陣。）
@@ -81,22 +84,99 @@
 
                     Task[] tasks = new Task[_terrain.resolution.z];
 
-                    for (int i = 0; i < _terrain.resolution.z; i++)
+                    if (Instance.Settings.TIFFFormat != ExportUtils.GeoTIFFFormat.Norm16)
                     {
-                        int z = i;
-                        tasks[z] = Task.Run(() =>
+                        for (int i = 0; i < _terrain.resolution.z; i++)
                         {
-                            for (int j = 0; j < _terrain.resolution.x; j++)
+                            int z = i;
+                            tasks[z] = Task.Run(() =>
                             {
-                                terrElevation[z, j] = (float)Math.Round(terrHeightMap[j + (_terrain.resolution.z - 1 - z) * _terrain.resolution.x] * (terrBounds.y.max - terrBounds.y.min) / 65535, 4);
-                            }
-                        });
+                                for (int j = 0; j < _terrain.resolution.x; j++)
+                                {
+                                    terrElevation[z, j] = (float)Math.Round(terrHeightMap[j + (_terrain.resolution.z - 1 - z) * _terrain.resolution.x] * (terrBounds.y.max - terrBounds.y.min) / 65535, 4);
+                                }
+                            });
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < _terrain.resolution.z; i++)
+                        {
+                            int z = i;
+                            tasks[z] = Task.Run(() =>
+                            {
+                                for (int j = 0; j < _terrain.resolution.x; j++)
+                                {
+                                    terrElevation[z, j] = terrHeightMap[j + (_terrain.resolution.z - 1 - z) * _terrain.resolution.x];
+                                }
+                            });
+                        }
                     }
 
                     Task.WaitAll(tasks);
                     values["Elevation"] = terrElevation;
                     type["Elevation"] = GeometryType.Raster;
                 }
+
+                if (ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Terrain, "WorldElevation") && (m_Terrain.worldHeightmap != null))
+                {
+                    float2 worldOffset = m_Terrain.worldOffset;
+                    float2 worldSize = m_Terrain.worldSize;
+                    Texture worldMap = m_Terrain.worldHeightmap;
+
+                    // Retrive the raster properties.
+                    //（獲取網格屬性。）
+                    Dictionary<string, object> worldMatrix = new Dictionary<string, object>
+                    {
+                        { "offset", new float3(math.abs(worldOffset.x), 0, math.abs(worldOffset.y)) },
+                        { "resolution", new int3(worldMap.width, 65536, worldMap.height) },
+                        { "scale", new float3(worldMap.width / worldSize.x, 16, worldMap.height / worldSize.y) }
+                    };
+                    props["WorldElevationMatrix"] = worldMatrix;
+
+                    // Retrieve the height matrices.
+                    // （獲取高度矩陣。）
+                    NativeArray<ushort> worldHeightmap = new NativeArray<ushort>(worldMap.width * worldMap.height, Allocator.Persistent);
+                    AsyncGPUReadback.RequestIntoNativeArray(ref worldHeightmap, worldMap).WaitForCompletion();
+                    float[,] worldElevation = new float[worldMap.width, worldMap.height];
+
+                    Task[] tasks = new Task[worldMap.height];
+
+                    if (Instance.Settings.TIFFFormat != ExportUtils.GeoTIFFFormat.Norm16)
+                    {
+                        for (int i = 0; i < worldMap.height; i++)
+                        {
+                            int z = i;
+                            tasks[z] = Task.Run(() =>
+                            {
+                                for (int j = 0; j < worldMap.width; j++)
+                                {
+                                    worldElevation[z, j] = (float)Math.Round((double)(worldHeightmap[j + (worldMap.height - 1 - z) * worldMap.width] * (terrBounds.y.max - terrBounds.y.min) / 65535), 4);
+                                }
+                            });
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < worldMap.height; i++)
+                        {
+                            int z = i;
+                            tasks[z] = Task.Run(() =>
+                            {
+                                for (int j = 0; j < worldMap.width; j++)
+                                {
+                                    worldElevation[z, j] = worldHeightmap[j + (worldMap.height - 1 - z) * worldMap.width];
+                                }
+                            });
+                        }
+                    }
+
+                    Task.WaitAll(tasks);
+                    worldHeightmap.Dispose();
+                    values["WorldElevation"] = worldElevation;
+                    type["WorldElevation"] = GeometryType.Raster;
+                }
+
             }
             catch (Exception ex)
             {
