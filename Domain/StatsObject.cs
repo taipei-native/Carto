@@ -71,6 +71,40 @@ namespace Carto.Domain
         /// （統計區域內居住的市民數量。）
         /// </summary>
         public int Resident { get; set; } = 0;
+
+        public static SimpleStatsObject operator + (SimpleStatsObject self, int other)
+        {
+            return new SimpleStatsObject
+            {
+                Brands = self.Brands,
+                Company = self.Company + other,
+                Employee = self.Employee + other,
+                Household = self.Household + other,
+                Products = self.Products,
+                Resident = self.Resident + other
+            };
+        }
+
+        public static SimpleStatsObject operator + (SimpleStatsObject self, SimpleStatsObject other)
+        {
+            List<string> brands = new List<string>();
+            if (self.Brands.Count > 0) brands.AddRange(self.Brands);
+            if (other.Brands.Count > 0) brands.AddRange(other.Brands);
+
+            List<string> products = new List<string>();
+            if (self.Products.Count > 0) products.AddRange(self.Products);
+            if (other.Products.Count > 0) products.AddRange(other.Products);
+            
+            return new SimpleStatsObject
+            {
+                Brands = brands,
+                Company = self.Company + other.Company,
+                Employee = self.Employee + other.Employee,
+                Household = self.Household + other.Household,
+                Products = products,
+                Resident = self.Resident + other.Resident
+            };
+        }
     }
 
     /// <summary>

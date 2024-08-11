@@ -134,6 +134,12 @@ namespace Carto
         }
 
         /// <summary>
+        /// The user interface manager of the game.
+        /// （遊戲的使用者介面管理器。）
+        /// </summary>
+        public static UserInterface UI => GameManager.instance.userInterface;
+
+        /// <summary>
         /// The current running Carto version.
         /// （目前執行中的 Carto 版本。）
         /// </summary>
@@ -156,6 +162,77 @@ namespace Carto
         /// （Carto模組的ZoningSystem個體。）
         /// </summary>
         public static ZoningSystem Zoning => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<ZoningSystem>();
+
+        /// <summary>
+        /// Zone Color Changer mod developed by TDW and Trejak.
+        /// （由TDW和Trejak開發的Zone Color Changer模組。）
+        /// </summary>
+        //  PDX Mods link: https://mods.paradoxplaza.com/mods/87190/Windows
+        //  （PDX Mods 連結：https://mods.paradoxplaza.com/mods/87190/Windows）
+        public static class RBMod
+        {
+            private static Assembly assembly;
+            private static bool ready = false;
+            private static string version = string.Empty;
+
+            static RBMod()
+            {
+                try
+                {
+                    foreach (ModManager.ModInfo modInfo in GameManager.instance.modManager)
+                    {
+                        if (modInfo.name.StartsWith("RoadBuilder"))
+                        {
+                            assembly = modInfo.asset.assembly;
+                            ready = true;
+                            version = assembly.GetName().Version.ToString();
+                            Log.Debug($"Instance.RBMod: Successfully retrieve the assembly of Road Builder [{version}]. 成功獲取 Road Builder [{version}] 模組組件。");
+                            break;
+                        }
+                    }
+
+                    if (!ready) Log.Debug($"Instance.RBMod: Failed to retrieve the assembly of Road Builder. 無法獲取 Road Builder 模組組件。");
+                }
+                catch
+                {
+                    Log.Debug($"Instance.RBMod: Road Builder mod is not loaded. Road Builder 模組尚未載入。");
+                }
+            }
+
+            /// <summary>
+            /// The assembly of the mod.
+            /// （模組的組件。）
+            /// </summary>
+            public static Assembly Assembly
+            {
+                get
+                {
+                    if (assembly == null)
+                    {
+                        throw new FileNotFoundException("Road Builder mod is not loaded. Road Builder 模組尚未載入。");
+                    }
+                    return assembly;
+                }
+            }
+
+            /// <summary>
+            /// The activation status of the mod.
+            /// （模組的啟用狀態。）
+            /// </summary>
+            public static bool Ready => ready;
+
+            /// <summary>
+            /// The version of the assembly of the mod which works smoothly with Carto mod.
+            /// （能與Carto模組正常運行的模組組件版本。）
+            /// </summary>
+            public const string SuggestedVersion = "0.1.0.0";
+
+            /// <summary>
+            /// The version of the assembly.
+            /// （模組組件的版本。）
+            /// </summary>
+            public static string Version => version;
+        }
 
         /// <summary>
         /// Zone Color Changer mod developed by TDW.

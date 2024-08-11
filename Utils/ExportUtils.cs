@@ -9,7 +9,6 @@ namespace Carto.Utils
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Reflection;
     using Unity.Mathematics;
 
     /// <summary>
@@ -101,8 +100,8 @@ namespace Carto.Utils
         /// </summary>
         public static Dictionary<FeatureType, Dictionary<string, bool>> ExportFieldSettings = new Dictionary<FeatureType, Dictionary<string, bool>>
         {
-            { FeatureType.Area, new Dictionary<string, bool>{ { "Area", false }, { "Center", false }, { "Edge", true }, { "Object", true }, { "Unlocked", true } }},
-            { FeatureType.Building, new Dictionary<string, bool>{ { "Address", true }, { "Asset", true }, { "Brand", false }, { "Category", true }, { "Edge", true }, { "Employee", true }, { "Household", false }, { "Level", false }, { "Object", true }, { "Product", false }, { "Resident", true }, { "Zoning", true }  }},
+            { FeatureType.Area, new Dictionary<string, bool>{ { "Area", false }, { "Center", false }, { "Company", false }, { "Edge", true }, { "Employee", true }, { "Household", false }, { "Object", true }, { "Resident", true }, { "Unlocked", true } }},
+            { FeatureType.Building, new Dictionary<string, bool>{ { "Address", true }, { "Asset", true }, { "Brand", false }, { "Category", true }, { "Edge", true }, { "Employee", true }, { "Household", false }, { "Level", false }, { "Object", true }, { "Product", false }, { "Resident", true }, { "Theme", false }, { "Zoning", true }  }},
             { FeatureType.Net, new Dictionary<string, bool> { { "Asset", true }, { "Category", true }, { "CenterLine", true }, { "Direction", true }, { "Edge", true }, { "Form", true }, { "Height", false }, { "Length", false }, { "Object", true }, { "Width", false } }},
             { FeatureType.Terrain, new Dictionary<string, bool> { { "Elevation", true }, { "WorldElevation", false } }},
             { FeatureType.Water, new Dictionary<string, bool> { { "Depth", true }, { "WorldDepth", false } }},
@@ -125,6 +124,7 @@ namespace Carto.Utils
             { "Category", typeof(string) },
             { "Center", typeof(float3) },
             { "Color", typeof(string) },
+            { "Company", typeof(int) },
             { "Density", typeof(string) },
             { "Direction", typeof(string) },
             { "Employee", typeof(int) },
@@ -266,7 +266,7 @@ namespace Carto.Utils
             {
                 List<string> fieldSettings = new List<string>();
                 FeatureType[] systems = Enum.GetValues(typeof(FeatureType)).Cast<FeatureType>().ToArray();
-                systems = (Instance.Settings.ExportFormat == ExportFormats.GeoJSON) ? systems.Where(s => RasterFeatures.Contains(s)).ToArray() : systems.Where(s => VectorFeatures.Contains(s)).ToArray();
+                systems = (Instance.Settings.ExportFormat == ExportFormats.GeoTIFF) ? systems.Where(s => RasterFeatures.Contains(s)).ToArray() : systems.Where(s => VectorFeatures.Contains(s)).ToArray();
 
                 for (int i = 0; i < systems.Length; i++)
                 {
@@ -299,11 +299,12 @@ namespace Carto.Utils
                 return fieldSettings;
             }
 
-            bool GuaranteeFileAccess(out List<string> accessFailed, out List<string> noSpatialFields)
+            bool GuaranteeFileAccess(out List<string> accessFailed, out List<string> noSpatialFields, out int fileCount)
             {
                 accessFailed = new List<string>();
                 noSpatialFields = new List<string>();
                 List<string> extension = new List<string>();
+                fileCount = 0;
                 string root = string.Empty;
                 bool result = true;
 
@@ -327,7 +328,10 @@ namespace Carto.Utils
                         break;
                 }
 
-                foreach (FeatureType feature in Enum.GetValues(typeof(FeatureType)).Cast<FeatureType>().ToArray())
+                FeatureType[] features = Enum.GetValues(typeof(FeatureType)).Cast<FeatureType>().ToArray();
+                features = (Instance.Settings.ExportFormat == ExportFormats.GeoTIFF) ? features.Where(s => RasterFeatures.Contains(s)).ToArray() : features.Where(s => VectorFeatures.Contains(s)).ToArray();
+
+                foreach (FeatureType feature in features)
                 {
                     if ((bool) Instance.Settings.GetType().GetProperty($"Export{feature}").GetValue(Instance.Settings, null))
                     {
@@ -347,6 +351,8 @@ namespace Carto.Utils
                                         result = false;
                                         accessFailed.Add(fileName);
                                     }
+
+                                    fileCount ++;
                                 }
                             }
                         }
@@ -371,6 +377,7 @@ namespace Carto.Utils
             m_Log.Info($"LATITUDE      {Instance.Settings.Latitude}");
             m_Log.Info($"LONGITUDE     {Instance.Settings.Longitude}");
             m_Log.Info($"TIFF_FORMAT   {Instance.Settings.TIFFFormat}");
+            m_Log.Info($"HOMELESS      {Instance.Settings.UseHomeless}");
             m_Log.Info($"UNZONED       {Instance.Settings.UseUnzoned}");
             m_Log.Info($"ZCC_COLORS    {Instance.Settings.UseZCC}");
             m_Log.Info(new string('-', 30));
@@ -394,7 +401,7 @@ namespace Carto.Utils
                 Setting.MapCenter = (lat, lon);
             }
 
-            if (!GuaranteeFileAccess(out List<string> failed, out List<string> noSpatial))
+            if (!GuaranteeFileAccess(out List<string> failed, out List<string> noSpatial, out int fileCountTotal))
             {
                 Setting.ExportError |= ExportErrors.ShareViolation;
                 m_Log.Warn("Unable to access following files: 無法存取以下檔案：");
@@ -430,6 +437,8 @@ namespace Carto.Utils
                 ErrorDialogManager.ShowErrorDialog(exportErrorDialog);
                 return;
             };
+
+            if (!Directory.Exists(Setting.ContentFolder)) Directory.CreateDirectory(Setting.ContentFolder);
 
             Geodata geodata;
 
@@ -486,6 +495,8 @@ namespace Carto.Utils
             }
 
             m_Log.Info(string.Empty);
+            MessageDialog exportSuccessDialog = new MessageDialog("Options.SECTION[Carto.Carto.Mod]", LocaleUtils.Translate("Carto.export.SUCCESSTEXT").Replace("{NUMBER}", $"{fileCountTotal}"), "Common.OK");
+            Instance.UI.appBindings.ShowMessageDialog(exportSuccessDialog, null);
         }
 
         /// <summary>

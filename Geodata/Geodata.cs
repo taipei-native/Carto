@@ -537,6 +537,7 @@
             string shpPath = MiscUtils.CombinePath(_contentFolder, "Shapefile", $"{filePrefix}.shp");
             string shxPath = MiscUtils.CombinePath(_contentFolder, "Shapefile", $"{filePrefix}.shx");
             GeometryType shpType = Objects[0].Type.TryGetValue(field, out GeometryType _t) ? _t : GeometryType.None;
+            Directory.CreateDirectory(MiscUtils.CombinePath(_contentFolder, "Shapefile"));
 
             /// <summary>
             /// Get corresponding dBASE field symbols by data type.
@@ -1045,21 +1046,21 @@
 
             // Write the projection file. （寫出投影檔案。）
             var prj = new StringBuilder();
-            prj.AppendLine($"PROJCS[\"WGS_1984_UTM_Zone_{_center.z}{_center.h}\",");
-            prj.AppendLine("\tGEOGCS[\"GCS_WGS_1984\",");
-            prj.AppendLine("\t\tDATUM[\"D_WGS_1984\",");
-            prj.AppendLine("\t\t\tSPHEROID[\"WGS_1984\",6378137.0,298.257223563]],");
-            prj.AppendLine("\t\tPRIMEM[\"Greenwich\",0.0],");
-            prj.AppendLine("\t\tUNIT[\"Degree\",0.0174532925199433]],");
-            prj.AppendLine($"\tPROJECTION[\"Transverse_Mercator\"],");
-            prj.AppendLine("\tPARAMETER[\"False_Easting\",500000.0],");
-            prj.AppendLine($"\tPARAMETER[\"False_Northing\",{(_center.h == "N" ? 0 : 10000000)}.0],");
-            prj.AppendLine($"\tPARAMETER[\"Central_Meridian\",{(_center.z - 1) * 6 + 3 - 180}.0],");
-            prj.AppendLine("\tPARAMETER[\"Scale_Factor\",0.9996],");
-            prj.AppendLine("\tPARAMETER[\"Latitude_Of_Origin\",0.0],");
-            prj.AppendLine($"\tUNIT[\"Meter\",1.0]]");
+            prj.Append($"PROJCS[\"WGS_1984_UTM_Zone_{_center.z}{_center.h}\",");
+            prj.Append("GEOGCS[\"GCS_WGS_1984\",");
+            prj.Append("DATUM[\"D_WGS_1984\",");
+            prj.Append("SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],");
+            prj.Append("PRIMEM[\"Greenwich\",0.0],");
+            prj.Append("UNIT[\"Degree\",0.0174532925199433]],");
+            prj.Append($"PROJECTION[\"Transverse_Mercator\"],");
+            prj.Append("PARAMETER[\"False_Easting\",500000.0],");
+            prj.Append($"PARAMETER[\"False_Northing\",{(_center.h == "N" ? 0 : 10000000)}.0],");
+            prj.Append($"PARAMETER[\"Central_Meridian\",{(_center.z - 1) * 6 + 3 - 180}.0],");
+            prj.Append("PARAMETER[\"Scale_Factor\",0.9996],");
+            prj.Append("PARAMETER[\"Latitude_Of_Origin\",0.0],");
+            prj.Append($"UNIT[\"Meter\",1.0]]");
             File.WriteAllText(prjPath, string.Empty, Encoding.UTF8);
-            File.AppendAllText(prjPath, prj.ToString(), Encoding.UTF8);
+            File.WriteAllText(prjPath, prj.ToString(), new UTF8Encoding(false));
 
             // Write the codepage file.（寫出字元編碼頁檔案。）
             File.WriteAllText(cpgPath, string.Empty, Encoding.UTF8);

@@ -157,7 +157,7 @@ namespace Carto.Systems
         {
             BuildingCategory category = BuildingCategory.None;
 
-            if (entityManager.HasChunkComponent<UnderConstruction>(building))
+            if (entityManager.HasComponent<UnderConstruction>(building))
             {
                 category |= BuildingCategory.Construction;
             }
@@ -304,12 +304,27 @@ namespace Carto.Systems
             List<CartoObject> buildList = new List<CartoObject>();
             Dictionary<ushort, ZoningType> zoningTypes;
             Dictionary<Entity, ZoningCategory?> zoningCategories;
+            Dictionary<Entity, string> zoningThemes;
             fieldLength = new Dictionary<string, int>();
+            bool useAddress = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Address");
+            bool useAsset = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Asset");
+            bool useBrand = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Brand");
+            bool useCategory = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Category");
+            bool useEdge = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Edge");
+            bool useEmployee = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Employee");
+            bool useHousehold = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Household");
+            bool useLevel = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Level");
+            bool useObject = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Object");
+            bool useProduct = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Product");
+            bool useResident = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Resident");
+            bool useTheme = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Theme");
+            bool useZoning = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Zoning");
 
             if (true)
             {
-                zoningTypes = Instance.Zoning.GetZoningTypes(useColor: false, useDensity: false, useTheme: false, useZoning: true);
+                zoningTypes = Instance.Zoning.GetZoningTypes(false, false, useTheme, useZoning);
                 zoningCategories = zoningTypes.ToDictionary(kvp => kvp.Value.Entity, kvp => kvp.Value.Category);
+                zoningThemes = zoningTypes.ToDictionary(kvp => kvp.Value.Entity, kvp => kvp.Value.Theme);
             }
 
             foreach (Entity _build in _buildingQuery.ToEntityArray(Allocator.Temp))
@@ -319,21 +334,9 @@ namespace Carto.Systems
                     var edges = new Dictionary<string, List<float3>>();
                     var props = new Dictionary<string, object>();
                     var type = new Dictionary<string, GeometryType>();
-                    bool useAddress   = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Address");
-                    bool useAsset     = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Asset");
-                    bool useBrand     = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Brand");
-                    bool useCategory  = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Category");
-                    bool useEdge      = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Edge");
-                    bool useEmployee  = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Employee");
-                    bool useHousehold = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Household");
-                    bool useLevel     = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Level");
-                    bool useObject    = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Object");
-                    bool useProduct   = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Product");
-                    bool useResident  = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Resident");
-                    bool useZoning    = ExportUtils.GetFieldStatus(ExportUtils.FeatureType.Building, "Zoning");
 
                     Entity buildPrefab = EntityManager.GetComponentData<PrefabRef>(_build).m_Prefab;
-                    SimpleStatsObject buildStats = GetBuildingSimpleStats(_build, useBrand, useEmployee, useHousehold, useProduct, useResident, EntityManager, out bool hasShop);
+                    SimpleStatsObject buildStats = GetBuildingSimpleStats(_build, useBrand, false, useEmployee, useHousehold, useProduct, useResident, EntityManager, out bool hasShop);
 
                     // Retrieve the name of the building.
                     // （獲取建築的名稱。）
@@ -418,15 +421,43 @@ namespace Carto.Systems
                     // （獲取建築內的居民人數。預期輸出：48）
                     if (useResident) props["Resident"] = buildStats.Resident;
 
-                    // Retrieve the zoning purposes of the building. Expected output: Residential, Commercial
-                    // （獲取建築的分區用途。預期輸出：Residential, Commercial）
-                    if (useZoning)
+                    if (useTheme || useZoning)
                     {
-                        string buildZoning = EntityManager.HasComponent<SpawnableBuildingData>(buildPrefab) ? zoningCategories[EntityManager.GetComponentData<SpawnableBuildingData>(buildPrefab).m_ZonePrefab].ToString() : "None";
-                        props["Zoning"] = buildZoning;
-                        fieldLength["Zoning"] = MiscUtils.GetFieldLength(fieldLength, "Zoning", buildZoning);
-                    }
+                        if (EntityManager.HasComponent<SpawnableBuildingData>(buildPrefab))
+                        {
+                            Entity zone = EntityManager.GetComponentData<SpawnableBuildingData>(buildPrefab).m_ZonePrefab;
 
+                            // Retrieve the theme of the building. Expected output: European
+                            // （獲取建築的主題風格。預期輸出：歐式）
+                            if (useTheme)
+                            {
+                                props["Theme"] = zoningThemes[zone];
+                                fieldLength["Theme"] = MiscUtils.GetFieldLength(fieldLength, "Theme", zoningThemes[zone]);
+                            }
+
+                            // Retrieve the zoning purposes of the building. Expected output: Residential, Commercial
+                            // （獲取建築的分區用途。預期輸出：Residential, Commercial）
+                            if (useZoning)
+                            {
+                                props["Zoning"] = zoningCategories[zone].ToString();
+                                fieldLength["Zoning"] = MiscUtils.GetFieldLength(fieldLength, "Zoning", zoningCategories[zone].ToString());
+                            }
+                        }
+                        else
+                        {
+                            if (useTheme)
+                            {
+                                props["Theme"] = LocaleUtils.Translate("Assets.THEME[Carto Generic]");
+                                fieldLength["Theme"] = MiscUtils.GetFieldLength(fieldLength, "Theme", LocaleUtils.Translate("Assets.THEME[Carto Generic]"));
+                            }
+
+                            if (useZoning)
+                            {
+                                props["Zoning"] = ZoningCategory.None.ToString();
+                                fieldLength["Zoning"] = MiscUtils.GetFieldLength(fieldLength, "Zoning", ZoningCategory.None.ToString());
+                            }
+                        }
+                    }
 
                     if (useObject)
                     {
@@ -457,13 +488,14 @@ namespace Carto.Systems
         /// <param name="useResident">Whether to export the number of residents.（是否輸出居民數量。）</param>
         /// <param name="entityManager">The systems' entity manager.（系統的實體管理器。）</param>
         /// <param name="hasShop">Whether there are shops in the building.（建築內是否有商店。）</param>
-        public static SimpleStatsObject GetBuildingSimpleStats(Entity buildingEntity, bool useBrand, bool useEmployee, bool useHousehold, bool useProduct, bool useResident, EntityManager entityManager, out bool hasShop)
+        public static SimpleStatsObject GetBuildingSimpleStats(Entity buildingEntity, bool useBrand, bool useCompany, bool useEmployee, bool useHousehold, bool useProduct, bool useResident, EntityManager entityManager, out bool hasShop)
         {
             if (!entityManager.HasComponent<Building>(buildingEntity)) throw new ArgumentException($"Only accepts entities with the component `Game.Buildings.Building`.");
 
             hasShop = false;
+            bool isHomeless = !entityManager.HasComponent<ResidentialProperty>(buildingEntity);
             SimpleStatsObject stats = new SimpleStatsObject();
-            if (!(useBrand || useEmployee || useHousehold || useProduct || useResident)) return stats;
+            if (!(useBrand || useCompany || useEmployee || useHousehold || useProduct || useResident)) return stats;
 
             if (entityManager.HasBuffer<Employee>(buildingEntity) && useEmployee) stats.Employee += entityManager.GetBuffer<Employee>(buildingEntity).Length;
             if (entityManager.HasBuffer<Renter>(buildingEntity))
@@ -472,7 +504,7 @@ namespace Carto.Systems
                 {
                     Entity renterEntity = renter.m_Renter;
 
-                    if (entityManager.HasComponent<CompanyData>(renterEntity) && (useBrand || useProduct))
+                    if (entityManager.HasComponent<CompanyData>(renterEntity) && (useBrand || useCompany || useProduct))
                     {
                         hasShop = true;
                         
@@ -481,6 +513,8 @@ namespace Carto.Systems
                             Entity brandEntity = entityManager.GetComponentData<CompanyData>(renterEntity).m_Brand;
                             stats.Brands.Add(m_Name.GetRenderedLabelName(brandEntity));
                         }
+
+                        if (useCompany) stats.Company ++;
 
                         if (useProduct)
                         {
@@ -493,13 +527,19 @@ namespace Carto.Systems
 
                     if (entityManager.HasBuffer<Employee>(renterEntity) && useEmployee) stats.Employee += entityManager.GetBuffer<Employee>(renterEntity).Length;
 
-                    if (entityManager.HasComponent<Household>(renterEntity) && useHousehold) stats.Household ++;
+                    if (entityManager.HasComponent<Household>(renterEntity) && useHousehold)
+                    {
+                        if (!isHomeless || isHomeless && Instance.Settings.UseHomeless) stats.Household++;
+                    }
 
                     if (entityManager.HasBuffer<HouseholdCitizen>(renterEntity) && useResident)
                     {
-                        foreach(HouseholdCitizen citizen in entityManager.GetBuffer<HouseholdCitizen>(renterEntity))
+                        if (!isHomeless || isHomeless && Instance.Settings.UseHomeless)
                         {
-                            if (!CitizenUtils.IsCorpsePickedByHearse(entityManager, citizen.m_Citizen)) stats.Resident ++;
+                            foreach (HouseholdCitizen citizen in entityManager.GetBuffer<HouseholdCitizen>(renterEntity))
+                            {
+                                if (!CitizenUtils.IsCorpsePickedByHearse(entityManager, citizen.m_Citizen)) stats.Resident++;
+                            }
                         }
                     }
                 }

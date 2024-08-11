@@ -30,6 +30,8 @@
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.ExportButton]": "將遊戲物件輸出為地理空間資料。",
     "Options.OPTION[Carto.Carto.Mod.Setting.ModVersion]": "版本",
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.ModVersion]": "目前執行的 Carto 版本。",
+    "Options.OPTION[Carto.Carto.Mod.Setting.ManualButton]": "使用手冊",
+    "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.ManualButton]": "開啟位於 GitHub 上的使用手冊（<https://github.com/taipei-native/Carto/wiki>）。",
     "Options.OPTION[Carto.Carto.Mod.Setting.ResetButton]": "重置設定",
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.ResetButton]": "重置所有 Carto 的設定。",
     "Options.WARNING[Carto.Carto.Mod.Setting.ResetButton]": "你確定要重置所有設定嗎？",
@@ -72,6 +74,8 @@
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.ExportFieldCenterLine]": "沿著線狀物體中心的線段。",
     "Options.OPTION[Carto.Carto.Mod.Setting.ExportFieldColor]": "顏色 Color",
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.ExportFieldColor]": "遊戲內顯示的分區顏色。",
+    "Options.OPTION[Carto.Carto.Mod.Setting.ExportFieldCompany]": "公司 Company",
+    "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.ExportFieldCompany]": "公司的數量。",
     "Options.OPTION[Carto.Carto.Mod.Setting.ExportFieldDensity]": "密度 Density",
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.ExportFieldDensity]": "分區類型的發展強度或聚集程度。",
     "Options.OPTION[Carto.Carto.Mod.Setting.ExportFieldDepth]": "深度 Depth",
@@ -118,6 +122,8 @@
     "Options.Carto.Carto.Mod.GEOTIFFFORMAT[Float32]": "Float32",
     "Options.Carto.Carto.Mod.GEOTIFFFORMAT[Int16]": "Int16",
     "Options.Carto.Carto.Mod.GEOTIFFFORMAT[Norm16]": "Norm16",
+    "Options.OPTION[Carto.Carto.Mod.Setting.UseHomeless]": "計入無家可歸居民",
+    "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.UseHomeless]": "啟用此選項時，無家可歸的居民與家庭將被計入至對應的欄位中。",
     "Options.OPTION[Carto.Carto.Mod.Setting.UseUnzoned]": "輸出無分區單元",
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.UseUnzoned]": "啟用此選項時，無分區（空白）的分區單元將被輸出。關閉此選項以降低檔案大小。",
     "Options.OPTION[Carto.Carto.Mod.Setting.UseZCC]": "使用 Zone Color Changer 的顏色",
@@ -135,6 +141,8 @@
     "Carto.export.ERROR[Longitude]": "輸入的「緯度」值無效。請確定該值為介於 -180 至 180 之間的數字。",
     "Carto.export.ERROR[ShareViolation]": "一或多個檔案被其他軟體鎖定而無法存取，請關閉正在使用以下檔案的軟體（如 QGIS、ArcGIS 等）：{FILES}",
     "Carto.export.ERROR[MissingSpatialFields]": "一或多個已勾選圖徵並沒有任何勾選的空間欄位（因為已知的問題，部分欄位必須再點擊「顯示／隱藏進階」按鈕兩下、重新載入UI後才會顯示），包括：{FEATURES}",
+    "Carto.export.SUCCESSTEXT": "已成功輸出 {NUMBER} 個檔案。",
     "Carto.export.UNKNOWN[City]": "未知城市",
-    "Carto.export.UNKNOWN[Map]": "未知地圖"
+    "Carto.export.UNKNOWN[Map]": "未知地圖",
+    "Carto.manual.ERRORTEXT": "無法開啟使用手冊網頁，請參見\n <https://github.com/taipei-native/Carto/wiki> \n以獲得更多資訊。"
 }

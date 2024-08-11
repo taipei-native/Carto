@@ -7,8 +7,10 @@ namespace Carto
     using Game.Modding;
     using Game.SceneFlow;
     using Game.Settings;
+    using Game.UI;
     using System.Collections.Generic;
     using System.Linq;
+    using UnityEngine;
 
     /// <summary>
     /// The class that handle the mod's options.
@@ -35,6 +37,7 @@ namespace Carto
         public bool m_Center = true;
         public bool m_CenterLine = true;
         public bool m_Color = true;
+        public bool m_Company = true;
         public bool m_Density = true;
         public bool m_Depth = true;
         public bool m_Direction = true;
@@ -111,6 +114,7 @@ namespace Carto
         public bool NotInFieldArrayBrand => NotInFieldArray("Brand");
         public bool NotInFieldArrayCategory => NotInFieldArray("Category");
         public bool NotInFieldArrayCenter => NotInFieldArray("Center");
+        public bool NotInFieldArrayCompany => NotInFieldArray("Company");
         public bool NotInFieldArrayCenterLine => NotInFieldArray("CenterLine");
         public bool NotInFieldArrayColor => NotInFieldArray("Color");
         public bool NotInFieldArrayDensity => NotInFieldArray("Density");
@@ -325,6 +329,30 @@ namespace Carto
         public string ModVersion => Instance.Version;
 
         /// <summary>
+        /// The button to open user manual.
+        /// （開啟使用手冊的按鈕。）
+        /// </summary>
+        [SettingsUIButton]
+        [SettingsUISection(GeneralTab, DangerGroup)]
+        [SettingsUIButtonGroup(DangerButtons)]
+        public bool ManualButton
+        {
+            set
+            {
+                try
+                {
+                    Application.OpenURL("https://github.com/taipei-native/Carto/wiki");
+                }
+                catch
+                {
+                    MessageDialog urlErrorDialog = new MessageDialog("Common.WARNING", "Carto.manual.ERRORTEXT", "Common.OK");
+                    GameManager.instance.userInterface.appBindings.ShowMessageDialog(urlErrorDialog, null);
+                    Instance.Log.Debug($"Settings.ManualButton: Cannot open user manual. 無法開啟使用手冊。");
+                }
+            }
+        }
+
+        /// <summary>
         /// The button to reset settings.
         /// （用以重置設定的按鈕。）
         /// </summary>
@@ -531,6 +559,15 @@ namespace Carto
 
         [SettingsUIAdvanced]
         [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayCompany))]
+        public bool ExportFieldCompany
+        {
+            get => m_Company;
+            set => UpdateFieldStatus("Company", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, NonSpatialFieldGroup)]
         [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayDensity))]
         public bool ExportFieldDensity
         {
@@ -672,6 +709,13 @@ namespace Carto
         public ExportUtils.GeoTIFFFormat TIFFFormat { get; set; } = ExportUtils.GeoTIFFFormat.Int16;
 
         /// <summary>
+        /// Whether to count homeless in resident field.
+        /// （決定是否計算無家可歸者。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
+        public bool UseHomeless { get; set; } = true;
+
+        /// <summary>
         /// Whether to export unzoned zoning cells.
         /// （決定是否要輸出未分區的分區單元。）
         /// </summary>
@@ -741,6 +785,7 @@ namespace Carto
             m_Center = true;
             m_CenterLine = true;
             m_Color = true;
+            m_Company = true;
             m_Density = true;
             m_Depth = true;
             m_Direction = true;
@@ -764,6 +809,7 @@ namespace Carto
             MapCenter = (0, 0);
             NamingFormat = ExportUtils.NamingFormat.Feature;
             TIFFFormat = ExportUtils.GeoTIFFFormat.Int16;
+            UseHomeless = true;
             UseUnzoned = false;
             UseZCC = true;
         }
