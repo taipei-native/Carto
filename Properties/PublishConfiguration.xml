@@ -1,6 +1,6 @@
 ﻿<Publish>
 	<!--Id must be set in order to update existed mod. it is not required for publishing mod for the first time-->
-	<ModId Value="" />
+	<ModId Value="87428" />
 	<!--Name of the mod to display to players-->
 	<DisplayName Value="Carto" />
 	<!--Short description of the mod-->
@@ -57,20 +57,18 @@ You can reach me at the PDX forum’s comment section (English / Chinese), Citie
 	<Screenshot Value="Properties/PDX-Showcase-3.png" />
 	<Screenshot Value="Properties/PDX-Showcase-4.png" />
 	<!--Tag, can be set multiple times-->
-	<Tag Value="Export" />
-	<Tag Value="GIS" />
-	<Tag Value="Map" />
+	<Tag Value="Code Mod" />
 	<!--Link to the forum post where the mod can be discussed-->
-	<ForumLink Value="" />
+	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.2.2" />
+	<ModVersion Value="0.2.3" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* The first release version of Carto on Paradox Mods.
+* Fixed the bug where the export process stopped when at least one chosen feature doen’t have matching entities. These features are now ignored and the user will be notified at the end of the export. [Reported by @Allegretic]
 	</ChangeLog>
 	<!--ChangeLog>
 	</ChangeLog-->

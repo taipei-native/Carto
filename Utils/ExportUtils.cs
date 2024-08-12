@@ -45,6 +45,17 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// The enum storing the reason why the export is ignored.
+        /// （儲存為何輸出被忽略原因的列舉。）
+        /// </summary>
+        public enum ExportIgnoreReasons
+        {
+            None,
+            Unknown,
+            NoMatch
+        }
+
+        /// <summary>
         /// The enum storing the feature types.
         /// （儲存圖徵類別的列舉。）
         /// </summary>
@@ -175,6 +186,9 @@ namespace Carto.Utils
         /// </summary>
         public static void ExportToFile()
         {
+            bool anyIgnored = false;
+            Dictionary<ExportIgnoreReasons, int> ignored_count_helper = new Dictionary<ExportIgnoreReasons, int>();
+            Dictionary<ExportIgnoreReasons, List<string>> ignored_name_helper = new Dictionary<ExportIgnoreReasons, List<string>>();
             string cityName = MiscUtils.RemoveInvalidChars(Instance.CityName);
             string mapName = MiscUtils.RemoveInvalidChars(Instance.MapName);
 
@@ -184,12 +198,39 @@ namespace Carto.Utils
                 {
                     foreach (string field in obj.Values.Keys)
                     {
-                        ExportToFormat(input, GetFileName($"{type}_{field}"), field);
+                        ExportToFormat(input, GetFileName($"{type}_{field}"), field, out _, out _, out _);
                     }
+                }
+                else if (obj.Values.Keys.Count == 1)
+                {
+                    ExportToFormat(input, GetFileName(type), obj.Values.Keys.First(), out _, out _, out _);
                 }
                 else
                 {
-                    ExportToFormat(input, GetFileName(type), obj.Values.Keys.First());
+                    FeatureType typeEnum = (FeatureType) Enum.Parse(typeof(FeatureType), type, true);
+                    List<string> enabledFields = Instance.Settings.FieldStatus[typeEnum].Where(kvp => kvp.Value & SpatialFields[typeEnum].ToList().Contains(kvp.Key)).Select(kvp => kvp.Key).ToList();
+
+                    if (enabledFields.Count > 1)
+                    {
+                        foreach (string field in enabledFields)
+                        {
+                            ExportToFormat(input, GetFileName($"{type}_{field}"), "", out int ignored_count, out string ignored_name, out ExportIgnoreReasons ignore_reason);
+                            if (ignored_count > 0)
+                            {
+                                ignored_count_helper[ignore_reason] = ignored_count_helper.TryGetValue(ignore_reason, out int num) ? num + ignored_count : ignored_count;
+                                ignored_name_helper[ignore_reason] = ignored_name_helper.TryGetValue(ignore_reason, out List<string> file) ? file.Concat(new List<string> { ignored_name }).ToList() : new List<string> { ignored_name };
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ExportToFormat(input, GetFileName(type), "", out int ignored_count, out string ignored_name, out ExportIgnoreReasons ignore_reason);
+                        if (ignored_count > 0)
+                        {
+                            ignored_count_helper[ignore_reason] = ignored_count_helper.TryGetValue(ignore_reason, out int num) ? num + ignored_count : ignored_count;
+                            ignored_name_helper[ignore_reason] = ignored_name_helper.TryGetValue(ignore_reason, out List<string> file) ? file.Concat(new List<string> { ignored_name }).ToList() : new List<string> { ignored_name };
+                        }
+                    }
                 }
             }
 
@@ -201,38 +242,98 @@ namespace Carto.Utils
                 {
                     foreach (string field in fields)
                     {
-                        ExportToFormat(input, GetFileName($"{type}_{field}"), field, suppressFieldError);
+                        ExportToFormat(input, GetFileName($"{type}_{field}"), field, out _, out _, out _, suppressFieldError);
+                    }
+                }
+                else if (fields.Count == 1)
+                {
+                    ExportToFormat(input, GetFileName(type), fields[0], out _, out _, out _, suppressFieldError);
+                }
+                else
+                {
+                    FeatureType typeEnum = (FeatureType)Enum.Parse(typeof(FeatureType), type, true);
+                    List<string> enabledFields = Instance.Settings.FieldStatus[typeEnum].Where(kvp => kvp.Value & SpatialFields[typeEnum].ToList().Contains(kvp.Key)).Select(kvp => kvp.Key).ToList();
+
+                    if (enabledFields.Count > 1)
+                    {
+                        foreach (string field in enabledFields)
+                        {
+                            ExportToFormat(input, GetFileName($"{type}_{field}"), "", out int ignored_count, out string ignored_name, out ExportIgnoreReasons ignore_reason, suppressFieldError);
+                            if (ignored_count > 0)
+                            {
+                                ignored_count_helper[ignore_reason] = ignored_count_helper.TryGetValue(ignore_reason, out int num) ? num + ignored_count : ignored_count;
+                                ignored_name_helper[ignore_reason] = ignored_name_helper.TryGetValue(ignore_reason, out List<string> file) ? file.Concat(new List<string> { ignored_name }).ToList() : new List<string> { ignored_name };
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ExportToFormat(input, GetFileName(type), "", out int ignored_count, out string ignored_name, out ExportIgnoreReasons ignore_reason, suppressFieldError);
+                        if (ignored_count > 0)
+                        {
+                            ignored_count_helper[ignore_reason] = ignored_count_helper.TryGetValue(ignore_reason, out int num) ? num + ignored_count : ignored_count;
+                            ignored_name_helper[ignore_reason] = ignored_name_helper.TryGetValue(ignore_reason, out List<string> file) ? file.Concat(new List<string> { ignored_name }).ToList() : new List<string> { ignored_name };
+                        }
+                    }
+                }
+            }
+
+            void ExportToFormat(Geodata input, string fileName, string target, out int ignored_count, out string ignored_name, out ExportIgnoreReasons ignored_reason, bool suppressFieldError = false)
+            {
+                ignored_count = default;
+                ignored_name = default;
+                ignored_reason = default;
+                
+                if (input.Objects.Count > 0)
+                {
+                    switch (Instance.Settings.ExportFormat)
+                    {
+                        case ExportFormats.GeoJSON:
+                            input.ToGeoJSON($"{fileName}.json", target, suppressFieldError);
+                            m_Log.Info($"File exported. 已輸出檔案。({fileName}.json)");
+                            break;
+
+                        //case ExportFormats.GeoPackage:
+                        //    input.ToGeoPackage($"{fileName}.gkpg"); NOT Implement yet! （*尚未* 實作！）
+                        //    break;
+
+                        case ExportFormats.GeoTIFF:
+                            int depth = Instance.Settings.TIFFFormat == GeoTIFFFormat.Float32 ? 32 : 16;
+                            input.ToGeoTIFF($"{fileName}.tif", target, depth);
+                            m_Log.Info($"File exported. 已輸出檔案。({fileName}.tif)");
+                            break;
+
+                        case ExportFormats.Shapefile:
+                            input.ToShapefile($"{fileName}.shp", target, suppressFieldError);
+                            m_Log.Info($"File exported. 已輸出檔案。({fileName}.shp)");
+                            break;
                     }
                 }
                 else
                 {
-                    ExportToFormat(input, GetFileName(type), fields[0], suppressFieldError);
-                }
-            }
+                    anyIgnored = true;
+                    ignored_reason = ExportIgnoreReasons.NoMatch;
 
-            void ExportToFormat(Geodata input, string fileName, string target, bool suppressFieldError = false)
-            {
-                switch (Instance.Settings.ExportFormat)
-                {
-                    case ExportFormats.GeoJSON:
-                        input.ToGeoJSON($"{fileName}.json", target, suppressFieldError);
-                        m_Log.Info($"File exported. 已輸出檔案。({fileName}.json)");
-                        break;
+                    switch (Instance.Settings.ExportFormat)
+                    {
+                        case ExportFormats.GeoJSON:
+                            m_Log.Warn($"File ignored. 已忽略檔案。({fileName}.json)");
+                            ignored_count = 1;
+                            ignored_name = $"{fileName}.json";
+                            break;
 
-                    //case ExportFormats.GeoPackage:
-                    //    input.ToGeoPackage($"{fileName}.gkpg"); NOT Implement yet! （*尚未* 實作！）
-                    //    break;
+                        case ExportFormats.GeoTIFF:
+                            m_Log.Warn($"File ignored. 已忽略檔案。({fileName}.tif)");
+                            ignored_count = 1;
+                            ignored_name = $"{fileName}.tif";
+                            break;
 
-                    case ExportFormats.GeoTIFF:
-                        int depth = Instance.Settings.TIFFFormat == GeoTIFFFormat.Float32 ? 32 : 16;
-                        input.ToGeoTIFF($"{fileName}.tif", target, depth);
-                        m_Log.Info($"File exported. 已輸出檔案。({fileName}.tif)");
-                        break;
-
-                    case ExportFormats.Shapefile:
-                        input.ToShapefile($"{fileName}.shp", target, suppressFieldError);
-                        m_Log.Info($"File exported. 已輸出檔案。({fileName}.shp)");
-                        break;
+                        case ExportFormats.Shapefile:
+                            m_Log.Warn($"File ignored. 已忽略檔案。({fileName}.shp)");
+                            ignored_count = 5;
+                            ignored_name = $"{fileName}.shp";
+                            break;
+                    }
                 }
             }
 
@@ -495,7 +596,33 @@ namespace Carto.Utils
             }
 
             m_Log.Info(string.Empty);
-            MessageDialog exportSuccessDialog = new MessageDialog("Options.SECTION[Carto.Carto.Mod]", LocaleUtils.Translate("Carto.export.SUCCESSTEXT").Replace("{NUMBER}", $"{fileCountTotal}"), "Common.OK");
+            string exportCompleteString = default;
+
+            if (anyIgnored)
+            {
+                int successFiles = fileCountTotal;
+
+                foreach (ExportIgnoreReasons reason in Enum.GetValues(typeof(ExportIgnoreReasons)))
+                {
+                    if (ignored_count_helper.TryGetValue(reason, out int ignore_count)) successFiles -= ignore_count;
+                }
+                
+                if (successFiles > 0) exportCompleteString = LocaleUtils.Translate("Carto.export.SUCCESSTEXT").Replace("{NUMBER}", $"{successFiles}");
+                
+                foreach (ExportIgnoreReasons reason in Enum.GetValues(typeof(ExportIgnoreReasons)))
+                {
+                    if (ignored_count_helper.TryGetValue(reason, out int ignore_count))
+                    {
+                        exportCompleteString = exportCompleteString + "\n" + LocaleUtils.Translate("Carto.export.IGNORETEXT").Replace("{NUMBER}", $"{ignore_count}").Replace("{REASON}", LocaleUtils.Translate($"Carto.export.IGNORE[{reason}]")).Replace("{FILES}", string.Join(", ", ignored_name_helper[reason]));
+                    }
+                }
+            }
+            else
+            {
+                exportCompleteString = LocaleUtils.Translate("Carto.export.SUCCESSTEXT").Replace("{NUMBER}", $"{fileCountTotal}");
+            }
+
+            MessageDialog exportSuccessDialog = new MessageDialog("Options.SECTION[Carto.Carto.Mod]", exportCompleteString, "Common.OK");
             Instance.UI.appBindings.ShowMessageDialog(exportSuccessDialog, null);
         }
 

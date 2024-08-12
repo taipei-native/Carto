@@ -164,8 +164,8 @@ namespace Carto
         public static ZoningSystem Zoning => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<ZoningSystem>();
 
         /// <summary>
-        /// Zone Color Changer mod developed by TDW and Trejak.
-        /// （由TDW和Trejak開發的Zone Color Changer模組。）
+        /// Road Builder mod developed by TDW and Trejak.
+        /// （由TDW和Trejak開發的Road Builder模組。）
         /// </summary>
         //  PDX Mods link: https://mods.paradoxplaza.com/mods/87190/Windows
         //  （PDX Mods 連結：https://mods.paradoxplaza.com/mods/87190/Windows）
