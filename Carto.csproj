@@ -5,9 +5,9 @@
 		<TargetFramework>net472</TargetFramework>
 		<Configurations>Debug;Release</Configurations>
 		<Authors>Taipei Native</Authors>
-		<AssemblyVersion>0.2.0.0</AssemblyVersion>
-		<FileVersion>0.2.3.0</FileVersion>
-		<Version>0.2.3.0</Version>
+		<AssemblyVersion>0.2.0.0</AssemblyVersion> <!--4 digit -->
+		<FileVersion>0.2.4</FileVersion> <!--3 digit -->
+		<Version>0.2.4</Version> <!--3 digit -->
 		
 		<!--The folder where Game.dll is located. Set it only if the game is not installed in the default location, otherwise keep it empty-->
 		<CustomManagedPath></CustomManagedPath>

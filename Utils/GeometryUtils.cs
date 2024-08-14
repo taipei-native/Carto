@@ -470,7 +470,7 @@
         {
             float total = 0;
 
-            for(int i = 0; i < line.Count - 2; i++)
+            for(int i = 0; i <= line.Count - 2; i++)
             {
                 total += math.distance(line[i], line[i + 1]);
             }
@@ -488,21 +488,6 @@
         public static float3 Location(Circle3 circle, float angle)
         {
             return new float3(circle.radius * math.sin(angle) + circle.position.x, circle.position.y, circle.radius * math.cos(angle) + circle.position.z);
-        }
-
-        /// <summary>
-        /// Calculate the mean angle between two azimuth angles.
-        /// （計算兩方位角之間的平均值。）
-        /// </summary>
-        /// <param name="angleA">One of the two azimuth angles.（兩個方位角的其中一個。）</param>
-        /// <param name="angleB">Another one of the two azimuth angles.（兩個方位角的另外一個。）</param>
-        public static float MeanAngle(float angleA, float angleB)
-        {
-            angleA = Standardize(angleA);
-            angleB = Standardize(angleB);
-            float meanAngleA = (angleA + angleB) / 2;
-            float meanAngleB = (angleA + angleB + 2 * math.PI) / 2;
-            return (RotationAngle(angleA, meanAngleA) >= RotationAngle(angleA, meanAngleB)) ? meanAngleB : meanAngleA;
         }
 
         /// <summary>
@@ -535,6 +520,104 @@
                 twoSided = true;
                 return math.max(math.abs(bounds.x.max), math.abs(bounds.x.min));
             }
+        }
+
+        /// <summary>
+        /// Calculate the mean angle between two azimuth angles.
+        /// （計算兩方位角之間的平均值。）
+        /// </summary>
+        /// <param name="angleA">One of the two azimuth angles.（兩個方位角的其中一個。）</param>
+        /// <param name="angleB">Another one of the two azimuth angles.（兩個方位角的另外一個。）</param>
+        public static float MeanAngle(float angleA, float angleB)
+        {
+            angleA = Standardize(angleA);
+            angleB = Standardize(angleB);
+            float meanAngleA = (angleA + angleB) / 2;
+            float meanAngleB = (angleA + angleB + 2 * math.PI) / 2;
+            return (RotationAngle(angleA, meanAngleA) >= RotationAngle(angleA, meanAngleB)) ? meanAngleB : meanAngleA;
+        }
+
+        /// <summary>
+        /// Finds the median point in the line.
+        /// （找出線上的中位點。）
+        /// </summary>
+        /// <param name="line">The input line.（輸入的線。）</param>
+        public static float3 MedianPoint(List<float3> line)
+        {
+            if (line.Count == 0) throw new ArgumentException("Cannot find median point on an empty line.（無法在空白的線上找到中位點。）");
+            if (line.Count % 2 == 0)
+            {
+                return (line[line.Count / 2 - 1] + line[line.Count / 2]) / 2;
+            }
+            else
+            {
+                return line[line.Count / 2];
+            }
+        }
+
+        /// <summary>
+        /// Remove the duplicated nodes in the list.
+        /// （移除列表中重複的節點。）
+        /// </summary>
+        /// <param name="line">The line which may contains duplicate nodes.（可能包含重複節點的線。）</param>
+        /// <param name="polygon">Whether the line represents a polygon.（線段是否表示多邊形。）</param>
+        public static List<float3> RemoveDuplicate(List<float3> line, bool polygon = true)
+        {
+            List<float3> checkedLine = new List<float3>();
+
+            if (line.Count > 2)
+            {
+                checkedLine.Add(line[0]);
+
+                for (int i = 1; i < line.Count; i++)
+                {
+                    if (math.distance(line[i], line[i - 1]) >= 0.05)
+                    {
+                        checkedLine.Add(line[i]);
+                    }
+                }
+
+                if (polygon && checkedLine.Count > 2)
+                {
+                    if (math.distance(checkedLine[0], checkedLine.Last()) < 0.05)
+                    {
+                        checkedLine.RemoveAt(checkedLine.Count - 1);
+                    }
+                }
+
+                List<int> removeIndex = new List<int>();
+                int removeCount = 0;
+
+                for (int j = 1; j < checkedLine.Count; j++)
+                {
+                    if (j <  checkedLine.Count - 1)
+                    {
+                        if (RotationAngle(Azimuth(checkedLine[j], checkedLine[j - 1]), Azimuth(checkedLine[j], checkedLine[j + 1])) < math.PI / 60)
+                        {
+                            removeIndex.Add(j - removeCount);
+                            removeCount++;
+                        }
+                    }
+                    else
+                    {
+                        if (RotationAngle(Azimuth(checkedLine[j], checkedLine[j - 1]), Azimuth(checkedLine[j], checkedLine[0])) < math.PI / 60)
+                        {
+                            removeIndex.Add(j - removeCount);
+                            removeCount++;
+                        }
+                    }
+                }
+
+                removeIndex.ForEach(k => checkedLine.RemoveAt(k));
+            }
+            else
+            {
+                if (polygon || (line.Count < 2)) return checkedLine;
+                if (line[0].Equals(line[1])) checkedLine.Add(line[0]);
+                else checkedLine = line;
+            }
+
+            return checkedLine;
         }
 
         /// <summary>
@@ -650,6 +733,34 @@
                     return true;
                 }
             }
+        }
+
+        /// <summary>
+        /// Detects whether a line intersects itself.
+        /// （偵測一條線是否與自身相交。）
+        /// </summary>
+        /// <param name="line">The input line.（輸入的線。）</param>
+        /// <param name="intersections">The self intersections.（與自身相交的點。）</param>
+        public static bool SelfIntersect(List<float3> line, out List<float3> intersections, out List<(int start, int end)> index)
+        {
+            bool intersect = false;
+            intersections = new List<float3>();
+            index = new List<(int start, int end)> ();
+
+            for (int i = 0; i < line.Count - 1; i++)
+            {
+                for (int j = i + 2; j < line.Count - 1; j++)
+                {
+                    if (MathUtils.Intersect(new Line2.Segment(line[i].xz, line[i + 1].xz), new Line2.Segment(line[j].xz, line[j + 1].xz), out float2 t))
+                    {
+                        intersections.Add(MathUtils.Position(new Line3.Segment(line[i], line[i + 1]), t.x));
+                        index.Add((i, j));
+                        intersect = true;
+                    }
+                }
+            }
+
+            return intersect;
         }
 
         /// <summary>

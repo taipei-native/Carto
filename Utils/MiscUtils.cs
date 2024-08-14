@@ -1,9 +1,9 @@
 namespace Carto.Utils
 {
-    using Carto.Domain;
     using Colossal.Json;
     using Colossal.Logging;
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Globalization;
@@ -298,6 +298,62 @@ namespace Carto.Utils
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// A simple method to log the IDictionary.
+        /// （一個簡單紀錄 IDictionary 介面的方法。）
+        /// </summary>
+        /// <param name="dictionary">The dictionary value.（字典值。）</param>
+        public static void LogIDictionary(IDictionary dictionary)
+        {
+            foreach (DictionaryEntry entry in dictionary) m_Log.Info($"{entry.Key}: {entry.Value}");
+        }
+
+        /// <summary>
+        /// A simple method to log the IDictionary.
+        /// （一個簡單紀錄 IDictionary 介面的方法。）
+        /// </summary>
+        /// <param name="dictionary">The dictionary value.（字典值。）</param>
+        public static void LogIDictionary<TKey, TValue>(IDictionary<TKey, TValue> dictionary)
+        {
+            foreach (KeyValuePair<TKey, TValue> entry in dictionary) m_Log.Info($"{entry.Key}: {entry.Value}");
+        }
+
+        /// <summary>
+        /// A simple method to log the IEnumerable.
+        /// （一個簡單紀錄 IEnumerable 介面的方法。）
+        /// </summary>
+        /// <param name="enumerable">The enumerable value.（可列舉值。）</param>
+        /// <param name="compact">Whether to print in one line.（是否在一行內輸出。）</param>
+        public static void LogIEnumerable(IEnumerable enumerable, bool compact = false)
+        {
+            if (compact)
+            {
+                m_Log.Info(string.Join(", ", enumerable));
+            }
+            else
+            {
+                foreach (object item in enumerable) m_Log.Info(item);
+            }
+        }
+
+        /// <summary>
+        /// A simple method to log the IEnumerable.
+        /// （一個簡單紀錄 IEnumerable 介面的方法。）
+        /// </summary>
+        /// <param name="enumerable">The enumerable value.（可列舉值。）</param>
+        /// /// <param name="compact">Whether to print in one line.（是否在一行內輸出。）</param>
+        public static void LogIEnumerable<T>(IEnumerable<T> enumerable, bool compact = false)
+        {
+            if (compact)
+            {
+                m_Log.Info(string.Join(", ", enumerable));
+            }
+            else
+            {
+                foreach (T item in enumerable) m_Log.Info(item);
+            }
         }
 
         /// <summary>

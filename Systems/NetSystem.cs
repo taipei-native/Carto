@@ -423,7 +423,7 @@
             return nodeList;
         }
 
-        public static List<float3> GetNetEdge(Entity net, EntityManager em, float gap = 4, float threshold = 2, float nodeGap = 1, float nodeThreshold = 0.1f)
+        public static List<float3> GetNetEdge(Entity net, EntityManager em, float gap = 4, float threshold = 2, float nodeGap = 1, float nodeThreshold = 0.1f, string layer = "Normal")
         {
             EdgeGeometry mainCurves = em.GetComponentData<EdgeGeometry>(net);
             Bezier4x3 mainCurveLeftStart  = mainCurves.m_Start.m_Left;
@@ -450,20 +450,94 @@
             int endNodeRoadCount   = 0;
             List<float3> nodeList = new List<float3>();
 
-            foreach (ConnectedEdge startNodeEdge in em.GetBuffer<ConnectedEdge>(startNode))
+            void filterIntersectSegment(List<float3> segment, List<float3> segmentNeighbor)
             {
-                if (em.HasComponent<Road>(startNodeEdge.m_Edge) || em.HasComponent<TrainTrack>(startNodeEdge.m_Edge) || em.HasComponent<SubwayTrack>(startNodeEdge.m_Edge) || em.HasComponent<TramTrack>(startNodeEdge.m_Edge))
+                if (GeometryUtils.SelfIntersect(segmentNeighbor, out _, out _))
                 {
-                    startNodeRoadCount ++;
+                    nodeList.Add(GeometryUtils.MedianPoint(segment));
+                }
+                else if (GeometryUtils.RotationAngle(GeometryUtils.Azimuth(segmentNeighbor[1], segmentNeighbor[0]), GeometryUtils.Azimuth(segmentNeighbor[1], segmentNeighbor[2])) < math.PI / 60)
+                {
+                    nodeList.Add(GeometryUtils.MedianPoint(segment));
+                }
+                else if (GeometryUtils.RotationAngle(GeometryUtils.Azimuth(segmentNeighbor[2], segmentNeighbor[1]), GeometryUtils.Azimuth(segmentNeighbor[2], segmentNeighbor[3])) < math.PI / 60)
+                {
+                    nodeList.Add(GeometryUtils.MedianPoint(segment));
+                }
+                else
+                {
+                    nodeList.AddRange(segment);
                 }
             }
 
-            foreach (ConnectedEdge endNodeEdge in em.GetBuffer<ConnectedEdge>(endNode))
+            if (layer == "Normal")
             {
-                if (em.HasComponent<Road>(endNodeEdge.m_Edge) || em.HasComponent<TrainTrack>(endNodeEdge.m_Edge) || em.HasComponent<SubwayTrack>(endNodeEdge.m_Edge) || em.HasComponent<TramTrack>(endNodeEdge.m_Edge))
+                int roadCount = 0;
+                int trackCount = 0;
+
+                foreach (ConnectedEdge startNodeEdge in em.GetBuffer<ConnectedEdge>(startNode))
                 {
-                    endNodeRoadCount ++;
+                    if (em.HasComponent<Road>(startNodeEdge.m_Edge) || em.HasComponent<TrainTrack>(startNodeEdge.m_Edge) || em.HasComponent<SubwayTrack>(startNodeEdge.m_Edge) || em.HasComponent<TramTrack>(startNodeEdge.m_Edge))
+                    {
+                        startNodeRoadCount++;
+                    }
+
+                    if (em.HasComponent<Road>(startNodeEdge.m_Edge)) roadCount++;
+                    if (em.HasComponent<TrainTrack>(startNodeEdge.m_Edge) || em.HasComponent<SubwayTrack>(startNodeEdge.m_Edge) || em.HasComponent<TramTrack>(startNodeEdge.m_Edge)) trackCount++;
                 }
+
+                if ((roadCount == 1) && (trackCount > 0) && em.HasComponent<Road>(net)) startNodeTerminus = true;
+
+                roadCount = 0;
+                trackCount = 0;
+
+                foreach (ConnectedEdge endNodeEdge in em.GetBuffer<ConnectedEdge>(endNode))
+                {
+                    if (em.HasComponent<Road>(endNodeEdge.m_Edge) || em.HasComponent<TrainTrack>(endNodeEdge.m_Edge) || em.HasComponent<SubwayTrack>(endNodeEdge.m_Edge) || em.HasComponent<TramTrack>(endNodeEdge.m_Edge))
+                    {
+                        endNodeRoadCount++;
+                    }
+
+                    if (em.HasComponent<Road>(endNodeEdge.m_Edge)) roadCount ++;
+                    if (em.HasComponent<TrainTrack>(endNodeEdge.m_Edge) || em.HasComponent<SubwayTrack>(endNodeEdge.m_Edge) || em.HasComponent<TramTrack>(endNodeEdge.m_Edge)) trackCount++;
+                }
+
+                if ((roadCount == 1) && (trackCount > 0) && em.HasComponent<Road>(net)) endNodeTerminus = true;
+            }
+            else if (layer == "Pathway")
+            {
+                if (em.HasComponent<LocalConnect>(startNode))
+                {
+                    foreach (ConnectedEdge startNodeEdge in em.GetBuffer<ConnectedEdge>(startNode))
+                    {
+                        if (!(em.HasComponent<Road>(startNodeEdge.m_Edge) || em.HasComponent<TrainTrack>(startNodeEdge.m_Edge) || em.HasComponent<SubwayTrack>(startNodeEdge.m_Edge) || em.HasComponent<TramTrack>(startNodeEdge.m_Edge)))
+                        {
+                            startNodeRoadCount++;
+                        }
+                    }
+                }
+
+                if (!em.HasComponent<LocalConnect>(startNode))
+                {
+                    startNodeTerminus = true;
+                }
+
+                if (em.HasComponent<LocalConnect>(endNode))
+                {
+                    foreach (ConnectedEdge endNodeEdge in em.GetBuffer<ConnectedEdge>(endNode))
+                    {
+                        if (!(em.HasComponent<Road>(endNodeEdge.m_Edge) || em.HasComponent<TrainTrack>(endNodeEdge.m_Edge) || em.HasComponent<SubwayTrack>(endNodeEdge.m_Edge) || em.HasComponent<TramTrack>(endNodeEdge.m_Edge)))
+                        {
+                            endNodeRoadCount++;
+                        }
+                    }
+                }
+
+                if (!em.HasComponent<LocalConnect>(endNode))
+                {
+                    endNodeTerminus = true;
+                }
+
             }
 
             if (startNodeRoadCount == 1) startNodeTerminus = true;
@@ -493,9 +567,29 @@
             }
             else
             {
-                nodeList.AddRange(segmentD);
-                if (!endNodeTerminus) nodeList.Add(endLocation);
-                nodeList.AddRange(segmentE.GetRange(0, segmentE.Count - 1));
+                if (endNodeTerminus)
+                {
+                    nodeList.AddRange(segmentD);
+                    nodeList.AddRange(segmentE);
+                }
+                else
+                {
+                    if (segmentD.Count == 2)
+                    {
+                        List<float3> edgePoints = new List<float3> { nodeList.Last(), segmentD[0], segmentD[1], endLocation };
+                        filterIntersectSegment(segmentD, edgePoints);
+                    }
+                    else nodeList.AddRange(segmentD);
+
+                    nodeList.Add(endLocation);
+
+                    if (segmentE.Count == 2)
+                    {
+                        List<float3> edgePoints = new List<float3> { endLocation, segmentE[0], segmentE[1], segmentF[0] };
+                        filterIntersectSegment(segmentE, edgePoints);
+                    }
+                    else nodeList.AddRange(segmentE);
+                }
             }
 
             nodeList.AddRange(segmentF.GetRange(0, segmentF.Count - 1));
@@ -510,12 +604,32 @@
             }
             else
             {
-                nodeList.AddRange(segmentH);
-                if (!startNodeTerminus) nodeList.Add(startLocation);
-                nodeList.AddRange(segmentA.GetRange(0, segmentA.Count - 1));
+                if (startNodeTerminus)
+                {
+                    nodeList.AddRange(segmentH);
+                    nodeList.AddRange(segmentA);
+                }
+                else
+                {
+                    if (segmentH.Count == 2)
+                    {
+                        List<float3> edgePoints = new List<float3> { nodeList.Last(), segmentH[0], segmentH[1], startLocation };
+                        filterIntersectSegment(segmentH, edgePoints);
+                    }
+                    else nodeList.AddRange(segmentH);
+
+                    nodeList.Add(startLocation);
+
+                    if (segmentA.Count == 2)
+                    {
+                        List<float3> edgePoints = new List<float3> { startLocation, segmentA[0], segmentA[1], segmentB[0] };
+                        filterIntersectSegment(segmentA, edgePoints);
+                    }
+                    else nodeList.AddRange(segmentA);
+                }
             }
 
-            return nodeList;
+            return GeometryUtils.RemoveDuplicate(nodeList).Where(n => !math.any(math.isnan(n))).ToList();
         }
 
         /// <summary>
@@ -595,7 +709,7 @@
                     // （獲取組成小徑邊緣的節點。預期輸出（每個節點）：float3(-79.33802f, 548.8162f, 397.9146f)）
                     if (useEdge)
                     {
-                        edges["Edge"] = GetNetEdge(_path, EntityManager, 3, 1);
+                        edges["Edge"] = GetNetEdge(_path, EntityManager, 3, 1, layer: "Pathway");
                         type["Edge"] = GeometryType.Polygon;
                     }
 

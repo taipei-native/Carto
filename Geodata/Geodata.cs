@@ -654,12 +654,14 @@
             shp.Append(bList.ToArray());
             shx.Append(bList.ToArray());
             bList.Clear();
+            List<CartoObject> objs = suppressFieldError ? Objects.Where(o => o.Edges.ContainsKey(field)).ToList() : Objects;
+
             // === HEADER OF .DBF （.dbf 的標頭。）===
             BU.AddBytes(bList, (byte)3);                            //   0 Signature, 3 (File wihout DBT). （位元組0：簽章，3（不含 DBT 的檔案）。）
             BU.AddBytes(bList, (byte)(DateTime.Now.Year - 1900));   //   1 Year counts since 1900. （位元組1：年份，自1900年以來的年計數。）
             BU.AddBytes(bList, (byte)DateTime.Now.Month);           //   2 Month. （位元組2：月份。）
             BU.AddBytes(bList, (byte)DateTime.Now.Day);             //   3 Day. （位元組3：日期。）
-            BU.AddBytes(bList, Objects.Count);                      //   4 Number of records. （位元組4：記錄的數量。）
+            BU.AddBytes(bList, objs.Count);                         //   4 Number of records. （位元組4：記錄的數量。）
             BU.Skip(bList, 2, "byte");                              //   8 Number of bytes in the header. （位元組8：以位元組計的標頭長度。）
             BU.Skip(bList, 2, "byte");                              //  10 Number of bytes in the record. （位元組10：以位元組計的記錄長度。）
             BU.Skip(bList, 5);                                      //  12
@@ -745,7 +747,6 @@
 
             int _id = 1;
             int _ttLen = 0;
-            List<CartoObject> objs = suppressFieldError ? Objects.Where(o => o.Edges.ContainsKey(field)).ToList() : Objects;
             List<double> _hList = new List<double>();
             List<int> _conLen = new List<int>();
             List<int> _offset = new List<int>();
