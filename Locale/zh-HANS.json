@@ -19,7 +19,7 @@
     "Options.Carto.Carto.Mod.NAMINGFORMAT[CityName_Feature]": "城市名称＋特征类型",
     "Options.Carto.Carto.Mod.NAMINGFORMAT[MapName_Feature]": "地图名称＋特征类型",
     "Options.OPTION[Carto.Carto.Mod.Setting.CustomFileName]": "自定义名称",
-    "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.CustomFileName]": "输入自定义命名规范。通过使用变量以显示存档的属性，例如 {City} 表示城市名称、{Map} 表示地图名称、{Feature} 表示特征名称。 **注意**，若多个文件以同一名称导出，仅有最后一个文件会被保留。",
+    "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.CustomFileName]": "输入自定义命名规范。通过使用变量以显示存档的属性，例如 {City} 表示城市名称、{Map} 表示地图名称、{Feature} 表示特征名称、{Date} 表示游戏内日期、{Time} 表示游戏内时间。 **注意**，若多个文件以同一名称导出，仅有最后一个文件会被保留。",
     "Options.OPTION[Carto.Carto.Mod.Setting.Latitude]": "纬度",
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.Latitude]": "地图中心点的 WGS84 纬度，格式为十进制小数。输入值应为 -90 至 90 之间的数字，并以负数表示南半球的纬度。",
     "Options.OPTION[Carto.Carto.Mod.Setting.Longitude]": "经度",

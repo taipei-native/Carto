@@ -9,6 +9,7 @@ namespace Carto
     using Game.Modding;
     using Game.Prefabs;
     using Game.SceneFlow;
+    using Game.Simulation;
     using Game.UI;
     using System.IO;
     using System.Reflection;
@@ -118,7 +119,13 @@ namespace Carto
         /// The Carto mod's TerrainSystem instance.
         /// （Carto模組的TerrainSystem個體。）
         /// </summary>
-        public static TerrainSystem ModTerrain => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<TerrainSystem>();
+        public static Systems.TerrainSystem ModTerrain => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<Systems.TerrainSystem>();
+
+        /// <summary>
+        /// The system managing the in-game time.
+        /// （管理遊戲內時間的系統。）
+        /// </summary>
+        public static TimeSystem Time => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<TimeSystem>();
 
         /// <summary>
         /// The traffic handedness of the current save.
@@ -155,7 +162,7 @@ namespace Carto
         /// The Carto mod's WaterSystem instance.
         /// （Carto模組的WaterSystem個體。）
         /// </summary>
-        public static WaterSystem ModWater => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<WaterSystem>();
+        public static Systems.WaterSystem ModWater => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<Systems.WaterSystem>();
 
         /// <summary>
         /// The Carto mod's ZoningSystem instance.
@@ -232,6 +239,15 @@ namespace Carto
             /// （模組組件的版本。）
             /// </summary>
             public static string Version => version;
+
+            /// <summary>
+            /// The literal representation of the mod status.
+            /// （模組狀態的字面表示。）
+            /// </summary>
+            public static string Status()
+            {
+                return ready ? $"v{version}" : "Not Detected";
+            }
         }
 
         /// <summary>
@@ -307,6 +323,15 @@ namespace Carto
             /// （模組組件的版本。）
             /// </summary>
             public static string Version => version;
+
+            /// <summary>
+            /// The literal representation of the mod status.
+            /// （模組狀態的字面表示。）
+            /// </summary>
+            public static string Status()
+            {
+                return ready ? $"v{version}" : "Not Detected";
+            }
         }
     }
 }

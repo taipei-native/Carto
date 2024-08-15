@@ -61,14 +61,16 @@ You can reach me at the PDX forum’s comment section (English / Chinese), Citie
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.2.3" />
+	<ModVersion Value="0.2.4" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Fixed the bug where the export process stopped when at least one chosen feature doen’t have matching entities. These features are now ignored and the user will be notified at the end of the export. [Reported by @Allegretic]
+* Fixed the issue where the Edge field of the Network feature could not be read by software such as ArcGIS. [Reported by @Cities: Skylines LightLight]
+* Fixed the jagged edges of some pathways connecting to the normal roads.
+* Tried to fix the problem of the exported Edge field of the Network feature containing invalid polygons. Some micro (&lt; 1m) self-intersections may still appear when the roads are connected at a very sharp angle.
 	</ChangeLog>
 	<!--ChangeLog>
 	</ChangeLog-->

@@ -7,7 +7,6 @@
     using Game.Areas;
     using Game.Buildings;
     using Game.Common;
-    using Game.Companies;
     using Game.Objects;
     using Game.Tools;
     using Game.UI;

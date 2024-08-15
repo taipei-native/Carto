@@ -13,8 +13,8 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("Taipei Native")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("0.2.4")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.2.4+3e750c48699d1e9e185e78c51bf31985a350e378")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("0.2.5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.2.5+7911b52c0248df0be764aaac91c2ff10e0b3f79a")]
 [assembly: System.Reflection.AssemblyProductAttribute("Carto")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Carto")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.2.0.0")]

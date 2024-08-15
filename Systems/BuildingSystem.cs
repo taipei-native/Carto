@@ -352,9 +352,9 @@ namespace Carto.Systems
                         props["Address"] = buildAddress;
                         int limit = MiscUtils.GetFieldLength(fieldLength, "Address", buildAddress.GetLongestProperty());
                         fieldLength["Address"] = limit;
-                        fieldLength["Address.district"] = limit;
-                        fieldLength["Address.street"]   = limit;
-                        fieldLength["Address.number"]   = limit;
+                        fieldLength["Address_district"] = limit;
+                        fieldLength["Address_street"]   = limit;
+                        fieldLength["Address_number"]   = limit;
                     }
 
                     // Retrieve the asset name of the building. Expected output: EU Mixed 01 - L1 2x2

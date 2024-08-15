@@ -176,57 +176,57 @@
                     {
                         if (v is int2 @int)
                         {
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.x\": {@int.x}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@int.y}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_x\": {@int.x}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_y\": {@int.y}");
                         }
                         else if (v is uint2 @uint)
                         {
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.x\": {@uint.x}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@uint.y}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_x\": {@uint.x}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_y\": {@uint.y}");
                         }
                         else if (v is float2 @float)
                         {
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.x\": {@float.x}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@float.y}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_x\": {@float.x}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_y\": {@float.y}");
                         }
                         else if (v is double2 @double)
                         {
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.x\": {@double.x}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@double.y}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_x\": {@double.x}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_y\": {@double.y}");
                         }
                     }
                     else if ((v is int3) || (v is uint3) || (v is float3) || (v is double3))
                     {
                         if (v is int3 @int)
                         {
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.x\": {@int.x}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@int.y}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.z\": {@int.z}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_x\": {@int.x}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_y\": {@int.y}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_z\": {@int.z}");
                         }
                         else if (v is uint3 @uint)
                         {
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.x\": {@uint.x}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@uint.y}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.z\": {@uint.z}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_x\": {@uint.x}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_y\": {@uint.y}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_z\": {@uint.z}");
                         }
                         else if (v is float3 @float)
                         {
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.x\": {@float.x}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@float.y}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.z\": {@float.z}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_x\": {@float.x}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_y\": {@float.y}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_z\": {@float.z}");
                         }
                         else if (v is double3 @double)
                         {
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.x\": {@double.x}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.y\": {@double.y}");
-                            propertiesContainer.Add($"\t\t\t\t\"{k}.z\": {@double.z}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_x\": {@double.x}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_y\": {@double.y}");
+                            propertiesContainer.Add($"\t\t\t\t\"{k}_z\": {@double.z}");
                         }
                     }
                     else if (v is Address @Address)
                     {
-                        propertiesContainer.Add($"\t\t\t\t\"{k}.district\": \"{@Address.District}\"");
-                        propertiesContainer.Add($"\t\t\t\t\"{k}.street\": \"{@Address.Street}\"");
-                        propertiesContainer.Add($"\t\t\t\t\"{k}.number\": {@Address.Number}");
+                        propertiesContainer.Add($"\t\t\t\t\"{k}_district\": \"{@Address.District}\"");
+                        propertiesContainer.Add($"\t\t\t\t\"{k}_street\": \"{@Address.Street}\"");
+                        propertiesContainer.Add($"\t\t\t\t\"{k}_number\": {@Address.Number}");
                     }
                 }
 
@@ -705,14 +705,14 @@
                         if (fieldType == typeof(Address))
                         {
                             string newFieldTitle = (fieldName == "Address") ? "Addr" : fieldName.Substring(0, 4);
-                            fillFieldDescripter($"{newFieldTitle}.dist", catagory, maxLength, maxDecimal);
-                            fillFieldDescripter($"{newFieldTitle}.strt", catagory, maxLength, maxDecimal);
-                            fillFieldDescripter($"{newFieldTitle}.nmbr", "N", 11, 0);
+                            fillFieldDescripter($"{newFieldTitle}_dist", catagory, maxLength, maxDecimal);
+                            fillFieldDescripter($"{newFieldTitle}_strt", catagory, maxLength, maxDecimal);
+                            fillFieldDescripter($"{newFieldTitle}_nmbr", "N", 11, 0);
                         }
                         else
                         {
-                            newFieldNames = new List<string> { $"{fieldName}.x", $"{fieldName}.y" };
-                            if (nd > 2) newFieldNames.Add($"{fieldName}.z");
+                            newFieldNames = new List<string> { $"{fieldName}_x", $"{fieldName}_y" };
+                            if (nd > 2) newFieldNames.Add($"{fieldName}_z");
                             foreach (string fName in newFieldNames) fillFieldDescripter(fName, catagory, maxLength, maxDecimal);
                         }
                     }
@@ -998,9 +998,9 @@
                                 break;
 
                             case Address @Address:
-                                BU.AddBytes(bList, trimValue(Address.District, $"{name}.district"));
-                                BU.AddBytes(bList, trimValue(Address.Street, $"{name}.street"));
-                                BU.AddBytes(bList, trimValue(Address.Number, $"{name}.number"));
+                                BU.AddBytes(bList, trimValue(Address.District, $"{name}_district"));
+                                BU.AddBytes(bList, trimValue(Address.Street, $"{name}_street"));
+                                BU.AddBytes(bList, trimValue(Address.Number, $"{name}_number"));
                                 break;
 
                             default:

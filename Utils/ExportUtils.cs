@@ -7,6 +7,7 @@ namespace Carto.Utils
     using Game.UI;
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
     using Unity.Mathematics;
@@ -127,9 +128,9 @@ namespace Carto.Utils
         {
             { "Area", typeof(float) },
             { "Address", typeof(Address) },
-            { "Address.district", typeof(string) },
-            { "Address.street", typeof(string) },
-            { "Address.number", typeof(int) },
+            { "Address_district", typeof(string) },
+            { "Address_street", typeof(string) },
+            { "Address_number", typeof(int) },
             { "Asset", typeof(string) },
             { "Brand", typeof(string) },
             { "Category", typeof(string) },
@@ -190,7 +191,9 @@ namespace Carto.Utils
             Dictionary<ExportIgnoreReasons, int> ignored_count_helper = new Dictionary<ExportIgnoreReasons, int>();
             Dictionary<ExportIgnoreReasons, List<string>> ignored_name_helper = new Dictionary<ExportIgnoreReasons, List<string>>();
             string cityName = MiscUtils.RemoveInvalidChars(Instance.CityName);
+            string isoDate = Instance.Time.GetCurrentDateTime().ToString("yyyy-dd", CultureInfo.InvariantCulture);
             string mapName = MiscUtils.RemoveInvalidChars(Instance.MapName);
+            string time = Instance.Time.GetCurrentDateTime().ToString("HHmm");
 
             void ExportRasterGeodata(CartoObject obj, Geodata input, string type)
             {
@@ -342,7 +345,7 @@ namespace Carto.Utils
                 switch (Instance.Settings.NamingFormat)
                 {
                     case NamingFormat.Custom:
-                        string customName = MiscUtils.RemoveInvalidChars(Instance.Settings.CustomFileName.Replace("{City}", cityName).Replace("{Map}", mapName).Replace("{Feature}", feature));
+                        string customName = MiscUtils.RemoveInvalidChars(Instance.Settings.CustomFileName.Replace("{City}", cityName).Replace("{Map}", mapName).Replace("{Feature}", feature).Replace("{Date}", isoDate).Replace("{Time}", time));
                         if ((customName != null) && (customName != string.Empty)) return customName;
                         if (verbose) m_Log.Info($"The custom file name is invalid, changing to the default name. 自訂檔案名無效，改為使用預設名稱。");
                         return feature;
@@ -481,6 +484,9 @@ namespace Carto.Utils
             m_Log.Info($"HOMELESS      {Instance.Settings.UseHomeless}");
             m_Log.Info($"UNZONED       {Instance.Settings.UseUnzoned}");
             m_Log.Info($"ZCC_COLORS    {Instance.Settings.UseZCC}");
+            m_Log.Info(new string('-', 30));
+            m_Log.Info($"RB            {Instance.RBMod.Status()}");
+            m_Log.Info($"ZCC           {Instance.ZCCMod.Status()}");
             m_Log.Info(new string('-', 30));
             GetSettingsString().ForEach(line => m_Log.Info(line));
             m_Log.Info(new string('=', 30));

@@ -19,7 +19,7 @@
     "Options.Carto.Carto.Mod.NAMINGFORMAT[CityName_Feature]": "City Name + Feature Type",
     "Options.Carto.Carto.Mod.NAMINGFORMAT[MapName_Feature]": "Map Name + Feature Type",
     "Options.OPTION[Carto.Carto.Mod.Setting.CustomFileName]": "Custom Name",
-    "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.CustomFileName]": "Enter the custom file naming conventions. Some available tokens to display the attributes: {City} = the name of the city, {Map} = the name of the map, {Feature} = the feature type. **Caution**: if multiple files are exported under the same name, only the last one will be saved.",
+    "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.CustomFileName]": "Enter the custom file naming conventions. Some available tokens to display the attributes: {City} = the name of the city, {Map} = the name of the map, {Feature} = the feature type, {Date} = the in-game date, {Time} = the in-game time. **Caution**: if multiple files are exported under the same name, only the last one will be saved.",
     "Options.OPTION[Carto.Carto.Mod.Setting.Latitude]": "Latitude",
     "Options.OPTION_DESCRIPTION[Carto.Carto.Mod.Setting.Latitude]": "The WGS84 latitude (decimal degree) of the map center. The input should be in the range between -90 to 90, where minus numbers indicate the southern hemisphere.",
     "Options.OPTION[Carto.Carto.Mod.Setting.Longitude]": "Longitude",
