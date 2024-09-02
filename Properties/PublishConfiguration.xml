@@ -14,7 +14,7 @@
 
 ### Features
 
-* Export Vector Data - Carto currently supports exporting the boundary of districts, map tiles, buildings, roads, tracks, pathways, and zoning cells into GeoJSON and Esri Shapefile.
+* Export Vector Data - Carto currently supports exporting districts, map tiles, buildings, roads, tracks, pathways, points of interest (POIs), and zoning cells into GeoJSON and Esri Shapefile.
 * Export Raster Data - Carto currently supports exporting the elevation and water depths into GeoTIFF.
 * Additional Information - Carto can collect other vital data from your save with the vector geodata, such as asset names, driving directions, etc.
 * UTM Projection - Carto uses WGS84 / UTM projections (EPSG: 326xx / 327xx) to reproject your save to real-life locations.
@@ -43,7 +43,7 @@ Go to the options and click Carto in the sidebar. In the *General* tab, you can 
 
 ### Credits
 
-Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them!
+Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them! Aside from the inspiring modders, I am really grateful to beta testers for their precious feedback, including but not limited to **Allegretic**, **LightLight**, and other members in the two Discord servers listed below.
 
 ### Feedback and Contacts
 
@@ -61,16 +61,15 @@ You can reach me at the PDX forum’s comment section (English / Chinese), Citie
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.2.4" />
+	<ModVersion Value="0.3" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Fixed the issue where the Edge field of the Network feature could not be read by software such as ArcGIS. [Reported by @Cities: Skylines LightLight]
-* Fixed the jagged edges of some pathways connecting to the normal roads.
-* Tried to fix the problem of the exported Edge field of the Network feature containing invalid polygons. Some micro (&lt; 1m) self-intersections may still appear when the roads are connected at a very sharp angle.
+* Added support of exporting POIs (points of interest).
+* Added two QGIS style presets (Street &amp; Topo); they can be accessed in the directory ModsData\Carto\Styles .
 	</ChangeLog>
 	<!--ChangeLog>
 	</ChangeLog-->

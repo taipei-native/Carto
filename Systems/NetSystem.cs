@@ -74,6 +74,24 @@
         }
 
         /// <summary>
+        /// The enum storing net categories.
+        /// （儲存網路分類的列舉。）
+        /// </summary>
+        [Flags]
+        public enum NetCategory
+        {
+            None    =   0,
+            Small   =   1,
+            Medium  =   2,
+            Large   =   4,
+            Highway =   8,
+            Train   =  16,
+            Subway  =  32,
+            Tram    =  64,
+            Pathway = 128,
+        }
+
+        /// <summary>
         /// The integrity of Road Builder mod.
         /// （Road Builder 模組的完整性。）
         /// </summary>
@@ -249,6 +267,95 @@
         /// （這是當系統實例被銷毀時，會被觸發的事件。）
         /// </summary>
         protected override void OnDestroy() { base.OnDestroy(); }
+
+        /// <summary>
+        /// Retrieve the category of the networks.
+        /// （獲取網路的分類。）
+        /// </summary>
+        public static void GetNetCategory(Entity net, EntityManager em, out NetCategory netCategory, out string netCategoryString)
+        {
+            Entity prefab = em.GetComponentData<PrefabRef>(net).m_Prefab; 
+            netCategory = NetCategory.None;
+
+            InitializeRBSupport(em);
+
+            if (em.HasComponent<RoadData>(prefab))
+            {
+                if (em.GetComponentData<RoadData>(prefab).m_Flags.HasFlag(Game.Prefabs.RoadFlags.UseHighwayRules))
+                {
+                    netCategory |= NetCategory.Highway;
+                }
+            }
+
+            if (em.HasComponent<TrackData>(prefab))
+            {
+                TrackTypes trackTypes = em.GetComponentData<TrackData>(prefab).m_TrackType;
+                if (trackTypes.HasFlag(TrackTypes.Train))  netCategory |= NetCategory.Train;
+                if (trackTypes.HasFlag(TrackTypes.Tram))   netCategory |= NetCategory.Tram;
+                if (trackTypes.HasFlag(TrackTypes.Subway)) netCategory |= NetCategory.Subway;
+            }
+
+            if (em.HasComponent<PathwayData>(prefab))
+            {
+                netCategory |= NetCategory.Pathway;
+            }
+
+            if (Instance.RBMod.Ready && RBIntegrity)
+            {
+                if (em.HasComponent(net, RBNetworkType))
+                {
+                    var rbNetworkProperties = Instance.Net.HandleRBNetwork(net);
+
+                    if (Enum.TryParse(rbNetworkProperties.category, out NetCategory result))
+                    {
+                        netCategory = result;
+                    }
+
+                    netCategoryString = rbNetworkProperties.category;
+                    return;
+                }
+            }
+
+            if (em.HasComponent<UIObjectData>(prefab) && em.HasComponent<RoadData>(prefab) && !netCategory.HasFlag(NetCategory.Highway))
+            {
+                string uiGroupName = Instance.Prefab.GetPrefabName(em.GetComponentData<UIObjectData>(prefab).m_Group);
+                float netWidth = em.GetComponentData<NetCompositionData>(em.GetComponentData<Composition>(net).m_Edge).m_Width;
+
+                NetCategory GetCategoryByWidth(NetCategory input)
+                {
+                    NetCategory category = input;
+
+                    if      (netWidth >= 32) category |= NetCategory.Large;
+                    else if (netWidth >= 24) category |= NetCategory.Medium;
+                    else                     category |= NetCategory.Small;
+
+                    return category;
+                }
+
+                if (Category.TryGetValue(uiGroupName, out string val))
+                {
+                    if (Enum.TryParse(val, out NetCategory result))
+                    {
+                        netCategory |= result;
+                        netCategoryString = netCategory.ToString();
+                        return;
+                    }
+                    else
+                    {
+                        netCategoryString = val + ", " + netCategory.ToString();
+                    }
+                }
+                else
+                {
+                    netCategoryString = uiGroupName + ", " + netCategory.ToString();
+                }
+
+                netCategory = GetCategoryByWidth(netCategory);
+                return;
+            }
+
+            netCategoryString = netCategory.ToString();
+        }
 
         /// <summary>
         /// The method to get network's centerlines.
@@ -793,44 +900,7 @@
             RoundaboutTramTracks.Clear();
             RoundaboutWidth.Clear();
 
-            if (Instance.RBMod.Ready && RBIntegrity)
-            {
-                if (RBNetworkType == null)
-                {
-                    Assembly rb = Instance.RBMod.Assembly;
-
-                    if (rb.GetTypes().Any(type => type.FullName == "RoadBuilder.Domain.Components.RoadBuilderNetwork"))
-                    {
-                        RBNetworkType = rb.GetType("RoadBuilder.Domain.Components.RoadBuilderNetwork");
-                    }
-                    else
-                    {
-                        RBIntegrity = false;
-                        m_Log.Debug("NetSystem.GetRoadsProperties(): Couldn't find the type `RoadBuilder.Domain.Components.RoadBuilderNetwork`. 無法找到型別 `RoadBuilder.Domain.Components.RoadBuilderNetwork`。");
-                    }
-                }
-
-                if (RBIntegrity)
-                {
-                    foreach (Entity _lanePrefab in _laneQuery.ToEntityArray(Allocator.Temp))
-                    {
-                        LaneProperties[_lanePrefab] = LaneCategory.None;
-
-                        if (EntityManager.HasComponent<CarLaneData>(_lanePrefab))
-                        {
-                            RoadTypes roadType = EntityManager.GetComponentData<CarLaneData>(_lanePrefab).m_RoadTypes;
-                            if (roadType.HasFlag(RoadTypes.Car)) LaneProperties[_lanePrefab] |= LaneCategory.Car;
-                        }
-                        if (EntityManager.HasComponent<TrackLaneData>(_lanePrefab))
-                        {
-                            TrackTypes trackType = EntityManager.GetComponentData<TrackLaneData>(_lanePrefab).m_TrackTypes;
-                            if (trackType.HasFlag(TrackTypes.Train)) LaneProperties[_lanePrefab] |= LaneCategory.Train;
-                            if (trackType.HasFlag(TrackTypes.Subway)) LaneProperties[_lanePrefab] |= LaneCategory.Subway;
-                            if (trackType.HasFlag(TrackTypes.Tram)) LaneProperties[_lanePrefab] |= LaneCategory.Tram;
-                        }
-                    }
-                }
-            }
+            InitializeRBSupport(EntityManager);
 
             foreach (Entity _roundaboutAsset in _roundaboutAssetQuery.ToEntityArray(Allocator.Temp))
             {
@@ -1693,6 +1763,53 @@
             }
 
             return (CategoryName, ObjectName);
-        } 
+        }
+
+        /// <summary>
+        /// Initialize the Road Builder support.
+        /// （初始化對 Road Builder 的支援。）
+        /// </summary>
+        /// <param name="em">The entity manager of the system.（系統的實體管理器。）</param>
+        public static void InitializeRBSupport(EntityManager em)
+        {
+            if (Instance.RBMod.Ready && RBIntegrity)
+            {
+                if (RBNetworkType == null)
+                {
+                    Assembly rb = Instance.RBMod.Assembly;
+
+                    if (rb.GetTypes().Any(type => type.FullName == "RoadBuilder.Domain.Components.RoadBuilderNetwork"))
+                    {
+                        RBNetworkType = rb.GetType("RoadBuilder.Domain.Components.RoadBuilderNetwork");
+                    }
+                    else
+                    {
+                        RBIntegrity = false;
+                        Instance.Log.Debug("NetSystem.GetRoadsProperties(): Couldn't find the type `RoadBuilder.Domain.Components.RoadBuilderNetwork`. 無法找到型別 `RoadBuilder.Domain.Components.RoadBuilderNetwork`。");
+                    }
+                }
+
+                if (RBIntegrity)
+                {
+                    foreach (Entity _lanePrefab in Instance.Net._laneQuery.ToEntityArray(Allocator.Temp))
+                    {
+                        LaneProperties[_lanePrefab] = LaneCategory.None;
+
+                        if (em.HasComponent<CarLaneData>(_lanePrefab))
+                        {
+                            RoadTypes roadType = em.GetComponentData<CarLaneData>(_lanePrefab).m_RoadTypes;
+                            if (roadType.HasFlag(RoadTypes.Car)) LaneProperties[_lanePrefab] |= LaneCategory.Car;
+                        }
+                        if (em.HasComponent<TrackLaneData>(_lanePrefab))
+                        {
+                            TrackTypes trackType = em.GetComponentData<TrackLaneData>(_lanePrefab).m_TrackTypes;
+                            if (trackType.HasFlag(TrackTypes.Train)) LaneProperties[_lanePrefab] |= LaneCategory.Train;
+                            if (trackType.HasFlag(TrackTypes.Subway)) LaneProperties[_lanePrefab] |= LaneCategory.Subway;
+                            if (trackType.HasFlag(TrackTypes.Tram)) LaneProperties[_lanePrefab] |= LaneCategory.Tram;
+                        }
+                    }
+                }
+            }
+        }
     }
 }

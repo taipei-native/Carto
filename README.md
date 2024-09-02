@@ -4,7 +4,7 @@
 
 ### Features
 
-* Export Vector Data - Carto currently supports exporting the boundary of districts, map tiles, buildings, roads, tracks, pathways, and zoning cells into GeoJSON and Esri Shapefile.
+* Export Vector Data - Carto currently supports exporting districts, map tiles, buildings, roads, tracks, pathways, points of interest (POIs), and zoning cells into GeoJSON and Esri Shapefile.
 * Export Raster Data - Carto currently supports exporting the elevation and water depths into GeoTIFF.
 * Additional Information - Carto can collect other vital data from your save with the vector geodata, such as asset names, driving directions, etc.
 * UTM Projection - Carto uses WGS84 / UTM projections (EPSG: 326xx / 327xx) to reproject your save to real-life locations.
@@ -32,8 +32,8 @@ Go to the options and click Carto in the sidebar. In the *General* tab, you can 
 
 ### Credits
 
-Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them!
+Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them! Aside from the inspiring modders, I am really grateful to beta testers for their precious feedback, including but not limited to **Allegretic**, **LightLight**, and other members in the two Discord servers listed below.
 
 ### Feedback and Contacts
 
-You can reach me at the [PDX forum’s](about:blank) comment section (English / Chinese), [Cities: Skylines Modding](https://discord.gg/HTav7ARPs2) Discord server (English only), or [Cities: Skylines Taiwan Assets](https://discord.gg/Gz4K66jT64) Discord server (Chinese preferred). If you need to start a more in-depth discussion or report complicated bugs, I’d suggest using GitHub’s issues or discussions, as it isn’t easy to track them between threads.
+You can reach me at the [PDX forum’s](https://forum.paradoxplaza.com/forum/threads/carto.1699089/) comment section (English / Chinese), [Cities: Skylines Modding](https://discord.gg/HTav7ARPs2) Discord server (English only), or [Cities: Skylines Taiwan Assets](https://discord.gg/Gz4K66jT64) Discord server (Chinese preferred). If you need to start a more in-depth discussion or report complicated bugs, I’d suggest using GitHub’s issues or discussions, as it isn’t easy to track them between threads.

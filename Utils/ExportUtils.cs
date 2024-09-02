@@ -65,6 +65,7 @@ namespace Carto.Utils
             Area,
             Building,
             Net,
+            POI,
             Terrain,
             Water,
             Zoning
@@ -107,6 +108,16 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// The enum storing the POI export options.
+        /// （儲存興趣點輸出設定的列舉。）
+        /// </summary>
+        public enum POIFormat
+        {
+            All,
+            Single
+        }
+
+        /// <summary>
         /// The default field export settings.
         /// （預設的欄位輸出設定。）
         /// </summary>
@@ -114,7 +125,8 @@ namespace Carto.Utils
         {
             { FeatureType.Area, new Dictionary<string, bool>{ { "Area", false }, { "Center", false }, { "Company", false }, { "Edge", true }, { "Employee", true }, { "Household", false }, { "Object", true }, { "Resident", true }, { "Unlocked", true } }},
             { FeatureType.Building, new Dictionary<string, bool>{ { "Address", true }, { "Asset", true }, { "Brand", false }, { "Category", true }, { "Edge", true }, { "Employee", true }, { "Household", false }, { "Level", false }, { "Object", true }, { "Product", false }, { "Resident", true }, { "Theme", false }, { "Zoning", true }  }},
-            { FeatureType.Net, new Dictionary<string, bool> { { "Asset", true }, { "Category", true }, { "CenterLine", true }, { "Direction", true }, { "Edge", true }, { "Form", true }, { "Height", false }, { "Length", false }, { "Object", true }, { "Width", false } }},
+            { FeatureType.Net, new Dictionary<string, bool> { { "Asset", true }, { "Category", true }, { "CenterLine", true }, { "Direction", true }, { "Edge", true }, { "Form", true }, { "Height", true }, { "Length", false }, { "Object", true }, { "Width", false } }},
+            { FeatureType.POI, new Dictionary<string, bool> { { "Address", true }, { "Category", true }, { "Location", true }, { "Object", true } } },
             { FeatureType.Terrain, new Dictionary<string, bool> { { "Elevation", true }, { "WorldElevation", false } }},
             { FeatureType.Water, new Dictionary<string, bool> { { "Depth", true }, { "WorldDepth", false } }},
             { FeatureType.Zoning, new Dictionary<string, bool> { { "Color", false }, { "Density", false }, { "Edge", true }, { "Object", true }, { "Theme", false }, { "Zoning", true } }}
@@ -170,6 +182,7 @@ namespace Carto.Utils
             { FeatureType.Area,     new string[] { "Edge" } },
             { FeatureType.Building, new string[] { "Edge" } },
             { FeatureType.Net,      new string[] { "CenterLine", "Edge" } },
+            { FeatureType.POI,      new string[] { "Location" } },
             { FeatureType.Terrain,  new string[] { "Elevation", "WorldElevation" } },
             { FeatureType.Water,    new string[] { "Depth", "WorldDepth" } },
             { FeatureType.Zoning,   new string[] { "Edge" } },
@@ -179,7 +192,7 @@ namespace Carto.Utils
         /// The features available in the vector type.
         /// （適用於向量類型的圖徵。）
         /// </summary>
-        public static FeatureType[] VectorFeatures => new FeatureType[] { FeatureType.Area, FeatureType.Building, FeatureType.Net, FeatureType.Zoning };
+        public static FeatureType[] VectorFeatures => new FeatureType[] { FeatureType.Area, FeatureType.Building, FeatureType.Net, FeatureType.POI, FeatureType.Zoning };
 
         /// <summary>
         /// The method handling the validation of settings and export of the files.
@@ -286,7 +299,7 @@ namespace Carto.Utils
                 ignored_count = default;
                 ignored_name = default;
                 ignored_reason = default;
-                
+
                 if (input.Objects.Count > 0)
                 {
                     switch (Instance.Settings.ExportFormat)
@@ -482,7 +495,9 @@ namespace Carto.Utils
             m_Log.Info($"LONGITUDE     {Instance.Settings.Longitude}");
             m_Log.Info($"TIFF_FORMAT   {Instance.Settings.TIFFFormat}");
             m_Log.Info($"HOMELESS      {Instance.Settings.UseHomeless}");
+            m_Log.Info($"POI_FORMAT    {Instance.Settings.POIBehavior}");
             m_Log.Info($"UNZONED       {Instance.Settings.UseUnzoned}");
+            m_Log.Info($"UPGRADE       {Instance.Settings.UseUpgrade}");
             m_Log.Info($"ZCC_COLORS    {Instance.Settings.UseZCC}");
             m_Log.Info(new string('-', 30));
             m_Log.Info($"RB            {Instance.RBMod.Status()}");
@@ -592,6 +607,13 @@ namespace Carto.Utils
                     geodata = new Geodata(nets, MiscUtils.CombineFieldLengthDictionaries(roadFields, trackFields, pathFields));
                     ExportVectorGeodata(nets, geodata, "Net", true);
                 }
+                if (Instance.Settings.ExportPOI)
+                {
+                    List<CartoObject> pois = new List<CartoObject>();
+                    pois.AddRange(Instance.POI.GetPOIsProperties(out Dictionary<string, int> poiField));
+                    geodata = new Geodata(pois, poiField);
+                    ExportVectorGeodata(pois, geodata, "POI");
+                }
                 if (Instance.Settings.ExportZoning)
                 {
                     List<CartoObject> zones = new List<CartoObject>();
@@ -612,9 +634,9 @@ namespace Carto.Utils
                 {
                     if (ignored_count_helper.TryGetValue(reason, out int ignore_count)) successFiles -= ignore_count;
                 }
-                
+
                 if (successFiles > 0) exportCompleteString = LocaleUtils.Translate("Carto.export.SUCCESSTEXT").Replace("{NUMBER}", $"{successFiles}");
-                
+
                 foreach (ExportIgnoreReasons reason in Enum.GetValues(typeof(ExportIgnoreReasons)))
                 {
                     if (ignored_count_helper.TryGetValue(reason, out int ignore_count))

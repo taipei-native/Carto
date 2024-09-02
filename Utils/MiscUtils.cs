@@ -1,7 +1,9 @@
 namespace Carto.Utils
 {
+    using Colossal.IO;
     using Colossal.Json;
     using Colossal.Logging;
+    using Colossal.PSI.Environment;
     using System;
     using System.Collections;
     using System.Collections.Generic;
@@ -12,6 +14,7 @@ namespace Carto.Utils
     using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Text;
+    using System.Text.RegularExpressions;
 
     public class MiscUtils
     {
@@ -81,6 +84,43 @@ namespace Carto.Utils
         public static Dictionary<ExportUtils.FeatureType, Dictionary<string, bool>> DeepCopy(Dictionary<ExportUtils.FeatureType, Dictionary<string, bool>> original)
         {
             return original.ToDictionary(kvp => kvp.Key, kvp => new Dictionary<string, bool>(kvp.Value));
+        }
+
+        /// <summary>
+        /// Extract the embedded QGIS style resources to the disk.
+        /// （將嵌入的 QGIS 樣式資源擷取至硬碟。）
+        /// </summary>
+        /// <param name="dir">The path to the output directory.（指向輸出目錄的路徑。）</param>
+        public static void ExtractEmbeddedStyles(string dir)
+        {
+            string[] resources = Assembly.GetExecutingAssembly().GetManifestResourceNames();
+            
+            foreach (string embedded in resources)
+            {
+                if (Regex.IsMatch(embedded, @"(?<=Styles\.).+(?=\.zip)"))
+                {
+                    string zipPath = Path.Combine(EnvPath.kTempDataPath, "Carto_Mod_QGIS_Styles.zip");
+                    
+                    using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(embedded))
+                    {    
+                        using (FileStream fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write))
+                        {
+                            stream.CopyTo(fs);
+                        }
+                    }
+
+                    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+                    try
+                    {
+                        ZipUtilities.Unzip(zipPath, dir);
+                    }
+                    catch (Exception ex)
+                    {
+                        m_Log.Warn($"Cannot extract QGIS style presets to the target directory. 無法將 QGIS 預設樣式表擷取至目標目錄。{ex}");
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -264,7 +304,7 @@ namespace Carto.Utils
             }
             catch (Exception)
             {
-                m_Log.Warn($"An error occured at GetOSPlatform(), returning default \"WINDOWS\". 於 GetOSPlatform() 發生一個錯誤，回傳預設值 \"WINDOWS\"。");
+                m_Log.Warn("An error occured at GetOSPlatform(), returning default \"WINDOWS\". 於 GetOSPlatform() 發生一個錯誤，回傳預設值 \"WINDOWS\"。");
                 return "WINDOWS";
             }
         }

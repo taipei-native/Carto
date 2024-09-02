@@ -98,6 +98,12 @@ namespace Carto
         public static NetSystem Net => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<NetSystem>();
 
         /// <summary>
+        /// The Carto mod's POISystem instance.
+        /// （Carto模組的POISystem個體。）
+        /// </summary>
+        public static POISystem POI => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<POISystem>();
+
+        /// <summary>
         /// The system managing prefabricated templates of objects.
         /// （管理物件預製組件模板的系統。）
         /// </summary>

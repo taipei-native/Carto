@@ -33,17 +33,23 @@
             Instance.Settings = new Setting(this);
             Instance.Settings.RegisterInOptionsUI();
             AssetDatabase.global.LoadSettings(nameof(Carto), Instance.Settings, new Setting(this));
+            Instance.Settings.ValidateSettings();
             Instance.Settings.LoadLocalSettings();
 
             // Append locales to the existing ones.
             // （將語系檔案添加至既有的檔案。）
             LocaleUtils.BatchAddLocaleFromEmbedded();
 
+            // Extract the embedded QGIS styles.
+            //（擷取嵌入的 QGIS 樣式。）
+            MiscUtils.ExtractEmbeddedStyles(Path.Combine(Setting.ContentFolder, "Styles"));
+
             // Register system instances into the game.
             // （將系統實例註冊在遊戲中。）
             updateSystem.UpdateBefore<AreaSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<BuildingSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<NetSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.UpdateBefore<POISystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<TerrainSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<WaterSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<ZoningSystem>(SystemUpdatePhase.GameSimulation);

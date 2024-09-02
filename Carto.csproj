@@ -5,9 +5,9 @@
 		<TargetFramework>net472</TargetFramework>
 		<Configurations>Debug;Release</Configurations>
 		<Authors>Taipei Native</Authors>
-		<AssemblyVersion>0.2.0.0</AssemblyVersion> <!--4 digit -->
-		<FileVersion>0.2.5</FileVersion> <!--3 digit -->
-		<Version>0.2.5</Version> <!--3 digit -->
+		<AssemblyVersion>0.3.0.0</AssemblyVersion> <!--4 digit -->
+		<FileVersion>0.3.0</FileVersion> <!--3 digit -->
+		<Version>0.3.0</Version> <!--3 digit -->
 		
 		<!--The folder where Game.dll is located. Set it only if the game is not installed in the default location, otherwise keep it empty-->
 		<CustomManagedPath></CustomManagedPath>
@@ -98,16 +98,25 @@
 		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
 	</ItemGroup>
 
+	<Target Name="ZipStyles" BeforeTargets="BeforeBuild">
+		<ZipDirectory
+			SourceDirectory="Styles\qml"
+			DestinationFile="Styles\Styles.zip"
+			Overwrite="true" />
+	</Target>
+	
 	<!--<Target Name="BuildUI" AfterTargets="AfterBuild">
 		<Exec Command="npm run build" WorkingDirectory="$(ProjectDir)/UI" />
 	</Target>-->
 
 	<ItemGroup>
-	  <Content Remove="Locale\*.json" />
+		<Content Remove="Locale\*.json" />
+		<Content Remove="Styles\*\*.*" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <EmbeddedResource Include="Locale\*.json" />
+		<EmbeddedResource Include="Locale\*.json" />
+		<EmbeddedResource Include="Styles\*.zip" />
 	</ItemGroup>
 
 </Project>

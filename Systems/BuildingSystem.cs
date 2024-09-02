@@ -153,6 +153,7 @@ namespace Carto.Systems
         /// （獲取建築的分類。）
         /// </summary>
         /// <param name="building">The building entity.（建築實體。）</param>
+        /// <param name="entityManager">The system's entity manager.（系統的實體管理器。）</param>
         public static BuildingCategory GetBuildingCategory(Entity building, EntityManager entityManager)
         {
             BuildingCategory category = BuildingCategory.None;

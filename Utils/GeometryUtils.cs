@@ -590,7 +590,7 @@
 
                 for (int j = 1; j < checkedLine.Count; j++)
                 {
-                    if (j <  checkedLine.Count - 1)
+                    if (j < checkedLine.Count - 1)
                     {
                         if (RotationAngle(Azimuth(checkedLine[j], checkedLine[j - 1]), Azimuth(checkedLine[j], checkedLine[j + 1])) < math.PI / 60)
                         {
@@ -745,7 +745,7 @@
         {
             bool intersect = false;
             intersections = new List<float3>();
-            index = new List<(int start, int end)> ();
+            index = new List<(int start, int end)>();
 
             for (int i = 0; i < line.Count - 1; i++)
             {

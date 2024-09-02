@@ -49,6 +49,7 @@ namespace Carto
         public bool m_Household = true;
         public bool m_Length = true;
         public bool m_Level = true;
+        public bool m_Location = true;
         public bool m_Object = true;
         public bool m_Product = true;
         public bool m_Resident = true;
@@ -128,6 +129,7 @@ namespace Carto
         public bool NotInFieldArrayHousehold => NotInFieldArray("Household");
         public bool NotInFieldArrayLength => NotInFieldArray("Length");
         public bool NotInFieldArrayLevel => NotInFieldArray("Level");
+        public bool NotInFieldArrayLocation => NotInFieldArray("Location");
         public bool NotInFieldArrayObject => NotInFieldArray("Object");
         public bool NotInFieldArrayProduct => NotInFieldArray("Product");
         public bool NotInFieldArrayResident => NotInFieldArray("Resident");
@@ -202,6 +204,28 @@ namespace Carto
         {
             Contra = false;
             UpdateFieldVisual(FeatureSelector);
+        }
+
+        /// <summary>
+        /// Validate whether the setting is up-to-date or not.
+        /// （驗證設定是否過時。）
+        /// </summary>
+        public void ValidateSettings()
+        {
+            foreach (KeyValuePair<ExportUtils.FeatureType, Dictionary<string, bool>> kvp in ExportUtils.ExportFieldSettings)
+            {
+                if (FieldStatus.TryGetValue(kvp.Key, out Dictionary<string, bool> featureStatus))
+                {
+                    foreach (KeyValuePair<string, bool> subKVP in ExportUtils.ExportFieldSettings[kvp.Key])
+                    {
+                        if (!featureStatus.TryGetValue(subKVP.Key, out _)) FieldStatus[kvp.Key][subKVP.Key] = subKVP.Value;
+                    }
+                }
+                else
+                {
+                    FieldStatus[kvp.Key] = kvp.Value;
+                }
+            }
         }
 
         /// <summary>
@@ -346,7 +370,7 @@ namespace Carto
                 catch
                 {
                     MessageDialog urlErrorDialog = new MessageDialog("Common.WARNING", "Carto.manual.ERRORTEXT", "Common.OK");
-                    GameManager.instance.userInterface.appBindings.ShowMessageDialog(urlErrorDialog, null);
+                    Instance.UI.appBindings.ShowMessageDialog(urlErrorDialog, null);
                     Instance.Log.Debug($"Settings.ManualButton: Cannot open user manual. 無法開啟使用手冊。");
                 }
             }
@@ -389,11 +413,19 @@ namespace Carto
 
         /// <summary>
         /// Whether to export network features.
-        /// （決定是否輸出網絡圖徵。）
+        /// （決定是否輸出網路圖徵。）
         /// </summary>
         [SettingsUISection(CustomExportTab, FeatureGroup)]
         [SettingsUIDisableByCondition(typeof(Setting), nameof(IsRasterFormat))]
         public bool ExportNet { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export point of interest features.
+        /// （決定是否輸出興趣點圖徵。）
+        /// </summary>
+        [SettingsUISection(CustomExportTab, FeatureGroup)]
+        [SettingsUIDisableByCondition(typeof(Setting), nameof(IsRasterFormat))]
+        public bool ExportPOI { get; set; } = true;
 
         /// <summary>
         /// Whether to export terrain.
@@ -472,6 +504,15 @@ namespace Carto
         {
             get => m_Elevation;
             set => UpdateFieldStatus("Elevation", value);
+        }
+
+        [SettingsUIAdvanced]
+        [SettingsUISection(CustomExportTab, FeatureGroup, SpatialFieldGroup)]
+        [SettingsUIHideByCondition(typeof(Setting), nameof(NotInFieldArrayLocation))]
+        public bool ExportFieldLocation
+        {
+            get => m_Location;
+            set => UpdateFieldStatus("Location", value);
         }
 
         [SettingsUIAdvanced]
@@ -702,11 +743,25 @@ namespace Carto
         }
 
         /// <summary>
-        /// Whether to export GeoTIFFs as 16-bit depth.
-        /// （決定是否要輸出16位元GeoTIFF。）
+        /// Choose the format of the GeoTIFFs.
+        /// （選擇GeoTIFF的格式。）
         /// </summary>
         [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
         public ExportUtils.GeoTIFFFormat TIFFFormat { get; set; } = ExportUtils.GeoTIFFFormat.Int16;
+
+        /// <summary>
+        /// Choose the export behavior of the POIs.
+        /// （選擇興趣點的輸出方式。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
+        public ExportUtils.POIFormat POIBehavior { get; set; } = ExportUtils.POIFormat.Single;
+
+        /// <summary>
+        /// Whether to separate service upgrades from their owner when exporting POIs.
+        /// （決定是否在輸出興趣點時分離服務升級。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGroup)]
+        public bool UseUpgrade { get; set; } = false;
 
         /// <summary>
         /// Whether to count homeless in resident field.
@@ -770,6 +825,7 @@ namespace Carto
             ExportError = ExportUtils.ExportErrors.None;
             ExportFormat = ExportUtils.ExportFormats.Shapefile;
             ExportNet = true;
+            ExportPOI = true;
             ExportTerrain = true;
             ExportWater = true;
             ExportZoning = true;
@@ -797,6 +853,7 @@ namespace Carto
             m_Household = true;
             m_Length = true;
             m_Level = true;
+            m_Location = true;
             m_Object = true;
             m_Product = true;
             m_Resident = true;
@@ -808,9 +865,11 @@ namespace Carto
             m_Zoning = true;
             MapCenter = (0, 0);
             NamingFormat = ExportUtils.NamingFormat.Feature;
+            POIBehavior = ExportUtils.POIFormat.All;
             TIFFFormat = ExportUtils.GeoTIFFFormat.Int16;
             UseHomeless = true;
             UseUnzoned = false;
+            UseUpgrade = false;
             UseZCC = true;
         }
     }

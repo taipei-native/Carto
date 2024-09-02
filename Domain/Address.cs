@@ -3,6 +3,7 @@ namespace Carto.Domain
     using Carto.Utils;
     using Game.Areas;
     using Game.Buildings;
+    using Game.Objects;
     using System;
     using System.Globalization;
     using System.Text;
@@ -34,7 +35,7 @@ namespace Carto.Domain
 
         public Address(Entity building, EntityManager entityManager)
         {
-            if (entityManager.HasComponent<Building>(building) && BuildingUtils.GetAddress(entityManager, building, out Entity road, out int number))
+            if ((entityManager.HasComponent<Attached>(building) || entityManager.HasComponent<Building>(building)) && BuildingUtils.GetAddress(entityManager, building, out Entity road, out int number))
             {
                 Number = number;
                 Street = Instance.Name.GetRenderedLabelName(road);
