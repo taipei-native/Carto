@@ -7,24 +7,12 @@
       "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:geodata\\geodata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\instance.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:instance.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\systems\\zoningsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:systems\\zoningsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\utils\\exportutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:utils\\exportutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\utils\\miscutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:utils\\miscutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\utils\\geometryutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:utils\\geometryutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\systems\\netsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:systems\\netsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\systems\\areasystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -56,62 +44,22 @@
               "RelativeDocumentMoniker": "Geodata\\Geodata.cs",
               "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Geodata\\Geodata.cs",
               "RelativeToolTip": "Geodata\\Geodata.cs",
-              "ViewState": "AQIAANkDAAAAAAAAAAAAAOoDAABWAAAA",
+              "ViewState": "AgIAAIgBAAAAAAAAAIAxwJMBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-09-02T17:10:26.901Z",
+              "WhenOpened": "2024-09-04T17:16:36.95Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "Instance.cs",
-              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Instance.cs",
-              "RelativeDocumentMoniker": "Instance.cs",
-              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Instance.cs",
-              "RelativeToolTip": "Instance.cs",
-              "ViewState": "AQIAAE8AAAAAAAAAAAAAAEkBAAAaAAAA",
+              "Title": "ZoningSystem.cs",
+              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Systems\\ZoningSystem.cs",
+              "RelativeDocumentMoniker": "Systems\\ZoningSystem.cs",
+              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Systems\\ZoningSystem.cs",
+              "RelativeToolTip": "Systems\\ZoningSystem.cs",
+              "ViewState": "AgIAACQAAAAAAAAAAAAAACwAAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-09-02T17:05:55.21Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "MiscUtils.cs",
-              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Utils\\MiscUtils.cs",
-              "RelativeDocumentMoniker": "Utils\\MiscUtils.cs",
-              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Utils\\MiscUtils.cs",
-              "RelativeToolTip": "Utils\\MiscUtils.cs",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAkAAAAdAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-09-02T17:00:04.509Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "GeometryUtils.cs",
-              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Utils\\GeometryUtils.cs",
-              "RelativeDocumentMoniker": "Utils\\GeometryUtils.cs",
-              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Utils\\GeometryUtils.cs",
-              "RelativeToolTip": "Utils\\GeometryUtils.cs",
-              "ViewState": "AQIAANwCAAAAAAAAAAAuwPsCAAAJAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-09-02T16:57:01.884Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "NetSystem.cs",
-              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Systems\\NetSystem.cs",
-              "RelativeDocumentMoniker": "Systems\\NetSystem.cs",
-              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Systems\\NetSystem.cs",
-              "RelativeToolTip": "Systems\\NetSystem.cs",
-              "ViewState": "AQIAAP4BAAAAAAAAAAAAABECAAAcAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-09-02T16:54:56.333Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-03T13:10:20.7Z"
             },
             {
               "$type": "Document",
@@ -121,14 +69,13 @@
               "RelativeDocumentMoniker": "Utils\\ExportUtils.cs",
               "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Utils\\ExportUtils.cs",
               "RelativeToolTip": "Utils\\ExportUtils.cs",
-              "ViewState": "AQIAAOgBAAAAAAAAAAAAAAIBAAA0AAAA",
+              "ViewState": "AQIAAG4AAAAAAAAAAIAxwIEAAAB4AAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-09-02T16:42:02.035Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-02T16:42:02.035Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 3,
               "Title": "AreaSystem.cs",
               "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Systems\\AreaSystem.cs",
               "RelativeDocumentMoniker": "Systems\\AreaSystem.cs",
@@ -136,12 +83,11 @@
               "RelativeToolTip": "Systems\\AreaSystem.cs",
               "ViewState": "AQIAAAMAAAAAAAAAAAAAAAgAAAAWAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-09-02T16:41:13.984Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-02T16:41:13.984Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 4,
               "Title": "BuildingSystem.cs",
               "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Systems\\BuildingSystem.cs",
               "RelativeDocumentMoniker": "Systems\\BuildingSystem.cs",
@@ -149,8 +95,11 @@
               "RelativeToolTip": "Systems\\BuildingSystem.cs",
               "ViewState": "AQIAAE0BAAAAAAAAAAAAAGUBAAAtAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-09-02T16:40:36.74Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-02T16:40:36.74Z"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
             }
           ]
         }

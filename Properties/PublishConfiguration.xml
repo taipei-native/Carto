@@ -69,7 +69,7 @@ You can reach me at the PDX forum’s comment section (English / Chinese), Citie
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
 * Added support of exporting POIs (points of interest).
-* Added two QGIS style presets (Street &amp; Topo); they can be accessed in the directory ModsData\Carto\Styles .
+* Added three ready-to-use QGIS style presets (Plan, Street &amp; Topo); they can be accessed in the directory ModsData\Carto\Styles .
 	</ChangeLog>
 	<!--ChangeLog>
 	</ChangeLog-->

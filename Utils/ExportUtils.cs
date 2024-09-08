@@ -129,7 +129,7 @@ namespace Carto.Utils
             { FeatureType.POI, new Dictionary<string, bool> { { "Address", true }, { "Category", true }, { "Location", true }, { "Object", true } } },
             { FeatureType.Terrain, new Dictionary<string, bool> { { "Elevation", true }, { "WorldElevation", false } }},
             { FeatureType.Water, new Dictionary<string, bool> { { "Depth", true }, { "WorldDepth", false } }},
-            { FeatureType.Zoning, new Dictionary<string, bool> { { "Color", false }, { "Density", false }, { "Edge", true }, { "Object", true }, { "Theme", false }, { "Zoning", true } }}
+            { FeatureType.Zoning, new Dictionary<string, bool> { { "Color", true }, { "Density", false }, { "Edge", true }, { "Object", true }, { "Theme", false }, { "Zoning", true } }}
         };
 
         /// <summary>
