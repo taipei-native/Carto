@@ -15,7 +15,6 @@ Go to the options and click Carto in the sidebar. In the *General* tab, you can 
 
 ### Known Issues (for now)
 
-* The “Custom Name” text input box and advanced field checkboxes may disappear when alternating options in the dropdown. Please double-click the “Show / Hide Advanced” button to force the game to update the UI status.
 * Exporting GeoJSON is extremely slow when the number of features exceeds 10k ~ 20k. Please try to export them as shapefiles.
 * Due to the complicated shape of networks (roads, tracks, and pathways), there might be some invalid geometries in the exported file. You can try using the “fix geometry” functions in some GIS software to solve the problems.
 

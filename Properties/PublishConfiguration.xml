@@ -23,9 +23,12 @@
 
 Go to the options and click Carto in the sidebar. In the *General* tab, you can set the latitude and the longitude of your map’s center, as well as the exported file format. You can access individual item’s export settings in the *Custom Export* tab, where you can also configure each field’s status by clicking the “Show Advanced” button. Other miscellaneous options are in the *Miscellaneous* tab, including the advanced GeoTIFF format settings and other settings interacting with other mods. When satisfied with the settings, go to the *General* tab and hit the “Export Files” button. Once the export success dialog appears, your files are already exported into Carto’s dedicated directory in the user data folder (C:\Users\(UserName)\AppData\LocalLow\Colossal Order\Cities Skylines II\ModsData\Carto). Regarding other features, please refer to the user manual (https://github.com/taipei-native/Carto/wiki) for further information.
 
+### Carto &amp; QGIS Tutorial
+
+I’ve written a step-by-step tutorial on how to make maps with Carto &amp; QGIS. You can visit the guide here: https://github.com/taipei-native/Carto/wiki/Tutorial .
+
 ### Known Issues (for now)
 
-* The “Custom Name” text input box and advanced field checkboxes may disappear when alternating options in the dropdown. Please double-click the “Show / Hide Advanced” button to force the game to update the UI status.
 * Exporting GeoJSON is extremely slow when the number of features exceeds 10k ~ 20k. Please try to export them as shapefiles.
 * Due to the complicated shape of networks (roads, tracks, and pathways), there might be some invalid geometries in the exported file. You can try using the “fix geometry” functions in some GIS software to solve the problems.
 
@@ -61,15 +64,14 @@ You can reach me at the PDX forum’s comment section (English / Chinese), Citie
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.3" />
+	<ModVersion Value="0.3.1" />
 	<!--Recommended version of the base game to use the mod-->
-	<GameVersion Value="1.1.*" />
+	<GameVersion Value="1.2.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Added support of exporting POIs (points of interest).
-* Added three ready-to-use QGIS style presets (Plan, Street &amp; Topo); they can be accessed in the directory ModsData\Carto\Styles .
+* Fixed the issue that the mod couldn’t function properly with the game version 1.2. [Reported by @Ardarin_yt]
 	</ChangeLog>
 	<!--ChangeLog>
 	</ChangeLog-->
