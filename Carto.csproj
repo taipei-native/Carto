@@ -24,56 +24,60 @@
 
 	<ItemGroup>
 		<Reference Include="Game">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Colossal.Core">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Colossal.Logging">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Colossal.IO.AssetDatabase">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Colossal.UI">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Colossal.UI.Binding">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Colossal.Localization">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Unity.InputSystem">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="UnityEngine.CoreModule">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Unity.Burst">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Unity.Collections">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Unity.Entities">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Include="Unity.Mathematics">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 	</ItemGroup>
 
 	<ItemGroup>
 		<Reference Update="System">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Update="System.Core">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
 		<Reference Update="System.Data">
-			<Private>false</Private>
+			<Private>False</Private>
 		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CS2-ModdingTools" Version="1.0.2" />
 	</ItemGroup>
 
 	<ItemGroup>
