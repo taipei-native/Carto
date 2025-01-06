@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace Carto.Geodata
 {
     /// <summary>
@@ -9,10 +7,11 @@ namespace Carto.Geodata
     public abstract class Geodata
     {
         /// <summary>
-        /// 
+        /// The projection used by the geodata.
+        /// （地理資料所使用的投影法。）
         /// </summary>
         public abstract CRS Projection { get; set; }
-        
+
         /// <summary>
         /// Write the OGC GeoPackage file (*.gpkg).
         /// （寫出 OGC GeoPackage 檔案（*.gpkg）。）<br/>
@@ -20,5 +19,12 @@ namespace Carto.Geodata
         /// </summary>
         /// <param name="fileName">The name of the exported file.（檔案名稱。）</param>
         public virtual void ToGeoPackage(string fileName) { }
+
+        /// <summary>
+        /// Write the file into the format that can be used in Carto's web map (experimental).
+        /// （寫出可用於 Carto 網路地圖的檔案格式（實驗性）。）
+        /// </summary>
+        /// <param name="fileName">The name of the exported file.（檔案名稱。）</param>
+        public virtual void ToWebMap(string fileName) { }
     }
 }

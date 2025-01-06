@@ -12,16 +12,24 @@ namespace Carto.Geodata
         Unknown,
 
         /// <summary>
-        /// The in-game coordinate system.（遊戲內的坐標系統。）
+        /// The in-game coordinate system. The length unit is meter, and the datum is a flat plane.<br/>
+        /// （遊戲內的坐標系統。長度單位是公尺，大地基準是一個平面。）
         /// </summary>
         Game,
 
         /// <summary>
-        /// A variant of mercator projection also known as web mercator (EPSG: 3857), widely used in web applications.<br/>
+        /// A variant of Mercator projection also known as Web Mercator (EPSG: 3857), widely used in web applications.<br/>
         /// （偽麥卡托投影（或網路麥卡托投影，EPSG: 3857），經常被用於網路應用程式中。）<br/>
         /// See also: <seealso href="https://en.wikipedia.org/wiki/Web_Mercator_projection">Web Mercator projection</seealso>
         /// </summary>
-        PsuedoMercator,
+        PseudoMercator,
+
+        /// <summary>
+        /// The generic Transverse Mercator projection, whose cylinder's axis lies on the meridian instead of the Equator when comparing to Mercator.<br/>
+        /// （橫麥卡托投影，與麥卡托投影相比，其圓柱的投影軸線在經線而非赤道上。）<br/>
+        /// See also: <seealso href="https://en.wikipedia.org/wiki/Transverse_Mercator_projection">Transverse Mercator projection</seealso>
+        /// </summary>
+        TransverseMercator,
 
         /// <summary>
         /// The Universal Transverse Mercator (EPSG: 32xxx), a popular variant of the transverse mercator projection.<br/>
@@ -36,6 +44,50 @@ namespace Carto.Geodata
         /// See also: <seealso href="https://en.wikipedia.org/wiki/World_Geodetic_System">World Geodetic System</seealso>
         /// </summary>
         WGS84
+    }
+
+    /// <summary>
+    /// The reference ellipsoids of popular datums.
+    /// （受歡迎的大地基準的參考橢球體。）
+    /// </summary>
+    public enum Ellipsoid
+    {
+        /// <summary>
+        /// The fallback value for unknown or unregistered ellipsoid.（用於未知或未註冊橢球體的後備值。）
+        /// </summary>
+        Unknown,
+
+        /// <summary>
+        /// User-defined custom ellipsoid.（使用者定義的客製橢球體。）
+        /// </summary>
+        Custom,
+
+        /// <summary>
+        /// The Geodetic Reference System 1980 ellipsoid, used by NAD83 datum.（1980年大地參考系統橢球體，被 NAD83 使用。）
+        /// </summary>
+        GRS80,
+
+        /// <summary>
+        /// The World Geodetic System 1984 ellipsoid, used by WGS84 datum.（1984年世界大地測量系統橢球體，被 WGS84 使用。）
+        /// </summary>
+        WGS84
+    }
+
+    /// <summary>
+    /// North and south hemisphere of the Earth.
+    /// （地球的南北半球。）
+    /// </summary>
+    public enum Hemisphere
+    {
+        /// <summary>
+        /// The northern hemisphere.（北半球。）
+        /// </summary>
+        North,
+
+        /// <summary>
+        /// The southern hemisphere.（南半球。）
+        /// </summary>
+        South
     }
     
     /// <summary>
