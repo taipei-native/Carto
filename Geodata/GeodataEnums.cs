@@ -63,12 +63,12 @@ namespace Carto.Geodata
         Custom,
 
         /// <summary>
-        /// The Geodetic Reference System 1980 ellipsoid, used by NAD83 datum.（1980年大地參考系統橢球體，被 NAD83 使用。）
+        /// The Geodetic Reference System 1980 ellipsoid.（1980年大地參考系統橢球體。）
         /// </summary>
         GRS80,
 
         /// <summary>
-        /// The World Geodetic System 1984 ellipsoid, used by WGS84 datum.（1984年世界大地測量系統橢球體，被 WGS84 使用。）
+        /// The World Geodetic System 1984 ellipsoid.（1984年世界大地測量系統橢球體。）
         /// </summary>
         WGS84
     }
