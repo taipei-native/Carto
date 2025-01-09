@@ -44,6 +44,9 @@
 		<Reference Include="Colossal.Localization">
 			<Private>False</Private>
 		</Reference>
+		<Reference Include="Newtonsoft.Json">
+			<Private>False</Private>
+		</Reference>
 		<Reference Include="Unity.InputSystem">
 			<Private>False</Private>
 		</Reference>

@@ -1,5 +1,4 @@
 using Carto.Utils;
-using Colossal.Logging;
 using System;
 
 namespace Carto.Geodata
@@ -23,8 +22,6 @@ namespace Carto.Geodata
             * Snyder J.P. (1987). Map projections – a working manual. U.S. Geological Survey Professional Paper 1395, 385 pages
                 https://pubs.usgs.gov/pp/1395/report.pdf
          */
-
-        public static ILog log = LogManager.GetLogger(nameof(Carto)).SetShowsErrorsInUI(false);
 
         /// <summary>
         /// The WGS84 ellipsoid.

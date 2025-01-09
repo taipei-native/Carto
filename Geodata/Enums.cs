@@ -1,3 +1,5 @@
+using System;
+
 namespace Carto.Geodata
 {
     /// <summary>
@@ -288,107 +290,108 @@ namespace Carto.Geodata
     /// The subject of the raster data.
     /// （網格資料的主體。）
     /// </summary>
+    [Flags]
     public enum RasterKind
     {
         /// <summary>
         /// The fallback value for unknown or unregistered raster kinds.（用於未知或未註冊網格資料的後備值。）
         /// </summary>
-        Unknown,
+        Unknown = 0,
         
         /// <summary>
         /// The pollution spread in the air.（在空氣中飄散的汙染。）
         /// </summary>
-        AirPollution,
+        AirPollution = 1 << 0,
 
         /// <summary>
         /// The depth of the water bodies.（水體的深度。）
         /// </summary>
-        Depth,
+        Depth = 1 << 1,
 
         /// <summary>
         /// The elevation of the terrain.（地形的高程。）
         /// </summary>
-        Elevation,
+        Elevation = 1 << 2,
 
         /// <summary>
         /// The deposit of the fertile land.（沃土的蘊藏量。）
         /// </summary>
-        FertileDeposit,
+        FertileDeposit = 1 << 3,
 
         /// <summary>
         /// The direction in which surface water towards to.（地表水的移動方向。）
         /// </summary>
-        FlowDirection,
+        FlowDirection = 1 << 4,
 
         /// <summary>
         /// The speed of the surface water.（地表水的流速。）
         /// </summary>
-        FlowSpeed,
+        FlowSpeed = 1 << 5,
 
         /// <summary>
         /// The pollution that spread in the soil.（在土壤中擴散的汙染。）
         /// </summary>
-        GroundPollution,
+        GroundPollution = 1 << 6,
 
         /// <summary>
         /// The deposit of the ground water.（地下水的蘊藏量。）
         /// </summary>
-        GroundWaterDeposit,
+        GroundWaterDeposit = 1 << 7,
 
         /// <summary>
         /// The pollution that emits in the ground water.（排放至地下水中的汙染。）
         /// </summary>
-        GroundWaterPollution,
+        GroundWaterPollution = 1 << 8,
 
         /// <summary>
         /// The value of the land.（土地的價格。）
         /// </summary>
-        LandValue,
+        LandValue = 1 << 9,
 
         /// <summary>
         /// The pollution spread in the form of sound.（以聲音形式傳播的汙染。）
         /// </summary>
-        NoisePollution,
+        NoisePollution = 1 << 10,
 
         /// <summary>
         /// The deposit of the crude oil.（原油的蘊藏量。）
         /// </summary>
-        OilDeposit,
+        OilDeposit = 1 << 11,
 
         /// <summary>
         /// The deposit of the ore.（礦物的蘊藏量。）
         /// </summary>
-        OreDeposit,
+        OreDeposit = 1 << 12,
 
         /// <summary>
         /// The pollution that emits in the water.（排放至水中的汙染。）
         /// </summary>
-        WaterPollution,
+        WaterPollution = 1 << 13,
 
         /// <summary>
         /// The direction in which wind towards to.（風吹拂的方向。）
         /// </summary>
-        WindDirection,
+        WindDirection = 1 << 14,
 
         /// <summary>
         /// The speed of the wind.（風的速度。） 
         /// </summary>
-        WindSpeed,
+        WindSpeed = 1 << 15,
 
         /// <summary>
         /// The deposit of the wood.（木材的蘊藏量。）
         /// </summary>
-        WoodDeposit,
+        WoodDeposit = 1 << 16,
 
         /// <summary>
         /// The depth of the water bodies in the worldmap.（世界地形圖中的水體深度。）
         /// </summary>
-        WorldDepth,
+        WorldDepth = 1 << 17,
 
         /// <summary>
         /// The elevation of the terrain in the worldmap.（世界地形圖中的地形高程。）
         /// </summary>
-        WorldElevation
+        WorldElevation = 1 << 18
     }
 
     /// <summary>
@@ -432,31 +435,32 @@ namespace Carto.Geodata
     /// The subject of the vector data.
     /// （向量資料的主體。）
     /// </summary>
+    [Flags]
     public enum VectorKind
     {
         /// <summary>
         /// The fallback value for unknown or unregistered vector kinds.（用於未知或未註冊向量資料的後備值。）
         /// </summary>
-        Unknown,
+        Unknown = 0,
 
         /// <summary>
         /// The outline of the object.（物體的外圍輪廓線。）
         /// </summary>
-        Boundary,
+        Boundary = 1,
 
         /// <summary>
         /// The lines that lie in the middle of the networks or the routes.（位於網路或路線中央的線段。）
         /// </summary>
-        Centerline,
+        Centerline = 2,
 
         /// <summary>
         /// The coverage area of the property.（建築的覆蓋面。）
         /// </summary>
-        Footprint,
+        Footprint = 4,
 
         /// <summary>
-        /// The location of POIs.（興趣點的位置。）
+        /// The location of objects.（物體的位置。）
         /// </summary>
-        Location
+        Location = 8
     }
 }

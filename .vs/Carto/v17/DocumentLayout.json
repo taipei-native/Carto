@@ -3,8 +3,8 @@
   "WorkspaceRootPath": "D:\\Documents\\[by-type]\\github\\Carto\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\mod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:mod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\geodata\\vectordata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:geodata\\vectordata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\geodata\\transform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -13,6 +13,10 @@
     {
       "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\utils\\datumutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:utils\\datumutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\mod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:mod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -31,15 +35,27 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "VectorData.cs",
+              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Geodata\\VectorData.cs",
+              "RelativeDocumentMoniker": "Geodata\\VectorData.cs",
+              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Geodata\\VectorData.cs",
+              "RelativeToolTip": "Geodata\\VectorData.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAEAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-01-09T01:24:34.793Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
               "Title": "Mod.cs",
               "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Mod.cs",
               "RelativeDocumentMoniker": "Mod.cs",
               "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Mod.cs",
               "RelativeToolTip": "Mod.cs",
-              "ViewState": "AgIAAAYAAAAAAAAAAAAAABUAAACzAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-01-08T13:02:14.547Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-01-08T13:02:14.547Z"
             },
             {
               "$type": "Document",
@@ -49,7 +65,7 @@
               "RelativeDocumentMoniker": "Utils\\DatumUtils.cs",
               "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Utils\\DatumUtils.cs",
               "RelativeToolTip": "Utils\\DatumUtils.cs",
-              "ViewState": "AgIAACEAAAAAAAAAAAAAAAAAAAAUAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABUAAAAOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-01-08T05:57:55.713Z",
               "EditorCaption": ""
@@ -62,7 +78,7 @@
               "RelativeDocumentMoniker": "Geodata\\Transform.cs",
               "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Geodata\\Transform.cs",
               "RelativeToolTip": "Geodata\\Transform.cs",
-              "ViewState": "AgIAADgAAAAAAAAAAADgvz0AAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAMMAAAAAAAAAAAAAAJwAAAA8AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-01-06T00:10:08.745Z",
               "EditorCaption": ""
