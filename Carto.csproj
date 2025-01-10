@@ -21,6 +21,12 @@
 	<!--Imports must be after PropertyGroup block-->
 	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props" />
 	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.targets" />
+	<ItemGroup>
+	  <Compile Remove="Geodata\Feature.cs" />
+	  <Compile Remove="Geodata\Geodata.cs" />
+	  <Compile Remove="Geodata\RasterData.cs" />
+	  <Compile Remove="Geodata\VectorData.cs" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<Reference Include="Game">
@@ -42,6 +48,9 @@
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="Colossal.Localization">
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Colossal.PSI.Common">
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="Newtonsoft.Json">
@@ -86,6 +95,10 @@
 	<ItemGroup>
 		<None Include="$(ModPropsFile)" Link="Properties\Mod.props" />
 		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
+		<None Include="Geodata\Feature.cs" />
+		<None Include="Geodata\Geodata.cs" />
+		<None Include="Geodata\RasterData.cs" />
+		<None Include="Geodata\VectorData.cs" />
 	</ItemGroup>
 
 </Project>

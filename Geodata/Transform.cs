@@ -27,19 +27,19 @@ namespace Carto.Geodata
         /// The WGS84 ellipsoid.
         /// （WGS84 橢球體。）
         /// </summary>
-        static readonly EllipsoidDefinition EllipWGS84 = new(Ellipsoid.WGS84);
+        static readonly EllipsoidDefinition _ellipWGS84 = new(Ellipsoid.WGS84);
 
         /// <summary>
         /// EPSG: 326xx. The WGS84 / UTM projection in the northern hemisphere.
         /// （北半球的 WGS84 / UTM 投影。）
         /// </summary>
-        static readonly ProjectionDefinition ProjUTMNorth = new(EllipWGS84, (0, 0), (5E6, 0), 0.9996, new double[0]);
+        static readonly ProjectionDefinition _projUTMNorth = new(_ellipWGS84, (0, 0), (5E6, 0), 0.9996, new double[0]);
 
         /// <summary>
         /// EPSG: 327xx. The WGS84 / UTM projection in the southern hemisphere.
         /// （南半球的 WGS84 / UTM 投影。）
         /// </summary>
-        static readonly ProjectionDefinition ProjUTMSouth = new(EllipWGS84, (0, 0), (5E6, 1E7), 0.9996, new double[0]);
+        static readonly ProjectionDefinition _projUTMSouth = new(_ellipWGS84, (0, 0), (5E6, 1E7), 0.9996, new double[0]);
 
         /// <summary>
         /// Transform any Transverse Mercator coordinates to WGS84 coordinates.
@@ -108,7 +108,7 @@ namespace Carto.Geodata
             {
                 (double, double, double) gcc = DatumUtils.GeodeticToGeocentric((lon, lat), projection.ellipsoid);
                 gcc = DatumUtils.GeocentricToWGS84(gcc, projection.transform);
-                (lon, lat) = DatumUtils.GeocentricToGeodetic(gcc, EllipWGS84);
+                (lon, lat) = DatumUtils.GeocentricToGeodetic(gcc, _ellipWGS84);
             }
 
             // WGS84 Coordinates（WGS84 坐標）
@@ -124,11 +124,11 @@ namespace Carto.Geodata
         public static (double longitude, double latitude) UTMToWGS84((double easting, double northing, int zone, Hemisphere hemisphere) utm)
         {
             // Constants（常數）
-            double a = EllipWGS84.a;
-            double e = EllipWGS84.eSquare;
-            double fE = ProjUTMNorth.shift.easting;
-            double fN = (utm.hemisphere == Hemisphere.North) ? ProjUTMNorth.shift.northing : ProjUTMSouth.shift.northing;
-            double sf = ProjUTMNorth.scaleFactor;
+            double a = _ellipWGS84.a;
+            double e = _ellipWGS84.eSquare;
+            double fE = _projUTMNorth.shift.easting;
+            double fN = (utm.hemisphere == Hemisphere.North) ? _projUTMNorth.shift.northing : _projUTMSouth.shift.northing;
+            double sf = _projUTMNorth.scaleFactor;
 
             // Intermediate Values（中繼值）
             double EST = utm.easting - fE;
@@ -166,7 +166,7 @@ namespace Carto.Geodata
         public static (double x, double y) WGS84ToPseudoMercator((double longitude, double latitude) wgs84)
         {
             // Constants（常數）
-            double a = EllipWGS84.a;
+            double a = _ellipWGS84.a;
 
             // Intermediate Values（中繼值）
             double LATr = wgs84.latitude / 180 * Math.PI;
@@ -208,7 +208,7 @@ namespace Carto.Geodata
 
             if (projection.HasTransform())
             {
-                (double, double, double) gcc = DatumUtils.GeodeticToGeocentric((lon, lat), EllipWGS84);
+                (double, double, double) gcc = DatumUtils.GeodeticToGeocentric((lon, lat), _ellipWGS84);
                 gcc = DatumUtils.GeocentricFromWGS84(gcc, projection.transform);
                 (lon, lat) = DatumUtils.GeocentricToGeodetic(gcc, projection.ellipsoid);
             }
@@ -252,12 +252,12 @@ namespace Carto.Geodata
         public static (double easting, double northing, int zone, Hemisphere hemisphere) WGS84ToUTM((double longitude, double latitude) wgs84)
         {
             // Constants（常數）
-            double a = EllipWGS84.a;
-            double e = EllipWGS84.eSquare;
-            double fE = ProjUTMNorth.shift.easting;
-            double fN = (wgs84.latitude >= 0) ? ProjUTMNorth.shift.northing : ProjUTMSouth.shift.northing;
+            double a = _ellipWGS84.a;
+            double e = _ellipWGS84.eSquare;
+            double fE = _projUTMNorth.shift.easting;
+            double fN = (wgs84.latitude >= 0) ? _projUTMNorth.shift.northing : _projUTMSouth.shift.northing;
             Hemisphere hemisphere = (wgs84.latitude >= 0) ? Hemisphere.North : Hemisphere.South;
-            double sf = ProjUTMNorth.scaleFactor;
+            double sf = _projUTMNorth.scaleFactor;
 
             // Intermediate Values（中繼值）
             double LATr = wgs84.latitude / 180 * Math.PI;
