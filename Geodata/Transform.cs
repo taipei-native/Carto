@@ -1,5 +1,6 @@
 using Carto.Utils;
 using System;
+using Unity.Mathematics;
 
 namespace Carto.Geodata
 {
@@ -40,6 +41,50 @@ namespace Carto.Geodata
         /// （南半球的 WGS84 / UTM 投影。）
         /// </summary>
         static readonly ProjectionDefinition _projUTMSouth = new(_ellipWGS84, (0, 0), (5E6, 1E7), 0.9996, new double[0]);
+
+        /// <summary>
+        /// A helper function to apply CRS transformation easily.
+        /// （用於簡易轉換坐標參考系統的輔助函數。）
+        /// </summary>
+        /// <param name="coordinate">The representation of a location.（空間中的位置。）</param>
+        /// <param name="sourceCRS">The CRS of the original coordinate.（轉換前坐標的坐標參考系統。）</param>
+        /// <param name="targetCRS">The CRS of the converted coordinate.（轉換後坐標的坐標參考系統。）</param>
+        /// <param name="sourceProjection">The source custom Transverse Mercator projection.（使用者自訂的來源橫麥卡托投影。）</param>
+        /// <param name="targetProjection">The target custom Transverse Mercator projection.（使用者自訂的目標橫麥卡托投影。）</param>
+        /// <returns>The transformed coordinates.（轉換後的坐標。）</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static Coord Apply(Coord coordinate, CRS sourceCRS, CRS targetCRS, ProjectionDefinition sourceProjection, ProjectionDefinition targetProjection)
+        {
+            if ((sourceCRS == targetCRS) && (sourceCRS != CRS.TransverseMercator)) return coordinate;
+            if ((sourceCRS == CRS.Unknown) || (sourceCRS == CRS.Game) || (sourceCRS == CRS.PseudoMercator)) throw new ArgumentException("No available conversion from sourceCRS to WGS84. 沒有自 sourceCRS 至 WGS84 的轉換。");
+            if ((targetCRS == CRS.Unknown) || (targetCRS == CRS.Game)) throw new ArgumentException("No available conversion from WGS84 to targetCRS. 沒有自 WGS84 至 targetCRS 的轉換。");
+
+            (double x, double y) intermediateCoordinate = coordinate.Tuple;
+
+            switch (sourceCRS)
+            {
+                case CRS.TransverseMercator:
+                    intermediateCoordinate = TransverseMercatorToWGS84(coordinate.Tuple, sourceProjection);
+                    break;
+
+                case CRS.UTM:
+                    intermediateCoordinate = UTMToWGS84(coordinate.UTMTuple);
+                    break;
+
+                case CRS.WGS84:
+                    break;
+            }
+
+            if (targetCRS == CRS.WGS84) return new Coord(intermediateCoordinate, coordinate.z);
+
+            return targetCRS switch
+            {
+                CRS.PseudoMercator => new Coord(WGS84ToPseudoMercator(intermediateCoordinate), coordinate.z),
+                CRS.TransverseMercator => new Coord(WGS84ToTransverseMercator(intermediateCoordinate, targetProjection), coordinate.z),
+                CRS.UTM => new Coord(WGS84ToUTM(intermediateCoordinate), coordinate.z),
+                _ => coordinate,
+            };
+        }
 
         /// <summary>
         /// Transform any Transverse Mercator coordinates to WGS84 coordinates.

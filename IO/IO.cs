@@ -1,9 +1,7 @@
-using Carto.Systems;
-using Colossal.IO.AssetDatabase.Internal;
-using Newtonsoft.Json;
+using Carto.Geodata;
 using System;
 using System.Collections.Generic;
-using System.IO;
+using Unity.Mathematics;
 
 namespace Carto.IO
 {
@@ -86,40 +84,31 @@ namespace Carto.IO
             { Property.Zoning, typeof(string) }
         };
         
+        public static void OnReport(string file, int progress)
+        {
+
+        }
+
         /// <summary>
         /// Export in-game objects into geospatial files.
         /// （將遊戲內物體輸出為地理空間格式檔案。）
         /// </summary>
-        public static void Export(Options options)
+        public static void Export()
         {
-            
-        }
-
-        /// <summary>
-        /// Export 
-        /// </summary>
-        /// <param name="options"></param>
-        public static void WriteGeoJSONFile(Options options)
-        {
-            using (StreamWriter sw = new(options.FilePath))
-            using (JsonTextWriter writer = new(sw))
+            Options option = new()
             {
-                writer.WriteStartObject();
-                GeoJson.WritePropertyPair(writer, "type", "FeatureCollection");
-                writer.WritePropertyName("crs");
-                writer.WriteStartObject();
-                    GeoJson.WritePropertyPair(writer, "type", "name");
-                    writer.WritePropertyName("properties");
-                    writer.WriteStartObject();
-                        GeoJson.WritePropertyPair(writer, "name", "urn:ogc:def:crs:OGC:1.3:CRS84");
-                    writer.WriteEndObject();
-                writer.WriteEndObject();
-                writer.WritePropertyName("features");
-                writer.WriteStartArray();
-                Instance.Dummy.WriteFeatures(writer, options); // Writes many { "type": "Feature", "properties": {...}, "geometry": {...} }
-                writer.WriteEndArray();
-                writer.WriteEndObject();
-            }
+                FileFormat = FileFormat.GeoJSON,
+                FileName = "Map Tile",
+                SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
+                SourceProjection = CRS.TransverseMercator,
+                SourceProjectionDefinition = new ProjectionDefinition
+                (
+                    new EllipsoidDefinition(Ellipsoid.GRS80),
+                    (121, 0), (250000, 0), 0.9999, new double[0]
+                )
+            };
+            
+            GeoJson.Write(option, Instance.Dummy.WriteFeatures, OnReport);
         }
     }
 }

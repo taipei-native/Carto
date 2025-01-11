@@ -1,11 +1,16 @@
+using Carto.Geodata;
 using Carto.IO;
 using Colossal.Logging;
 using Game;
 using Game.Areas;
 using Game.Common;
 using Game.Tools;
+using Game.UI;
 using Newtonsoft.Json;
+using System;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace Carto.Systems
 {
@@ -27,6 +32,11 @@ namespace Carto.Systems
         static EntityQuery _districtQuery;
 
         /// <summary>
+        /// The query for existing map tiles.（現有）
+        /// </summary>
+        static EntityQuery _mapTileQuery;
+
+        /// <summary>
         /// The event triggered when the system instance is created.
         /// （當系統實例被創造時觸發的事件。）
         /// </summary>
@@ -43,6 +53,19 @@ namespace Carto.Systems
                     ComponentType.ReadOnly<Deleted>(),
                     ComponentType.ReadOnly<Temp>()
                 }
+            });
+
+            _mapTileQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                Any = new ComponentType[]
+               {
+                    ComponentType.ReadOnly<MapTile>()
+               },
+                None = new ComponentType[]
+               {
+                    ComponentType.ReadOnly<Deleted>(),
+                    ComponentType.ReadOnly<Temp>()
+               }
             });
 
             base.OnCreate();
@@ -65,9 +88,42 @@ namespace Carto.Systems
         /// Write features (geometries and properties) to the designated file.
         /// （寫出圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
-        public void WriteFeatures(JsonTextWriter writer, Options options)
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        public void WriteFeatures(JsonTextWriter writer, Options options, Action<string, int> onReportMethod)
         {
-            
+            NameSystem name = World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<NameSystem>();
+
+            foreach (Entity _mapTile in _mapTileQuery.ToEntityArray(Allocator.Temp))
+            {
+                // Write feature header.（寫出圖徵檔頭。）
+                writer.WriteStartObject();
+                GeoJson.WritePropertyPair(writer, "type", "Feature");
+
+                // Write feature geometry.（寫出圖徵幾何圖形。）
+                writer.WritePropertyName("geometry");
+                DynamicBuffer<Node> buffer = EntityManager.GetBuffer<Node>(_mapTile);
+                float3[] boundary = new float3[buffer.Length];
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    Coord coord = new(options.SourceCoordinates.Double3 + buffer[i].m_Position.xzy, options.SourceCoordinates);
+                    Coord transformed = Transform.Apply(coord, options.SourceProjection, CRS.WGS84, options.SourceProjectionDefinition, new ProjectionDefinition());
+                    boundary[i] = transformed.Float3;
+                }
+                GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { boundary }), Shape.Polygon, options.Elevation);
+
+                // Write feature properties.（寫出圖徵）
+                writer.WritePropertyName("properties");
+                writer.WriteStartObject();
+                GeoJson.WriteProperty(writer, Property.Name, name.GetDebugName(_mapTile));
+                writer.WriteEndObject();
+
+                writer.WriteEndObject();
+
+                // Report method, not filled temporary.
+                onReportMethod("", 0);
+            }
         }
     }
 }

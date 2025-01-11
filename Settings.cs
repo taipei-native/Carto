@@ -1,5 +1,8 @@
 ﻿using Colossal.IO.AssetDatabase;
+using Game;
 using Game.Modding;
+using Game.SceneFlow;
+using Game.Settings;
 
 namespace Carto
 {
@@ -17,5 +20,15 @@ namespace Carto
         /// （重置所有模組設定。）
         /// </summary>
         public override void SetDefaults() { }
+
+        [SettingsUIHidden]
+        public bool InGameOrEditor => GameMode.GameOrEditor.HasFlag(GameManager.instance.gameMode);
+
+        [SettingsUIButton]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(InGameOrEditor), true)]
+        public bool ExportButton
+        {
+            set { IO.IO.Export(); }
+        }
     }
 }

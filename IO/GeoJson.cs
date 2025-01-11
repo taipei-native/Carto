@@ -1,7 +1,11 @@
+using Carto;
 using Carto.Geodata;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
 using Unity.Mathematics;
 
 namespace Carto.IO
@@ -13,17 +17,62 @@ namespace Carto.IO
     public static class GeoJson
     {
         /// <summary>
+        /// Write the GeoJSON file.
+        /// （寫出 GeoJSON 檔案。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="writeFeaturesMethod">The static WriteFeatures() method implemented in each system.（各系統實作的靜態 WriteFeatures() 方法。）</param>
+        /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        public static void Write(Options options, Action<JsonTextWriter, Options, Action<string, int>> writeFeaturesMethod, Action<string, int> onReportMethod)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            if ((options == null) || (writeFeaturesMethod == null)) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
+            
+            using StreamWriter sw = new(options.FilePath, false, Encoding.UTF8);
+            using JsonTextWriter writer = new(sw);
+
+            // Set formatting.（設定格式。）
+            writer.Formatting = options.Minimized ? Formatting.None : Formatting.Indented;
+            writer.Indentation = options.Minimized ? 0 : 2;
+
+            writer.WriteStartObject();
+
+            // Type definition.（型別定義。）
+            WritePropertyPair(writer, "type", "FeatureCollection");
+
+            // CRS definition.（坐標參考系統定義。）
+            writer.WritePropertyName("crs");
+            writer.WriteStartObject();
+            WritePropertyPair(writer, "type", "name");
+            writer.WritePropertyName("properties");
+            writer.WriteStartObject();
+            WritePropertyPair(writer, "name", "urn:ogc:def:crs:OGC:1.3:CRS84");
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+
+            // Feature definition.（圖徵定義。）
+            writer.WritePropertyName("features");
+            writer.WriteStartArray();
+            writeFeaturesMethod(writer, options, onReportMethod);
+            writer.WriteEndArray();
+
+            writer.WriteEndObject();
+            Instance.Log.Info($"{options.FileName}: {stopwatch.Elapsed.TotalMilliseconds}");
+        }
+        
+        /// <summary>
         /// Write <see cref="float3"/> to the file.
         /// （寫出 <see cref="float3"/> 至檔案中。）
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="value">The value waiting to be written.（等待被寫出的數值。）</param>
-        public static void WriteFloat3(JsonTextWriter writer, float3 value)
+        /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
+        public static void WriteFloat3(JsonTextWriter writer, float3 value, bool writeElevation = false)
         {
             writer.WriteStartArray();
             writer.WriteValue(value.x);
             writer.WriteValue(value.y);
-            writer.WriteValue(value.z);
+            if (writeElevation) writer.WriteValue(value.z);
             writer.WriteEndArray();
         }
 
@@ -34,11 +83,12 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="array">The value waiting to be written.（等待被寫出的數值。）</param>
         /// <param name="isRing">Whether the array represents a ring or not.（陣列是否為一個環？）</param>
-        public static void WriteFloat3Array(JsonTextWriter writer, float3[] array, bool isRing)
+        /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
+        public static void WriteFloat3Array(JsonTextWriter writer, float3[] array, bool isRing, bool writeElevation = false)
         {
             writer.WriteStartArray();
             for (int i = 0; i < array.Length; i++) WriteFloat3(writer, array[i]);
-            if (isRing) WriteFloat3(writer, array[0]);
+            if (isRing) WriteFloat3(writer, array[0], writeElevation);
             writer.WriteEndArray();
         }
 
@@ -49,7 +99,8 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="shape">The geometry shape of the feature.（圖徵的幾何形狀。）</param>
         /// <param name="geometry">The geometry of the feature.（圖徵的幾何圖形。）</param>
-        public static void WriteGeometry(JsonTextWriter writer, Geometry geometry, Shape shape = Shape.Point)
+        /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
+        public static void WriteGeometry(JsonTextWriter writer, Geometry geometry, Shape shape = Shape.Point, bool writeElevation = false)
         {
             writer.WriteStartObject();
 
@@ -63,20 +114,20 @@ namespace Carto.IO
             switch (shape)
             {
                 case Shape.Point:
-                    WriteFloat3(writer, geometry.Inclusions[0][0]);
+                    WriteFloat3(writer, geometry.Inclusions[0][0], writeElevation);
                     break;
 
                 case Shape.LineString:
-                    WriteFloat3Array(writer, geometry.Inclusions[0], false);
+                    WriteFloat3Array(writer, geometry.Inclusions[0], false, writeElevation);
                     break;
 
                 case Shape.Polygon:
-                    WritePolygon(writer, geometry, 0);
+                    WritePolygon(writer, geometry, 0, writeElevation);
                     break;
 
                 case Shape.MultiPolygon:
                     writer.WriteStartArray();
-                    for (int i = 0; i < geometry.Inclusions.Length; i++) WritePolygon(writer, geometry, i);
+                    for (int i = 0; i < geometry.Inclusions.Length; i++) WritePolygon(writer, geometry, i, writeElevation);
                     writer.WriteEndArray();
                     break;
 
@@ -94,18 +145,19 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="polygonIndex">The designated polygon's index in <see cref="Geometry.Inclusions"/>.<br/>（指定多邊形在 <see cref="Geometry.Inclusions"/> 的索引。）</param>
         /// <param name="geometry">The geometry of the feature.（圖徵的幾何圖形。）</param>
-        private static void WritePolygon(JsonTextWriter writer, Geometry geometry, int polygonIndex)
+        /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
+        private static void WritePolygon(JsonTextWriter writer, Geometry geometry, int polygonIndex, bool writeElevation = false)
         {
             writer.WriteStartArray();
 
             // Write the exterior ring.（寫出外環。）
-            WriteFloat3Array(writer, geometry.Inclusions[polygonIndex], true);
+            WriteFloat3Array(writer, geometry.Inclusions[polygonIndex], true, writeElevation);
 
             // Write the interior rings, if any exists.（若內環存在，將其寫出。）
             if (geometry.ExclusionIndexTable.TryGetValue(polygonIndex, out int exclusionIndex))
             {
                 for (int j = 0; j < geometry.Exclusions[exclusionIndex].Length; j++)
-                    WriteFloat3Array(writer, geometry.Exclusions[exclusionIndex][j], true);
+                    WriteFloat3Array(writer, geometry.Exclusions[exclusionIndex][j], true, writeElevation);
             }
 
             writer.WriteEndArray();
