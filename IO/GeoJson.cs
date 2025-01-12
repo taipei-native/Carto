@@ -1,5 +1,5 @@
-using Carto;
 using Carto.Geodata;
+using Carto.Utils;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -27,8 +27,9 @@ namespace Carto.IO
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if ((options == null) || (writeFeaturesMethod == null)) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
-            
-            using StreamWriter sw = new(options.FilePath, false, Encoding.UTF8);
+            string filePath = options.FilePath;
+
+            using StreamWriter sw = new(filePath, false, Encoding.UTF8);
             using JsonTextWriter writer = new(sw);
 
             // Set formatting.（設定格式。）
@@ -57,7 +58,7 @@ namespace Carto.IO
             writer.WriteEndArray();
 
             writer.WriteEndObject();
-            Instance.Log.Info($"{options.FileName}: {stopwatch.Elapsed.TotalMilliseconds}");
+            Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {IOUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
         }
         
         /// <summary>

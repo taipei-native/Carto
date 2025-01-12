@@ -97,18 +97,30 @@ namespace Carto.IO
         {
             Options option = new()
             {
+                Features = Feature.District | Feature.MapTile,
                 FileFormat = FileFormat.GeoJSON,
-                FileName = "Map Tile",
+                FileName = "Area",
+                Minimized = true,
+                Properties = new Dictionary<System, HashSet<Property>>
+                {
+                    { System.Area, new HashSet<Property> { Property.Area, Property.Name, Property.Object, Property.Unlocked } }
+                },
+                RasterKinds = RasterKind.Unknown,
                 SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
                 SourceProjection = CRS.TransverseMercator,
                 SourceProjectionDefinition = new ProjectionDefinition
                 (
                     new EllipsoidDefinition(Ellipsoid.GRS80),
                     (121, 0), (250000, 0), 0.9999, new double[0]
-                )
+                ),
+                Systems = System.Area,
+                VectorKinds = new Dictionary<System, VectorKind>
+                {
+                    { System.Area, VectorKind.Boundary }
+                }
             };
             
-            GeoJson.Write(option, Instance.Dummy.WriteFeatures, OnReport);
+            if (option.Systems.HasFlag(System.Area)) GeoJson.Write(option, Instance.Dummy.WriteFeatures, OnReport);
         }
     }
 }

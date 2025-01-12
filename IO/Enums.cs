@@ -3,6 +3,129 @@ using System;
 namespace Carto.IO
 {
     /// <summary>
+    /// Carto's classification of exportable objects.
+    /// （Carto 對可輸出物體的分類。）
+    /// </summary>
+    [Flags]
+    public enum Feature
+    {
+        /// <summary>
+        /// The fallback value for unknown or unregistered feature type.（用於未知或未註冊圖徵的後備值。）
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// The placeable structures.（建築，可放置的結構物。）
+        /// </summary>
+        Building = 1 << 0,
+
+        /// <summary>
+        /// The wires that carries electricity.（纜線，輸送電力的線路。）
+        /// </summary>
+        Cable = 1 << 1,
+
+        /// <summary>
+        /// The administrative division of an area.（行政區，對一個區域的行政劃分。）
+        /// </summary>
+        District = 1 << 2,
+
+        /// <summary>
+        /// The resource collection area.（開採工業，收集資源的區域。）
+        /// </summary>
+        Extractor = 1 << 3,
+
+        /// <summary>
+        /// The man-made barriers.（圍籬，人造的屏障。）
+        /// </summary>
+        Fence = 1 << 4,
+
+        /// <summary>
+        /// The place where garbages are buried.（掩埋場，垃圾被掩埋的場所。）
+        /// </summary>
+        Landfill = 1 << 5,
+
+        /// <summary>
+        /// The division of in-game playable area.（地圖區塊，遊戲內可遊玩區域的劃分。）
+        /// </summary>
+        MapTile = 1 << 6,
+        
+        /// <summary>
+        /// The passage reserved for pedestrians.（路徑，保留給行人通行的通道。）
+        /// </summary>
+        Pathway = 1 << 7,
+
+        /// <summary>
+        /// The tube that carries the fresh water, sewage water or storm water.（管道，輸送自來水、汙水與雨水的線路。）
+        /// </summary>
+        Pipe = 1 << 8,
+
+        /// <summary>
+        /// The private properties' POI.（私人設施的興趣點。）
+        /// </summary>
+        POIPrivate = 1 << 9,
+
+        /// <summary>
+        /// The public services' POI.（公共設施的興趣點。）
+        /// </summary>
+        POIPublic = 1 << 10,
+
+        /// <summary>
+        /// The transportation facilities' POI.（交通設施的興趣點。）
+        /// </summary>
+        POITransport = 1 << 11,
+
+        /// <summary>
+        /// The utility service's POI.（公共事業設施的興趣點。）
+        /// </summary>
+        POIUtility = 1 << 12,
+
+        /// <summary>
+        /// The passage primarily reserved for road vehicles.（道路，主要保留給車輛通行的通道。）
+        /// </summary>
+        Road = 1 << 13,
+
+        /// <summary>
+        /// The public transport route that delivers cargo.（輸送貨物的公共交通路線。）
+        /// </summary>
+        RouteCargo = 1 << 14,
+
+        /// <summary>
+        /// The public transport route that delivers passengers.（輸送乘客的公共交通路線。）
+        /// </summary>
+        RoutePassenger = 1 << 15,
+
+        /// <summary>
+        /// The road reserved for aircrafts' taking off & landing purposes.（跑道，用於航空器起降的道路。）
+        /// </summary>
+        Runway = 1 << 16,
+
+        /// <summary>
+        /// The placeable surface textures.（表面，可放置的地表紋理。）
+        /// </summary>
+        Surface = 1 << 17,
+
+        /// <summary>
+        /// The road that connects aprons, hangers and terminals to the runway.（滑行道，聯絡停機坪、機棚與航廈的道路。）
+        /// </summary>
+        Taxiway = 1 << 18,
+
+        /// <summary>
+        /// The path trains travel along to.（軌道，列車行駛的路徑。）
+        /// </summary>
+        Track = 1 << 19,
+
+        /// <summary>
+        /// The path ships travel along to.（航道，船舶航行的路徑。）
+        /// </summary>
+        Waterway = 1 << 20,
+
+        /// <summary>
+        /// The urban planning basic division units.（分區單元，都市計畫的基本單位。）
+        /// </summary>
+        Zoning = 1 << 21
+    }
+    
+    /// <summary>
     /// The file formats Carto supports.
     /// （Carto 支援的檔案格式。）
     /// </summary>
@@ -416,6 +539,54 @@ namespace Carto.IO
         /// Grid-like data.（網格。）
         /// </summary>
         Raster
+    }
+
+    /// <summary>
+    /// The systems of Carto.
+    /// （Carto 的系統。）
+    /// </summary>
+    [Flags]
+    public enum System
+    {
+        /// <summary>
+        /// The fallback value for unknown or unregistered systems.（用於未知或未註冊系統的後備值。）
+        /// </summary>
+        Unknown = 0,
+
+        /// <summary>
+        /// AreaSystem.
+        /// </summary>
+        Area = 1,
+
+        /// <summary>
+        /// BuildingSystem.
+        /// </summary>
+        Building = 2,
+
+        /// <summary>
+        /// NetSystem.
+        /// </summary>
+        Net = 4,
+        
+        /// <summary>
+        /// POISystem.
+        /// </summary>
+        POI = 8,
+
+        /// <summary>
+        /// RasterSystem.
+        /// </summary>
+        Raster = 16,
+
+        /// <summary>
+        /// RouteSystem.
+        /// </summary>
+        Route = 32,
+
+        /// <summary>
+        /// ZoningSystem.
+        /// </summary>
+        Zoning = 64
     }
 
     /// <summary>

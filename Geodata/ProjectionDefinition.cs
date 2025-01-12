@@ -37,7 +37,7 @@ namespace Carto.Geodata
         /// （赫爾默特轉換參數，其長度應為 0、3 或 7。）
         /// </summary>
         public double[] transform;
-        
+
         public ProjectionDefinition(EllipsoidDefinition ellipsoid, (double longitude, double latitude) origin, (double easting, double northing) shift, double scaleFactor, double[] transform)
         {
             this.ellipsoid = ellipsoid;

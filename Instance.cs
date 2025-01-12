@@ -1,5 +1,6 @@
 using Carto.Systems;
 using Colossal.Logging;
+using Game.UI;
 using Unity.Entities;
 
 namespace Carto
@@ -11,6 +12,11 @@ namespace Carto
     public static class Instance
     {
         // Game instances（遊戲的實例）
+        /// <summary>
+        /// The system managing the names of each entity.
+        /// （管理各實體名稱的系統。）
+        /// </summary>
+        public static NameSystem Name => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<NameSystem>();
 
         // Carto instances（Carto 的實例）
         /// <summary>

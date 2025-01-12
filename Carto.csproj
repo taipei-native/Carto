@@ -50,12 +50,6 @@
 		<Reference Include="Colossal.Localization">
 			<Private>False</Private>
 		</Reference>
-		<Reference Include="Colossal.PSI.Common">
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="Newtonsoft.Json">
-			<Private>False</Private>
-		</Reference>
 		<Reference Include="Unity.InputSystem">
 			<Private>False</Private>
 		</Reference>
@@ -72,6 +66,21 @@
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="Unity.Mathematics">
+			<Private>False</Private>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="Colossal.Collections">
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Colossal.Mathematics">
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Colossal.PSI.Common">
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Newtonsoft.Json">
 			<Private>False</Private>
 		</Reference>
 	</ItemGroup>

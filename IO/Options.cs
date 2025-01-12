@@ -2,6 +2,7 @@ using Carto.Geodata;
 using Carto.Utils;
 using Colossal.PSI.Environment;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Carto.IO
@@ -23,6 +24,12 @@ namespace Carto.IO
         /// （是否要輸出高程？）
         /// </summary>
         public bool Elevation { get; set; } = false;
+
+        /// <summary>
+        /// The feature types about to export.
+        /// （即將輸出的向量圖徵分類。）
+        /// </summary>
+        public Feature Features { get; set; } = Feature.None;
 
         /// <summary>
         /// The format of the target file.
@@ -57,6 +64,18 @@ namespace Carto.IO
         public bool Minimized { get; set; } = true;
 
         /// <summary>
+        /// The properties about to export.
+        /// （即將輸出的屬性。）
+        /// </summary>
+        public Dictionary<System, HashSet<Property>> Properties { get; set; }
+
+        /// <summary>
+        /// The raster grids about to export.
+        /// （即將輸出的網格。）
+        /// </summary>
+        public RasterKind RasterKinds { get; set; } = RasterKind.Unknown;
+
+        /// <summary>
         /// The map center's coordinates in Transverse Mercator.
         /// （橫麥卡托投影中的地圖中心坐標。）
         /// </summary>
@@ -82,6 +101,12 @@ namespace Carto.IO
         );
 
         /// <summary>
+        /// The systems engaged in the export.
+        /// （參與輸出的系統。）
+        /// </summary>
+        public System Systems { get; set; } = System.Unknown;
+
+        /// <summary>
         /// The coordinate reference system (CRS) of target coordinates.<br/>
         /// （目標的坐標參考系統。）
         /// </summary>
@@ -99,5 +124,11 @@ namespace Carto.IO
             0.9996,
             new double[0]
         );
+
+        /// <summary>
+        /// The vector geometries about to export.
+        /// （即將輸出的向量圖形。）
+        /// </summary>
+        public Dictionary<System, VectorKind> VectorKinds { get; set; }
     }
 }

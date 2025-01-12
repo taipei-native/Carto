@@ -35,6 +35,17 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Fomrat <see cref="TimeSpan"/> into predefined minute:second:millisecond format.<br/>
+        /// 將 <see cref="TimeSpan"/> 格式化為預先定義的「分鐘:秒:毫秒」格式。
+        /// </summary>
+        /// <param name="timeSpan">The object representing the duration.（表示時長的物件。）</param>
+        /// <returns>Formatted string.（格式化的字串。）</returns>
+        public static string FormatTimeSpan(TimeSpan timeSpan)
+        {
+            return $"{(int)timeSpan.TotalMinutes} min {timeSpan.Seconds}.{timeSpan.Milliseconds} seconds";
+        }
+
+        /// <summary>
         /// Get the OS platform the game is running on.
         /// （獲得遊戲運行的作業系統平臺。）
         /// </summary>
