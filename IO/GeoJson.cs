@@ -58,7 +58,7 @@ namespace Carto.IO
             writer.WriteEndArray();
 
             writer.WriteEndObject();
-            Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {IOUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
+            Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
         }
         
         /// <summary>

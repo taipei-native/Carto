@@ -1,5 +1,6 @@
 using Carto.Geodata;
 using Carto.IO;
+using Carto.Utils;
 using Colossal.Logging;
 using Game;
 using Game.Areas;
@@ -9,12 +10,9 @@ using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
-using static Game.Rendering.OverlayRenderSystem;
 
 namespace Carto.Systems
 {
@@ -101,212 +99,91 @@ namespace Carto.Systems
             _queryDesc.None = _filters.ToArray();
             EntityQuery query = GetEntityQuery(_queryDesc);
 
-            NativeList<float3> boundaries = new();
-            NativeArray<AreaFeature> features = new(query.CalculateEntityCount(), Allocator.TempJob);
-            HashSet<Property> properties = options.Properties[IO.System.Area];
-
-            CollectAreaFeaturesJob job = new()
+            foreach (Entity _area in query.ToEntityArray(Allocator.Temp))
             {
-                areaLookup = GetComponentLookup<Area>(true),
-                districtLookup = GetComponentLookup<District>(true),
-                extractorLookup = GetComponentLookup<Extractor>(true),
-                geometryLookup = GetComponentLookup<Game.Areas.Geometry>(true),
-                mapTileLookup = GetComponentLookup<MapTile>(true),
-                nativeLookup = GetComponentLookup<Native>(true),
-                storageLookup = GetComponentLookup<Storage>(true),
-                surfaceLookup = GetComponentLookup<Surface>(true),
-                nodesLookup = GetBufferLookup<Node>(true),
-                features = features,
-                boundaries = boundaries,
-                useArea = properties.Contains(Property.Area),
-                useObject = properties.Contains(Property.Object),
-                useUnlocked = properties.Contains(Property.Unlocked),
-                sourceCoordinates = options.SourceCoordinates,
-                sourceProjectionDefinition = options.SourceProjectionDefinition,
-            };
-
-            JobHandle handle = job.ScheduleParallel(query, default);
-            handle.Complete();
-
-            for (int i = 0; i < features.Length; i++)
-            {
-                AreaFeature feature = features[i];
+                // Write feature header.（寫出圖徵檔頭。）
                 writer.WriteStartObject();
                 GeoJson.WritePropertyPair(writer, "type", "Feature");
 
+                // Write feature geometry.（寫出圖徵幾何圖形。）
                 writer.WritePropertyName("geometry");
-                float3[] boundary = new float3[feature.boundaryLength];
-                for (int j = 0; j < boundary.Length; j++) boundary[j] = boundaries[feature.boundaryIndex + j];
-                GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { boundary }), Shape.Polygon, options.Elevation);
-
-                writer.WritePropertyName("properties");
-                writer.WriteStartObject();
-
-                if (properties.Contains(Property.Name))
-                {
-                    GeoJson.WriteProperty(writer, Property.Name, _name.GetDebugName(feature.entity));
-                }
-                if (properties.Contains(Property.Area))
-                {
-                    GeoJson.WriteProperty(writer, Property.Area, feature.area);
-                }
-                if (properties.Contains(Property.Object))
-                {
-                    GeoJson.WriteProperty(writer, Property.Object, Enum.GetName(typeof(Feature), feature.objectType));
-                }
-                if (properties.Contains(Property.Unlocked))
-                {
-                    GeoJson.WriteProperty(writer, Property.Unlocked, feature.unlocked);
-                }
-
-                writer.WriteEndObject();
-
-                // Report method, not filled temporary.
-                onReportMethod?.Invoke(string.Empty, 0);
-            }
-
-            boundaries.Dispose();
-            features.Dispose();
-
-            //foreach (Entity _mapTile in query.ToEntityArray(Allocator.Temp))
-            //{
-            //    // Write feature header.（寫出圖徵檔頭。）
-            //    writer.WriteStartObject();
-            //    GeoJson.WritePropertyPair(writer, "type", "Feature");
-
-            //    // Write feature geometry.（寫出圖徵幾何圖形。）
-            //    writer.WritePropertyName("geometry");
-            //    DynamicBuffer<Node> buffer = EntityManager.GetBuffer<Node>(_mapTile);
-            //    float3[] boundary = new float3[buffer.Length];
-            //    for (int i = 0; i < buffer.Length; i++)
-            //    {
-            //        Coord coord = new(options.SourceCoordinates.Double3 + buffer[i].m_Position.xzy, options.SourceCoordinates);
-            //        boundary[i] = Transform.Apply(coord, options.SourceProjection, CRS.WGS84, options.SourceProjectionDefinition, new ProjectionDefinition()).Float3;
-            //    }
-            //    GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { boundary }), Shape.Polygon, options.Elevation);
-
-            //    // Write feature properties.（寫出圖徵）
-            //    writer.WritePropertyName("properties");
-            //    writer.WriteStartObject();
-            //    GeoJson.WriteProperty(writer, Property.Name, _name.GetDebugName(_mapTile));
-            //    writer.WriteEndObject();
-
-            //    writer.WriteEndObject();
-
-            //    // Report method, not filled temporary.
-            //    onReportMethod?.Invoke(string.Empty, 0);
-            //}
-        }
-
-        /// <summary>
-        /// The job to obtain area features.
-        /// （獲得區域圖徵的工作。）
-        /// </summary>
-        [BurstCompile]
-        private partial struct CollectAreaFeaturesJob : IJobEntity
-        {
-            [ReadOnly]
-            public ComponentLookup<Area> areaLookup;
-            
-            [ReadOnly]
-            public ComponentLookup<District> districtLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Extractor> extractorLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Game.Areas.Geometry> geometryLookup;
-
-            [ReadOnly]
-            public ComponentLookup<MapTile> mapTileLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Native> nativeLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Storage> storageLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Surface> surfaceLookup;
-
-            [ReadOnly]
-            public BufferLookup<Node> nodesLookup;
-
-            [WriteOnly]
-            public NativeList<float3> boundaries;
-
-            [WriteOnly]
-            public NativeArray<AreaFeature> features;
-
-            public bool useArea;
-            public bool useObject;
-            public bool useUnlocked;
-            public Coord sourceCoordinates;
-            public ProjectionDefinition sourceProjectionDefinition;
-
-            /// <summary>
-            /// Execute the job. （執行工作。）
-            /// </summary>
-            /// <param name="entity">The entity that passed in.（傳入的實體。）</param>
-            /// <exception cref="ArgumentNullException"></exception>
-            public void Execute(Entity entity, [EntityIndexInQuery] int index)
-            {
-                // Initialize the container.（初始化容器。）
-                AreaFeature feature = new(0f, 0, 0, 0, 0, entity, 0, Feature.None, 0, false);
-
-                // Handle geometries.（處理幾何圖形。）
-                bool isCounterClockwise = areaLookup[entity].m_Flags.HasFlag(AreaFlags.CounterClockwise);
-                DynamicBuffer<Node> nodes = nodesLookup[entity];
-                feature.boundaryIndex = boundaries.Length;
-                feature.boundaryLength = nodes.Length;
+                DynamicBuffer<Node> buffer = EntityManager.GetBuffer<Node>(_area);
+                float3[] boundary = new float3[buffer.Length];
+                bool isCounterClockwise = EntityManager.GetComponentData<Area>(_area).m_Flags.HasFlag(AreaFlags.CounterClockwise);
 
                 if (isCounterClockwise)
                 {
-                    for (int i = 0; i < nodes.Length; i++)
+                    for (int i = 0; i < buffer.Length; i++)
                     {
-                        Coord coord = new(sourceCoordinates.Double3 + nodes[i].m_Position.xzy, sourceCoordinates);
-                        boundaries.Add(Transform.Apply(coord, CRS.TransverseMercator, CRS.WGS84, sourceProjectionDefinition, default).Float3);
+                        Coord coord = new(options.SourceCoordinates.Double3 + buffer[i].m_Position.xzy, options.SourceCoordinates);
+                        boundary[i] = Transform.Apply(coord, options.SourceProjection, CRS.WGS84, options.SourceProjectionDefinition, new ProjectionDefinition()).Float3;
                     }
                 }
                 else
                 {
-                    for (int i = nodes.Length - 1; i > -1; i--)
+                    for (int i = buffer.Length - 1; i > -1; i--)
                     {
-                        Coord coord = new(sourceCoordinates.Double3 + nodes[i].m_Position.xzy, sourceCoordinates);
-                        boundaries.Add(Transform.Apply(coord, CRS.TransverseMercator, CRS.WGS84, sourceProjectionDefinition, default).Float3);
+                        Coord coord = new(options.SourceCoordinates.Double3 + buffer[i].m_Position.xzy, options.SourceCoordinates);
+                        boundary[i] = Transform.Apply(coord, options.SourceProjection, CRS.WGS84, options.SourceProjectionDefinition, new ProjectionDefinition()).Float3;
                     }
                 }
 
-                // Handle properties.（處理屬性。）
-                bool isDistrict = districtLookup.HasComponent(entity);
-                bool isExtractor = extractorLookup.HasComponent(entity);
-                bool isMapTile = mapTileLookup.HasComponent(entity);
-                bool isStorage = storageLookup.HasComponent(entity);
-                bool isSurface = surfaceLookup.HasComponent(entity);
+                GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { boundary }), Shape.Polygon, options.Elevation);
 
-                // Area.（面積。）
-                if (useArea)
+                // Write feature properties.（寫出圖徵）
+                writer.WritePropertyName("properties");
+                writer.WriteStartObject();
+                HashSet<Property> properties = options.Properties[IO.System.Area];
+                Feature featureType = IOUtils.GetFeatureType(EntityManager, _area);
+
+                bool isDistrict = featureType.HasFlag(Feature.District);
+                bool isMapTile = featureType.HasFlag(Feature.MapTile);
+
+                if (properties.Contains(Property.Name))
                 {
-                    feature.area = geometryLookup[entity].m_SurfaceArea;
+                    string name = isDistrict ? _name.GetRenderedLabelName(_area) : _name.GetDebugName(_area);
+                    GeoJson.WriteProperty(writer, Property.Name, name);
                 }
-
-                // Object.（物件。）
-                if (useObject)
+                if (properties.Contains(Property.Area))
                 {
-                    if (isDistrict) feature.objectType |= Feature.District;
-                    if (isExtractor) feature.objectType |= Feature.Extractor;
-                    if (isStorage) feature.objectType |= Feature.Landfill;
-                    if (isMapTile) feature.objectType |= Feature.MapTile;
-                    if (isSurface) feature.objectType |= Feature.Surface;
+                    GeoJson.WriteProperty(writer, Property.Area, EntityManager.GetComponentData<Game.Areas.Geometry>(_area).m_SurfaceArea);
                 }
-
-                // Unlocked.（解鎖狀態。）
-                if (useUnlocked)
+                if (properties.Contains(Property.Company))
                 {
-                    feature.unlocked = isMapTile && nativeLookup.HasComponent(entity);
-                }
 
-                features[index] = feature;
+                }
+                if (properties.Contains(Property.Employee))
+                {
+
+                }
+                if (properties.Contains(Property.Household))
+                {
+
+                }
+                if (properties.Contains(Property.Object))
+                {
+                    Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? featureType : Utils.CommonUtils.GetFirstMatch(featureType, IO.IO.FeatureDisplayOrder);
+                    GeoJson.WriteProperty(writer, Property.Object, displayType.ToString("G"));
+                }
+                if (properties.Contains(Property.Resident))
+                {
+
+                }
+                if (properties.Contains(Property.Unlocked))
+                {
+                    bool unlocked = featureType.HasFlag(Feature.MapTile) && !EntityManager.HasComponent<Native>(_area);
+                    GeoJson.WriteProperty(writer, Property.Unlocked, unlocked);
+                }
+                if (properties.Contains(Property.Wealth))
+                {
+
+                }
+                
+                writer.WriteEndObject();
+                writer.WriteEndObject();
+
+                // Report method, not filled temporary.
+                onReportMethod?.Invoke(string.Empty, 0);
             }
         }
     }

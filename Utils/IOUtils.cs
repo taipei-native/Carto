@@ -1,9 +1,16 @@
 using Carto.IO;
 using Colossal.Logging;
+using Game.Areas;
+using Game.Buildings;
+using Game.Net;
+using Game.Prefabs;
+using Game.Routes;
+using Game.Zones;
 using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Unity.Entities;
 
 namespace Carto.Utils
 {
@@ -35,14 +42,155 @@ namespace Carto.Utils
         }
 
         /// <summary>
-        /// Fomrat <see cref="TimeSpan"/> into predefined minute:second:millisecond format.<br/>
-        /// 將 <see cref="TimeSpan"/> 格式化為預先定義的「分鐘:秒:毫秒」格式。
+        /// Retrieve the category of a feature.
+        /// （獲得圖徵的分類。）
         /// </summary>
-        /// <param name="timeSpan">The object representing the duration.（表示時長的物件。）</param>
-        /// <returns>Formatted string.（格式化的字串。）</returns>
-        public static string FormatTimeSpan(TimeSpan timeSpan)
+        /// <param name="entityManager">The manager of in-game entities.（遊戲內實體的管理者。）</param>
+        /// <param name="feature">The feature entity.（圖徵實體。）</param>
+        /// <returns>The applicable feature types.（適合的圖徵分類。）</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public static Feature GetFeatureType(EntityManager entityManager, Entity feature)
         {
-            return $"{(int)timeSpan.TotalMinutes} min {timeSpan.Seconds}.{timeSpan.Milliseconds} seconds";
+            if ((entityManager == null) || (feature == null) || (feature == Entity.Null)) throw new ArgumentNullException("The parameters must not be null. 參數不應為空值。");
+            if (!entityManager.HasComponent<PrefabRef>(feature)) throw new ArgumentException("The feature should be an instance of the prefab. 圖徵應為預製部件的實例。");
+            Feature featureType = Feature.None;
+
+            Entity prefabRef = entityManager.GetComponentData<PrefabRef>(feature).m_Prefab;
+
+            // Area features.（區域圖徵。）
+            if (entityManager.HasComponent<Area>(feature))
+            {
+                if (entityManager.HasComponent<District>(feature))
+                {
+                    featureType |= Feature.District;
+                }
+                else if (entityManager.HasComponent<Extractor>(feature))
+                {
+                    featureType |= Feature.Extractor;
+                }
+                else if (entityManager.HasComponent<Storage>(feature))
+                {
+                    featureType |= Feature.Landfill;
+                }
+                else if (entityManager.HasComponent<MapTile>(feature))
+                {
+                    featureType |= Feature.MapTile;
+                }
+                else if (entityManager.HasComponent<Surface>(feature))
+                {
+                    featureType |= Feature.Surface;
+                }
+            }
+
+            // Building features.（建築圖徵。）
+            if (entityManager.HasComponent<Building>(feature))
+            {
+                featureType |= Feature.Building;
+            }
+
+            // Network features.（網路圖徵。）
+            if (entityManager.HasChunkComponent<Curve>(feature))
+            {
+                bool isMarker = entityManager.HasComponent<Marker>(feature);
+                bool isRoad = entityManager.HasComponent<Road>(feature);
+                bool isTaxiway = entityManager.HasComponent<Taxiway>(feature);
+                bool isTrack = entityManager.HasComponent<SubwayTrack>(feature) ||
+                               entityManager.HasComponent<TrainTrack>(feature) ||
+                               entityManager.HasComponent<TramTrack>(feature);
+                bool isWaterway = entityManager.HasComponent<Waterway>(feature);
+
+                // Stand-alone networks.（獨立網路。）
+                if (!isMarker && !isRoad && !isTaxiway && !isTrack && !isWaterway)
+                {
+                    if (entityManager.HasComponent<PathwayData>(prefabRef))
+                    {
+                        featureType |= Feature.Pathway;
+                    }
+                    else if (entityManager.HasComponent<Game.Net.ElectricityConnection>(feature))
+                    {
+                        featureType |= Feature.Cable;
+                    }
+                    else if (entityManager.HasComponent<Game.Net.WaterPipeConnection>(feature))
+                    {
+                        featureType |= Feature.Pipe;
+                    }
+                }
+                if (isRoad)
+                {
+                    featureType |= Feature.Road;
+                }
+                if (isTaxiway)
+                {
+                    if (entityManager.HasComponent<TaxiwayData>(prefabRef))
+                    {
+                        TaxiwayFlags flag = entityManager.GetComponentData<TaxiwayData>(prefabRef).m_Flags;
+
+                        if (flag.HasFlag(TaxiwayFlags.Runway))
+                        {
+                            featureType |= Feature.Runway;
+                        }
+                        else if (!flag.HasFlag(TaxiwayFlags.Airspace))
+                        {
+                            featureType |= Feature.Taxiway;
+                        }
+                    }
+                }
+                if (isTrack)
+                {
+                    featureType |= Feature.Track;
+                }
+                if (isWaterway)
+                {
+                    featureType |= Feature.Waterway;
+                }
+
+                // Lanes.（車道。）
+                if (entityManager.HasComponent<Game.Net.UtilityLane>(feature))
+                {
+                    if (entityManager.HasComponent<UtilityLaneData>(prefabRef))
+                    {
+                        UtilityTypes flag = entityManager.GetComponentData<UtilityLaneData>(prefabRef).m_UtilityTypes;
+
+                        if (flag.HasFlag(UtilityTypes.Catenary) ||
+                            flag.HasFlag(UtilityTypes.LowVoltageLine) ||
+                            flag.HasFlag(UtilityTypes.HighVoltageLine))
+                        {
+                            featureType |= Feature.Cable;
+                        }
+                        if (flag.HasFlag(UtilityTypes.Fence))
+                        {
+                            featureType |= Feature.Fence;
+                        }
+                        if (flag.HasFlag(UtilityTypes.SewagePipe) ||
+                            flag.HasFlag(UtilityTypes.StormwaterPipe) ||
+                            flag.HasFlag(UtilityTypes.WaterPipe))
+                        {
+                            featureType |= Feature.Pipe;
+                        }
+                    }
+                }
+            }
+
+            // Route features.（路線圖徵。）
+            if (entityManager.HasComponent<TransportLine>(feature))
+            {
+                if (entityManager.HasComponent<TransportLineData>(prefabRef))
+                {
+                    TransportLineData transportLineData = entityManager.GetComponentData<TransportLineData>(prefabRef);
+                    if (transportLineData.m_CargoTransport) featureType |= Feature.RouteCargo;
+                    if (transportLineData.m_PassengerTransport) featureType |= Feature.RoutePassenger;
+                }
+            }
+
+            // Zoning features.（分區圖徵。）
+            if (entityManager.HasComponent<Block>(feature))
+            {
+                featureType |= Feature.Zoning;
+            }
+
+            // Fallback value.（後備回傳值。）
+            return featureType;
         }
 
         /// <summary>

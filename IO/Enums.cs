@@ -214,6 +214,11 @@ namespace Carto.IO
         Address,
 
         /// <summary>
+        /// The average length of time that residents in the area have lived in years.（年齡，區域內居民存活的平均時間長度。）
+        /// </summary>
+        Age,
+
+        /// <summary>
         /// The extent of the object in square meters (m²).（面積，物件的占地面積，單位為平方公尺（m²）。）
         /// </summary>
         Area,
@@ -341,6 +346,11 @@ namespace Carto.IO
         Resident,
 
         /// <summary>
+        /// The ratio of males to females in the area in percentage (%).（性別比，區域內男性對女性的比值，單位為百分比（%）。）
+        /// </summary>
+        SexRatio,
+
+        /// <summary>
         /// The number of stops on the route.（站點，路線上的站點數量。）
         /// </summary>
         Stop,
@@ -381,7 +391,7 @@ namespace Carto.IO
         Volume,
 
         /// <summary>
-        /// The average economy conditions of all households in the building.（財富，建築內所有家庭的平均經濟情況。）
+        /// The average economy conditions of all households in the area.（財富，區域內所有家庭的平均經濟情況。）
         /// </summary>
         Wealth,
 

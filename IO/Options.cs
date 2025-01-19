@@ -20,6 +20,12 @@ namespace Carto.IO
         public string Directory { get; set; } = IOUtils.CombinePath(EnvPath.kUserDataPath, "ModsData", nameof(Carto));
 
         /// <summary>
+        /// Whether to export all applicable categories for the specific property or not.<br/>
+        /// （是否要輸出特定屬性的所有適合分類？）
+        /// </summary>
+        public Dictionary<(Property, System), bool> Display { get; set; }
+
+        /// <summary>
         /// Whether to export the elevation or not.
         /// （是否要輸出高程？）
         /// </summary>

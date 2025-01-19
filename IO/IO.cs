@@ -28,6 +28,35 @@ namespace Carto.IO
         };
 
         /// <summary>
+        /// The array sorted by each <see cref="Feature"/>'s display order.
+        /// （根據每個 <see cref="Feature"/> 顯示順序排序的陣列。）
+        /// </summary>
+        public static readonly Feature[] FeatureDisplayOrder = new Feature[]
+        {
+            // Group A: Area（A 組：區域）
+            Feature.District, Feature.MapTile, Feature.Extractor, Feature.Landfill, Feature.Surface,
+
+            // Group B: Networks（B 組：網路）
+            Feature.Runway, Feature.Taxiway, Feature.Road, Feature.Track, Feature.Pathway,
+            Feature.Waterway, Feature.Cable, Feature.Pipe, Feature.Fence,
+
+            // Group C: Buildings（C 組：建築）
+            Feature.Building,
+
+            // Group D: Routes（D 組：路線）
+            Feature.RoutePassenger, Feature.RouteCargo,
+
+            // Group E: POIs（E 組：興趣點）
+            Feature.POITransport, Feature.POIPublic, Feature.POIPrivate, Feature.POIUtility,
+
+            // Group F: Zonings（F 組：分區）
+            Feature.Zoning,
+
+            // Group G: Fallback value（G 組：後備值）
+            Feature.None
+        };
+
+        /// <summary>
         /// The look-up table of each file format's extension.
         /// （每個檔案格式副檔名的對照表。）
         /// </summary>
@@ -46,6 +75,7 @@ namespace Carto.IO
         public static readonly Dictionary<Property, Type> PropertyTypeTable = new()
         {
             { Property.Address, typeof(object[]) },
+            { Property.Age, typeof(float) },
             { Property.Area, typeof(float) },
             { Property.Asset, typeof(string) },
             { Property.Brand, typeof(string) },
@@ -71,6 +101,7 @@ namespace Carto.IO
             { Property.Passenger, typeof(int) },
             { Property.Product, typeof(string) },
             { Property.Resident, typeof(int) },
+            { Property.SexRatio, typeof(float) },
             { Property.Stop, typeof(int) },
             { Property.Story, typeof(int) },
             { Property.Theme, typeof(string) },
@@ -95,8 +126,17 @@ namespace Carto.IO
         /// </summary>
         public static void Export()
         {
+            // Export options.（輸出設定。）
             Options option = new()
             {
+                Display = new Dictionary<(Property, System), bool>
+                {
+                    { (Property.Category, System.Building), true },
+                    { (Property.Category, System.Net), true },
+                    { (Property.Category, System.POI), false },
+                    { (Property.Object, System.Unknown), false },
+                    { (Property.Zoning, System.Unknown), true }
+                },
                 Features = Feature.District | Feature.MapTile,
                 FileFormat = FileFormat.GeoJSON,
                 FileName = "Area",
@@ -120,6 +160,8 @@ namespace Carto.IO
                 }
             };
             
+
+
             if (option.Systems.HasFlag(System.Area)) GeoJson.Write(option, Instance.Dummy.WriteFeatures, OnReport);
         }
     }

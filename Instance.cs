@@ -36,5 +36,11 @@ namespace Carto
         /// （改變模組執行方式的設定。）
         /// </summary>
         public static Settings Settings { get; set; }
+
+        /// <summary>
+        /// The system that collects shared data across various systems.
+        /// （收集多種系統所需之共享資料的系統。）
+        /// </summary>
+        public static SharedDataCollectionSystem Shared => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SharedDataCollectionSystem>();
     }
 }
