@@ -52,7 +52,7 @@ namespace Carto.Utils
         /// <exception cref="ArgumentException"></exception>
         public static Feature GetFeatureType(EntityManager entityManager, Entity feature)
         {
-            if ((entityManager == null) || (feature == null) || (feature == Entity.Null)) throw new ArgumentNullException("The parameters must not be null. 參數不應為空值。");
+            if ((entityManager == null) | (feature == null) | (feature == Entity.Null)) throw new ArgumentNullException("The parameters must not be null. 參數不應為空值。");
             if (!entityManager.HasComponent<PrefabRef>(feature)) throw new ArgumentException("The feature should be an instance of the prefab. 圖徵應為預製部件的實例。");
             Feature featureType = Feature.None;
 
@@ -101,7 +101,7 @@ namespace Carto.Utils
                 bool isWaterway = entityManager.HasComponent<Waterway>(feature);
 
                 // Stand-alone networks.（獨立網路。）
-                if (!isMarker && !isRoad && !isTaxiway && !isTrack && !isWaterway)
+                if (!isMarker & !isRoad & !isTaxiway & !isTrack & !isWaterway)
                 {
                     if (entityManager.HasComponent<PathwayData>(prefabRef))
                     {

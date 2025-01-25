@@ -1,6 +1,9 @@
+using Carto.Domain;
 using Carto.Geodata;
+using Colossal.Logging;
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Mathematics;
 
 namespace Carto.IO
@@ -11,6 +14,12 @@ namespace Carto.IO
     /// </summary>
     public static class IO
     {
+        /// <summary>
+        /// Mod's logger.（模組的記錄器。）<br/>
+        /// See <see cref="Instance.Log"/> for more information.
+        /// </summary>
+        static readonly ILog _log = Instance.Log;
+        
         /// <summary>
         /// The look-up table of composite property's sub-field name.
         /// （每個複合屬性的子欄位名稱對照表。）
@@ -159,8 +168,19 @@ namespace Carto.IO
                     { System.Area, VectorKind.Boundary }
                 }
             };
-            
 
+            NativeQueue<BuildingStat> buildingQueue = Instance.Shared.GetBuildingStats(Allocator.TempJob);
+            int residents = 0;
+
+            while (buildingQueue.TryDequeue(out BuildingStat stat))
+            {
+                _log.Info($"{stat.entity} Company: {stat.company}; Employee: {stat.employee}; Household: {stat.household}, Resident: {stat.resident}");
+                residents += stat.resident;
+            }
+
+            _log.Info($"\n\n\n\nPopulation: {residents}\n\n\n\n");
+
+            buildingQueue.Dispose();
 
             if (option.Systems.HasFlag(System.Area)) GeoJson.Write(option, Instance.Dummy.WriteFeatures, OnReport);
         }
