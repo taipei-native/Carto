@@ -3,24 +3,12 @@
   "WorkspaceRootPath": "D:\\Documents\\[by-type]\\github\\Carto\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\io\\io.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:io\\io.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\domain\\buildingstat.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:domain\\buildingstat.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\systems\\shareddatacollectionsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:systems\\shareddatacollectionsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\systems\\dummysystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:systems\\dummysystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\systems\\tempsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:systems\\tempsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\io\\io.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:io\\io.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -39,66 +27,27 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "IO.cs",
-              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\IO.cs",
-              "RelativeDocumentMoniker": "IO\\IO.cs",
-              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\IO.cs",
-              "RelativeToolTip": "IO\\IO.cs",
-              "ViewState": "AgIAAJ0AAAAAAAAAAAAAAKoAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-01-25T17:34:10.81Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "DummySystem.cs",
-              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\DummySystem.cs",
-              "RelativeDocumentMoniker": "Systems\\DummySystem.cs",
-              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\DummySystem.cs",
-              "RelativeToolTip": "Systems\\DummySystem.cs",
-              "ViewState": "AgIAAEsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-01-25T17:33:55.626Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "BuildingStat.cs",
-              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Domain\\BuildingStat.cs",
-              "RelativeDocumentMoniker": "Domain\\BuildingStat.cs",
-              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Domain\\BuildingStat.cs",
-              "RelativeToolTip": "Domain\\BuildingStat.cs",
-              "ViewState": "AgIAABsAAAAAAAAAAAAAAA4AAAAdAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-01-25T15:25:35.63Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "TempSystem.cs",
-              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\TempSystem.cs",
-              "RelativeDocumentMoniker": "Systems\\TempSystem.cs",
-              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\TempSystem.cs",
-              "RelativeToolTip": "Systems\\TempSystem.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABcAAAARAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-01-25T12:28:11.748Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
               "Title": "SharedDataCollectionSystem.cs",
               "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\SharedDataCollectionSystem.cs",
               "RelativeDocumentMoniker": "Systems\\SharedDataCollectionSystem.cs",
               "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\SharedDataCollectionSystem.cs",
               "RelativeToolTip": "Systems\\SharedDataCollectionSystem.cs",
-              "ViewState": "AgIAAMYAAAAAAAAAAAAAAK4AAAAdAAAAAAAAAA==",
+              "ViewState": "AgIAAIgBAAAAAAAAAAAAAIsBAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-01-19T15:03:23.594Z",
+              "WhenOpened": "2025-01-27T19:21:46.298Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "IO.cs",
+              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\IO.cs",
+              "RelativeDocumentMoniker": "IO\\IO.cs",
+              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\IO.cs",
+              "RelativeToolTip": "IO\\IO.cs",
+              "ViewState": "AgIAAHgAAAAAAAAAAAAAAIAAAAAbAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-01-26T05:52:06.717Z",
               "EditorCaption": ""
             }
           ]

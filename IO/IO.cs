@@ -3,7 +3,7 @@ using Carto.Geodata;
 using Colossal.Logging;
 using System;
 using System.Collections.Generic;
-using Unity.Collections;
+using Unity.Entities;
 using Unity.Mathematics;
 
 namespace Carto.IO
@@ -19,7 +19,7 @@ namespace Carto.IO
         /// See <see cref="Instance.Log"/> for more information.
         /// </summary>
         static readonly ILog _log = Instance.Log;
-        
+
         /// <summary>
         /// The look-up table of composite property's sub-field name.
         /// （每個複合屬性的子欄位名稱對照表。）
@@ -123,7 +123,31 @@ namespace Carto.IO
             { Property.Width, typeof(float) },
             { Property.Zoning, typeof(string) }
         };
-        
+
+        /// <summary>
+        /// The list of in-game zoning types' information.
+        /// （遊戲內分區類型資訊的列表。）
+        /// </summary>
+        public static List<ZoningType> ZoningTypes { get; private set; } = new();
+
+        /// <summary>
+        /// The map between zoning prefab references and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
+        /// （分區預製模板參考與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
+        /// </summary>
+        public static Dictionary<Entity, int> ZoningTypesEntityMap { get; private set; } = new();
+
+        /// <summary>
+        /// The map between zoning ids and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
+        /// （分區識別碼與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
+        /// </summary>
+        public static Dictionary<ushort, int> ZoningTypesIdMap { get; private set; } = new();
+
+        /// <summary>
+        /// The list of in-game zoning types' prefab name.
+        /// （遊戲內分區類型名稱的列表。）
+        /// </summary>
+        public static List<string> ZoningTypesNames { get; private set; } = new();
+
         public static void OnReport(string file, int progress)
         {
 
@@ -136,53 +160,65 @@ namespace Carto.IO
         public static void Export()
         {
             // Export options.（輸出設定。）
-            Options option = new()
+            //Options option = new()
+            //{
+            //    Display = new Dictionary<(Property, System), bool>
+            //    {
+            //        { (Property.Category, System.Building), true },
+            //        { (Property.Category, System.Net), true },
+            //        { (Property.Category, System.POI), false },
+            //        { (Property.Object, System.Unknown), false },
+            //        { (Property.Zoning, System.Unknown), true }
+            //    },
+            //    Features = Feature.District | Feature.MapTile,
+            //    FileFormat = FileFormat.GeoJSON,
+            //    FileName = "Area",
+            //    Minimized = true,
+            //    Properties = new Dictionary<System, HashSet<Property>>
+            //    {
+            //        { System.Area, new HashSet<Property> { Property.Area, Property.Name, Property.Object, Property.Unlocked } }
+            //    },
+            //    RasterKinds = RasterKind.Unknown,
+            //    SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
+            //    SourceProjection = CRS.TransverseMercator,
+            //    SourceProjectionDefinition = new ProjectionDefinition
+            //    (
+            //        new EllipsoidDefinition(Ellipsoid.GRS80),
+            //        (121, 0), (250000, 0), 0.9999, new double[0]
+            //    ),
+            //    Systems = System.Area,
+            //    VectorKinds = new Dictionary<System, VectorKind>
+            //    {
+            //        { System.Area, VectorKind.Boundary }
+            //    }
+            //};
+
+            Instance.Shared.GetZoningTypes(ZoningTypesEntityMap, ZoningTypesIdMap, ZoningTypesNames, ZoningTypes);
+
+            try
             {
-                Display = new Dictionary<(Property, System), bool>
+                for (int i = 0; i < ZoningTypes.Count; i++)
                 {
-                    { (Property.Category, System.Building), true },
-                    { (Property.Category, System.Net), true },
-                    { (Property.Category, System.POI), false },
-                    { (Property.Object, System.Unknown), false },
-                    { (Property.Zoning, System.Unknown), true }
-                },
-                Features = Feature.District | Feature.MapTile,
-                FileFormat = FileFormat.GeoJSON,
-                FileName = "Area",
-                Minimized = true,
-                Properties = new Dictionary<System, HashSet<Property>>
-                {
-                    { System.Area, new HashSet<Property> { Property.Area, Property.Name, Property.Object, Property.Unlocked } }
-                },
-                RasterKinds = RasterKind.Unknown,
-                SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
-                SourceProjection = CRS.TransverseMercator,
-                SourceProjectionDefinition = new ProjectionDefinition
-                (
-                    new EllipsoidDefinition(Ellipsoid.GRS80),
-                    (121, 0), (250000, 0), 0.9999, new double[0]
-                ),
-                Systems = System.Area,
-                VectorKinds = new Dictionary<System, VectorKind>
-                {
-                    { System.Area, VectorKind.Boundary }
+                    if (ZoningTypesNames[i] != null)
+                    {
+                        _log.Info(ZoningTypesNames[i]);
+                        _log.Info(ZoningTypes[i].ToString());
+                    }
                 }
-            };
-
-            NativeQueue<BuildingStat> buildingQueue = Instance.Shared.GetBuildingStats(Allocator.TempJob);
-            int residents = 0;
-
-            while (buildingQueue.TryDequeue(out BuildingStat stat))
+            }
+            catch (Exception ex)
             {
-                _log.Info($"{stat.entity} Company: {stat.company}; Employee: {stat.employee}; Household: {stat.household}, Resident: {stat.resident}");
-                residents += stat.resident;
+                _log.Error(ex.ToString());
             }
 
-            _log.Info($"\n\n\n\nPopulation: {residents}\n\n\n\n");
+            //NativeQueue<BuildingStat> buildingQueue = Instance.Shared.GetBuildingStats(Allocator.TempJob);
+            //while (buildingQueue.TryDequeue(out BuildingStat stat))
+            //{
+            //    _log.Info(stat.ToString());
+            //}
+            //buildingQueue.Dispose();
 
-            buildingQueue.Dispose();
-
-            if (option.Systems.HasFlag(System.Area)) GeoJson.Write(option, Instance.Dummy.WriteFeatures, OnReport);
+            //if (option.Systems.HasFlag(System.Area)) GeoJson.Write(option, Instance.Dummy.WriteFeatures, OnReport);
         }
     }
 }

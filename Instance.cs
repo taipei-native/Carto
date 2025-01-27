@@ -1,5 +1,7 @@
 using Carto.Systems;
 using Colossal.Logging;
+using Game.Prefabs;
+using Game.Simulation;
 using Game.UI;
 using Unity.Entities;
 
@@ -17,6 +19,18 @@ namespace Carto
         /// （管理各實體名稱的系統。）
         /// </summary>
         public static NameSystem Name => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<NameSystem>();
+
+        /// <summary>
+        /// The system managing the prefabricated data.
+        /// （管理預製模板資料的系統。）
+        /// </summary>
+        public static PrefabSystem Prefab => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<PrefabSystem>();
+
+        /// <summary>
+        /// The system managing the game simulation.
+        /// （管理遊戲模擬的系統。）
+        /// </summary>
+        public static SimulationSystem Simulation => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SimulationSystem>();
 
         // Carto instances（Carto 的實例）
         /// <summary>

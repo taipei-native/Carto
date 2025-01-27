@@ -1,3 +1,4 @@
+using Game.Economy;
 using Unity.Entities;
 
 namespace Carto.Domain
@@ -13,6 +14,12 @@ namespace Carto.Domain
         /// （建築實體。）
         /// </summary>
         public Entity entity;
+
+        /// <summary>
+        /// The total age of the residents in the building in days.
+        /// （建築內居民以天數計算的年齡總和。）
+        /// </summary>
+        public float age;
 
         /// <summary>
         /// The index of the brand that operates the building.
@@ -39,15 +46,38 @@ namespace Carto.Domain
         public int household;
 
         /// <summary>
+        /// The upgrade progess of the building.
+        /// （建築的升級進度。）
+        /// </summary>
+        public int level;
+
+        /// <summary>
         /// The merchandise sold by the companies in the building.
         /// （建築內公司銷售的商品。）
         /// </summary>
-        public ulong product;
+        public Resource product;
 
         /// <summary>
-        /// The number of residents in the building.
-        /// （建築內的居民數量。）
+        /// The number of female residents in the building.
+        /// （建築內的女性居民數量。）
         /// </summary>
-        public int resident;
+        public int residentFemale;
+
+        /// <summary>
+        /// The number of male residents in the building.
+        /// （建築內的男性居民數量。）
+        /// </summary>
+        public int residentMale;
+
+        /// <summary>
+        /// The index of the zoning type that the building spawns in.
+        /// （生成建築的分區類型索引值。）
+        /// </summary>
+        public int zoning;
+
+        public override readonly string ToString()
+        {
+            return $"Building ({entity.Index}:{entity.Version}) - Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Product [{product}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Zoning [{zoning}]";
+        }
     }
 }

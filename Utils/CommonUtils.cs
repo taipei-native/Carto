@@ -67,5 +67,49 @@ namespace Carto.Utils
             if (values.Contains(input)) return new T[] { input };
             return values.Where(v => input.HasFlag(v) && !v.Equals(default(T))).ToArray();
         }
+
+        /// <summary>
+        /// Reset an array.
+        /// （重置一個陣列。）
+        /// </summary>
+        /// <typeparam name="T">The type of the items.（陣列內物件的型別。）</typeparam>
+        /// <param name="array">The input array.（輸入的陣列。）</param>
+        /// <param name="capacity">The capacity used to initialize the array.（用於初始化陣列的容量。）</param>
+        public static void Reset<T>(T[] array, int capacity = 16)
+        {
+            if (array == null)
+            {
+                array = new T[capacity];
+            }
+            else
+            {
+                Array.Clear(array, 0, array.Length);
+            }
+        }
+
+        /// <summary>
+        /// Reset a collection.
+        /// （重置一個集合。）
+        /// </summary>
+        /// <typeparam name="T">The type of the collection items.（集合內物件的型別。）</typeparam>
+        /// <param name="collection">The input collection.（輸入的集合。）</param>
+        public static void Reset<T>(ICollection<T> collection)
+        {
+            collection?.Clear();
+            return;
+        }
+
+        /// <summary>
+        /// Reset a dictionary.
+        /// （重置一個字典。）
+        /// </summary>
+        /// <typeparam name="TKey">The type of the dictionary keys.（字典鍵的型別。）</typeparam>
+        /// <typeparam name="TValue">The type of the dictionary values.（字典值的型別。）</typeparam>
+        /// <param name="dictionary">The input dictionary.（輸入的字典。）</param>
+        public static void Reset<TKey, TValue>(IDictionary<TKey, TValue> dictionary)
+        {
+            dictionary?.Clear();
+            return;
+        }
     }
 }
