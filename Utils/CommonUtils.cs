@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Collections;
 
 namespace Carto.Utils
 {
@@ -10,6 +11,154 @@ namespace Carto.Utils
     /// </summary>
     public static class CommonUtils
     {
+        /// <summary>
+        /// Try disposing of an object that implements <see cref="IDisposable"/>.
+        /// （嘗試丟棄一個實作 <see cref="IDisposable"/> 介面的物件。）
+        /// </summary>
+        /// <typeparam name="T">The type of the item.（物件的型別。）</typeparam>
+        /// <param name="item">The input item.（輸入的物件。）</param>
+        public static void Dispose<T>(T item) where T : struct, IDisposable
+        {
+            item.Dispose();
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeArray{T}"/>.
+        /// （嘗試丟棄一個 <see cref="NativeArray{T}"/>。）
+        /// </summary>
+        /// <typeparam name="T">The type of array's items.（陣列內物件的型別。）</typeparam>
+        /// <param name="array">The input array.（輸入的陣列。）</param>
+        public static void Dispose<T>(NativeArray<T> array) where T : struct
+        {
+            if (array.IsCreated)
+            {
+                for (int i = 0; i < array.Length; i++)
+                {
+                    DisposeHelper(array[i]);
+                }
+                array.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeHashMap{TKey, TValue}" />.
+        /// （嘗試丟棄一個 <see cref="NativeHashMap{TKey, TValue}" />。）
+        /// </summary>
+        /// <typeparam name="TKey">The type of hashmap's keys.（映射表鍵的型別。）</typeparam>
+        /// <typeparam name="TValue">The type of hashmap's values.（映射表值的型別。）</typeparam>
+        /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
+        public static void Dispose<TKey, TValue>(NativeHashMap<TKey, TValue> hashmap)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            if (hashmap.IsCreated)
+            {
+                NativeArray<TKey> keys = hashmap.GetKeyArray(Allocator.Temp);
+                NativeArray<TValue> values = hashmap.GetValueArray(Allocator.Temp);
+                Dispose(keys);
+                Dispose(values);
+                hashmap.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeHashSet{T}" />.
+        /// （嘗試丟棄一個 <see cref="NativeHashSet{T}" />。）
+        /// </summary>
+        /// <typeparam name="T">The type of hashset's items.（集合內物件的型別。）</typeparam>
+        /// <param name="hashset">The input hashset.（輸入的集合。）</param>
+        public static void Dispose<T>(NativeHashSet<T> hashset) where T : unmanaged, IEquatable<T>
+        {
+            if (hashset.IsCreated)
+            {
+                NativeArray<T> items = hashset.ToNativeArray(Allocator.Temp);
+                Dispose(items);
+                hashset.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeList{T}"/>.
+        /// （嘗試丟棄一個 <see cref="NativeList{T}"/>。）
+        /// </summary>
+        /// <typeparam name="T">The type of list's items.（列表內物件的型別。）</typeparam>
+        /// <param name="list">The input list.（輸入的列表。）</param>
+        public static void Dispose<T>(NativeList<T> list) where T : unmanaged
+        {
+            if (list.IsCreated)
+            {
+                for (int i = 0; i < list.Length; i++)
+                {
+                    DisposeHelper(list[i]);
+                }
+                list.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeParallelHashMap{TKey, TValue}" />.
+        /// （嘗試丟棄一個 <see cref="NativeParallelHashMap{TKey, TValue}" />。）
+        /// </summary>
+        /// <typeparam name="TKey">The type of hashmap's keys.（映射表鍵的型別。）</typeparam>
+        /// <typeparam name="TValue">The type of hashmap's values.（映射表值的型別。）</typeparam>
+        /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
+        public static void Dispose<TKey, TValue>(NativeParallelHashMap<TKey, TValue> hashmap)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            if (hashmap.IsCreated)
+            {
+                NativeArray<TKey> keys = hashmap.GetKeyArray(Allocator.Temp);
+                NativeArray<TValue> values = hashmap.GetValueArray(Allocator.Temp);
+                Dispose(keys);
+                Dispose(values);
+                hashmap.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeParallelHashSet{T}" />.
+        /// （嘗試丟棄一個 <see cref="NativeParallelHashSet{T}" />。）
+        /// </summary>
+        /// <typeparam name="T">The type of hashset's items.（集合內物件的型別。）</typeparam>
+        /// <param name="hashset">The input hashset.（輸入的集合。）</param>
+        public static void Dispose<T>(NativeParallelHashSet<T> hashset) where T : unmanaged, IEquatable<T>
+        {
+            if (hashset.IsCreated)
+            {
+                NativeArray<T> items = hashset.ToNativeArray(Allocator.Temp);
+                Dispose(items);
+                hashset.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeText" />.
+        /// （嘗試丟棄一個 <see cref="NativeText" />。）
+        /// </summary>
+        /// <param name="text">The input text.（輸入的文字。）</param>
+        public static void Dispose(NativeText text)
+        {
+            if (text.IsCreated)
+            {
+                text.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// The helper function to try disposing of an object.
+        /// （用於嘗試丟棄一個物件的輔助函數。）
+        /// </summary>
+        /// <typeparam name="T">The type of the item.（物件的型別。）</typeparam>
+        /// <param name="item">The item waiting to be examined.（等待被檢驗的物件。）</param>
+        private static void DisposeHelper<T>(T item) where T : struct
+        {
+            if (item is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+        
         /// <summary>
         /// Fomrat <see cref="TimeSpan"/> into predefined minute:second:millisecond format.<br/>
         /// 將 <see cref="TimeSpan"/> 格式化為預先定義的「分鐘:秒:毫秒」格式。
@@ -110,6 +259,96 @@ namespace Carto.Utils
         {
             dictionary?.Clear();
             return;
+        }
+
+        /// <summary>
+        /// Reset a native array.
+        /// （重置一個原生陣列。）
+        /// </summary>
+        /// <typeparam name="T">The type of the items.（陣列內物件的型別。）</typeparam>
+        /// <param name="array">The input array.（輸入的陣列。）</param>
+        /// <param name="capacity">The capacity used to initialize the array.（用於初始化陣列的容量。）</param>
+        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
+        public static void Reset<T>(ref NativeArray<T> array, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : struct
+        {
+            Dispose(array);
+            array = new(capacity, allocator);
+        }
+
+        /// <summary>
+        /// Reset a native hashmap.
+        /// （重置一個原生映射表。）
+        /// </summary>
+        /// <typeparam name="TKey">The type of the hashmap's keys.（映射表鍵的型別。）</typeparam>
+        /// <typeparam name="TValue">The type of the hashmap's values.（映射表值的型別。）</typeparam>
+        /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
+        /// <param name="capacity">The capacity used to initialize the hashmap.（用於初始化映射表的容量。）</param>
+        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
+        public static void Reset<TKey, TValue>(ref NativeHashMap<TKey, TValue> hashmap, int capacity = 16, Allocator allocator = Allocator.Persistent)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            Dispose(hashmap);
+            hashmap = new(capacity, allocator);
+        }
+
+        /// <summary>
+        /// Reset a native hashset.
+        /// （重置一個原生集合。）
+        /// </summary>
+        /// <typeparam name="T">The type of the hashset's items.（集合內物件的型別。）</typeparam>
+        /// <param name="hashset">The input hashset.（輸入的集合。）</param>
+        /// <param name="capacity">The capacity used to initialize the hashset.（用於初始化集合的容量。）</param>
+        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
+        public static void Reset<T>(ref NativeHashSet<T> hashset, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : unmanaged, IEquatable<T>
+        {
+            Dispose(hashset);
+            hashset = new(capacity, allocator);
+        }
+
+        /// <summary>
+        /// Reset a native list.
+        /// （重置一個原生列表。）
+        /// </summary>
+        /// <typeparam name="T">The type of the list's items.（列表內物件的型別。）</typeparam>
+        /// <param name="list">The input list.（輸入的列表。）</param>
+        /// <param name="capacity">The capacity used to initialize the list.（用於初始化列表的容量。）</param>
+        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
+        public static void Reset<T>(ref NativeList<T> list, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : unmanaged
+        {
+            Dispose(list);
+            list = new(capacity, allocator);
+        }
+
+        /// <summary>
+        /// Reset a native hashmap (parallel variant).
+        /// （重置一個原生映射表（平行運算變種）。）
+        /// </summary>
+        /// <typeparam name="TKey">The type of the hashmap's keys.（映射表鍵的型別。）</typeparam>
+        /// <typeparam name="TValue">The type of the hashmap's values.（映射表值的型別。）</typeparam>
+        /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
+        /// <param name="capacity">The capacity used to initialize the hashmap.（用於初始化映射表的容量。）</param>
+        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
+        public static void Reset<TKey, TValue>(ref NativeParallelHashMap<TKey, TValue> hashmap, int capacity = 16, Allocator allocator = Allocator.Persistent)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            Dispose(hashmap);
+            hashmap = new(capacity, allocator);
+        }
+
+        /// <summary>
+        /// Reset a native hashset (parallel variant).
+        /// （重置一個原生集合（平行運算變種）。）
+        /// </summary>
+        /// <typeparam name="T">The type of the hashset's items.（集合內物件的型別。）</typeparam>
+        /// <param name="hashset">The input hashset.（輸入的集合。）</param>
+        /// <param name="capacity">The capacity used to initialize the hashset.（用於初始化集合的容量。）</param>
+        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
+        public static void Reset<T>(ref NativeParallelHashSet<T> hashset, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : unmanaged, IEquatable<T>
+        {
+            Dispose(hashset);
+            hashset = new(capacity, allocator);
         }
     }
 }

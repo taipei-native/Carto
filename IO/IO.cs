@@ -1,10 +1,6 @@
-using Carto.Domain;
-using Carto.Geodata;
 using Colossal.Logging;
 using System;
 using System.Collections.Generic;
-using Unity.Entities;
-using Unity.Mathematics;
 
 namespace Carto.IO
 {
@@ -124,30 +120,6 @@ namespace Carto.IO
             { Property.Zoning, typeof(string) }
         };
 
-        /// <summary>
-        /// The list of in-game zoning types' information.
-        /// （遊戲內分區類型資訊的列表。）
-        /// </summary>
-        public static List<ZoningType> ZoningTypes { get; private set; } = new();
-
-        /// <summary>
-        /// The map between zoning prefab references and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
-        /// （分區預製模板參考與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
-        /// </summary>
-        public static Dictionary<Entity, int> ZoningTypesEntityMap { get; private set; } = new();
-
-        /// <summary>
-        /// The map between zoning ids and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
-        /// （分區識別碼與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
-        /// </summary>
-        public static Dictionary<ushort, int> ZoningTypesIdMap { get; private set; } = new();
-
-        /// <summary>
-        /// The list of in-game zoning types' prefab name.
-        /// （遊戲內分區類型名稱的列表。）
-        /// </summary>
-        public static List<string> ZoningTypesNames { get; private set; } = new();
-
         public static void OnReport(string file, int progress)
         {
 
@@ -193,16 +165,17 @@ namespace Carto.IO
             //    }
             //};
 
-            Instance.Shared.GetZoningTypes(ZoningTypesEntityMap, ZoningTypesIdMap, ZoningTypesNames, ZoningTypes);
+            // Retrieve zoning types information.（獲取分區類別的資訊。）
+            Instance.Shared.GetZoningTypes();
 
             try
             {
-                for (int i = 0; i < ZoningTypes.Count; i++)
+                if (Instance.Shared.ZoningTypes.IsCreated)
                 {
-                    if (ZoningTypesNames[i] != null)
+                    for (int i = 0; i < Instance.Shared.ZoningTypes.Length; i++)
                     {
-                        _log.Info(ZoningTypesNames[i]);
-                        _log.Info(ZoningTypes[i].ToString());
+                        _log.Info(Instance.Shared.ZoningTypesNames[i].ToString());
+                        _log.Info(Instance.Shared.ZoningTypes[i].ToString());
                     }
                 }
             }

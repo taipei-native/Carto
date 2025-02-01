@@ -9,8 +9,8 @@ using Game.Economy;
 using Game.Objects;
 using Game.Prefabs;
 using Game.Tools;
+using Game.Zones;
 using System;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -60,6 +60,30 @@ namespace Carto.Systems
         /// （收集所有分區類別預製模板的查詢。）
         /// </summary>
         static EntityQuery _zoningPrefabQuery;
+
+        /// <summary>
+        /// The list of in-game zoning types' information.
+        /// （遊戲內分區類型資訊的列表。）
+        /// </summary>
+        public NativeList<ZoningType> ZoningTypes { get; private set; } = default;
+
+        /// <summary>
+        /// The map between zoning prefab references and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
+        /// （分區預製模板參考與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
+        /// </summary>
+        public NativeParallelHashMap<Entity, int> ZoningTypesEntityMap { get; private set; } = default;
+
+        /// <summary>
+        /// The map between zoning ids and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
+        /// （分區識別碼與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
+        /// </summary>
+        public NativeParallelHashMap<ushort, int> ZoningTypesIdMap { get; private set; } = default;
+
+        /// <summary>
+        /// The list of in-game zoning types' prefab name.
+        /// （遊戲內分區類型名稱的列表。）
+        /// </summary>
+        public NativeList<NativeText> ZoningTypesNames { get; private set; } = default;
 
         /// <summary>
         /// The event triggered when the system instance is created.
@@ -123,7 +147,14 @@ namespace Carto.Systems
         /// The event triggered when the system instance is destroyed.
         /// （當系統實例被銷毀時所觸發的事件。）
         /// </summary>
-        protected override void OnDestroy() { base.OnDestroy(); }
+        protected override void OnDestroy()
+        {
+            Utils.CommonUtils.Dispose(ZoningTypes);
+            Utils.CommonUtils.Dispose(ZoningTypesEntityMap);
+            Utils.CommonUtils.Dispose(ZoningTypesIdMap);
+            Utils.CommonUtils.Dispose(ZoningTypesNames);
+            base.OnDestroy();
+        }
 
         /// <summary>
         /// The event triggered when the system instance is updated.
@@ -395,28 +426,23 @@ namespace Carto.Systems
         /// Retrieve zoning types' information.
         /// （獲取分區類別的資訊。）
         /// </summary>
-        /// <param name="entityMap">
-        /// The map between zoning prefab references and their index in <paramref name="zoningTypes"/> &amp; <paramref name="prefabNames"/>.<br/>
-        /// （分區預製模板參考與其在 <paramref name="zoningTypes"/> 與 <paramref name="prefabNames"/> 索引值的映射表。）
-        /// </param>
-        /// <param name="idMap">
-        /// The map between zoning ids and their index in <paramref name="zoningTypes"/> &amp; <paramref name="prefabNames"/>.<br/>
-        /// （分區識別碼與其在 <paramref name="zoningTypes"/> 與 <paramref name="prefabNames"/> 索引值的映射表。）
-        /// </param>
-        /// <param name="prefabNames">The list of in-game zoning types' prefab name.（遊戲內分區類型名稱的列表。）</param>
-        /// <param name="zoningTypes">The list of in-game zoning types' information.（遊戲內分區類型資訊的列表。）</param>
-        public void GetZoningTypes(Dictionary<Entity, int> entityMap, Dictionary<ushort, int> idMap, List<string> prefabNames, List<ZoningType> zoningTypes)
+        public void GetZoningTypes()
         {
-            // Validate output containers.（驗證輸出容器。）
-            Utils.CommonUtils.Reset(entityMap);
-            Utils.CommonUtils.Reset(idMap);
-            Utils.CommonUtils.Reset(prefabNames);
-            Utils.CommonUtils.Reset(zoningTypes);
+            // Create local copy of properties.（創造屬性的區域副本。）
+            NativeParallelHashMap<Entity, int> entityMap = ZoningTypesEntityMap;
+            NativeParallelHashMap<ushort, int> idMap = ZoningTypesIdMap;
+            NativeList<NativeText> names = ZoningTypesNames;
+            NativeList<ZoningType> types = ZoningTypes;
 
-            // Initialize native containers.（初始化原始容器。）
+            // Initialize native containers.（初始化原生容器。）
             int zoningTypeCount = _zoningPrefabQuery.CalculateEntityCount();
             NativeParallelHashSet<Entity> zoningTypePool = new(zoningTypeCount, Allocator.TempJob);
-            NativeQueue<ZoningType> zoningTypeQueue = new(Allocator.TempJob);
+
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset(ref entityMap, zoningTypeCount);
+            Utils.CommonUtils.Reset(ref idMap, zoningTypeCount);
+            Utils.CommonUtils.Reset(ref names, zoningTypeCount);
+            Utils.CommonUtils.Reset(ref types, zoningTypeCount);
 
             try
             {
@@ -424,7 +450,7 @@ namespace Carto.Systems
                 {
                     prefabDataLookup = GetComponentLookup<PrefabData>(),
                     zoneDataLookup = GetComponentLookup<ZoneData>(),
-                    queue = zoningTypeQueue.AsParallelWriter(),
+                    list = types.AsParallelWriter(),
                     zoningTypePool = zoningTypePool.AsParallelWriter(),
                     commercialIndex = TypeManager.GetTypeIndex<CommercialProperty>(),
                     industrialIndex = TypeManager.GetTypeIndex<IndustrialProperty>(),
@@ -436,23 +462,27 @@ namespace Carto.Systems
 
                 VerifyZoningTypesJob verifyJob = new()
                 {
-                    queue = zoningTypeQueue.AsParallelWriter(),
+                    list = types.AsParallelWriter(),
                     zoningTypePool = zoningTypePool
                 };
                 JobHandle verifyHandle = verifyJob.ScheduleParallel(_zoningPrefabQuery, default);
                 verifyHandle.Complete();
 
-                int index = 0;
-                while (zoningTypeQueue.TryDequeue(out ZoningType zoningType))
+                for (int index = 0; index < zoningTypeCount; index++)
                 {
+                    ref ZoningType zoningType = ref types.ElementAt(index);
                     ZonePrefab zonePrefabData = Instance.Prefab.GetPrefab<ZonePrefab>(zoningType.prefabData);
                     zoningType.color = zonePrefabData.m_Color;
-                    entityMap[zoningType.entity] = index;
-                    idMap[zoningType.id] = index;
-                    prefabNames.Add(Instance.Prefab.GetPrefabName(zoningType.entity));
-                    zoningTypes.Add(zoningType);
-                    index++;
+                    entityMap.TryAdd(zoningType.entity, index);
+                    idMap.TryAdd(zoningType.id, index);
+                    names.Add(new NativeText(Instance.Prefab.GetPrefabName(zoningType.entity), Allocator.Persistent));
                 }
+
+                // Assign properties.（指派屬性。）
+                ZoningTypes = types;
+                ZoningTypesEntityMap = entityMap;
+                ZoningTypesIdMap = idMap;
+                ZoningTypesNames = names;
             }
             catch (Exception ex)
             {
@@ -464,10 +494,15 @@ namespace Carto.Systems
                 {
                     zoningTypePool.Dispose();
                 }
-                if (zoningTypeQueue.IsCreated)
-                {
-                    zoningTypeQueue.Dispose();
-                }
+            }
+        }
+
+        [BurstCompile]
+        public partial struct CollectThemesJob : IJobChunk
+        {
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+
             }
         }
 
@@ -485,7 +520,7 @@ namespace Carto.Systems
             public ComponentLookup<ZoneData> zoneDataLookup;
 
             [WriteOnly]
-            public NativeQueue<ZoningType>.ParallelWriter queue;
+            public NativeList<ZoningType>.ParallelWriter list;
 
             [WriteOnly]
             public NativeParallelHashSet<Entity>.ParallelWriter zoningTypePool;
@@ -549,7 +584,7 @@ namespace Carto.Systems
                         prefabData = prefabDataLookup[zoningPrefab],
                         theme = -1
                     };
-                    queue.Enqueue(data);
+                    list.AddNoResize(data);
                 }
                 finally
                 {
@@ -569,7 +604,7 @@ namespace Carto.Systems
         public partial struct VerifyZoningTypesJob : IJobEntity
         {
             [WriteOnly]
-            public NativeQueue<ZoningType>.ParallelWriter queue;
+            public NativeList<ZoningType>.ParallelWriter list;
 
             [ReadOnly]
             public NativeParallelHashSet<Entity> zoningTypePool;
@@ -579,7 +614,20 @@ namespace Carto.Systems
                 if (!zoningTypePool.Contains(zoningPrefab))
                 {
                     // Find out categories.（找出分類。）
-                    ZoningCategory categories = ZoningCategory.None;
+                    ZoningCategory categories = zoneData.m_AreaType switch
+                    {
+                        AreaType.Residential => ZoningCategory.Residential,
+                        AreaType.Commercial => ZoningCategory.Commercial,
+                        AreaType.Industrial => ZoningCategory.Industrial,
+                        _ => ZoningCategory.None,
+                    };
+
+                    // Remove the industrial zoning from the office zoning.（從辦公分區中移除工業分區。）
+                    if ((zoneData.m_ZoneFlags & ZoneFlags.Office) != 0)
+                    {
+                        categories |= ZoningCategory.Office;
+                        categories &= ~ZoningCategory.Industrial;
+                    }
 
                     // Find out density.（找出發展強度。）
                     ZoningDensity density = GetZoningDensity(categories, zoneData);
@@ -598,7 +646,7 @@ namespace Carto.Systems
                         prefabData = prefabData,
                         theme = -1
                     };
-                    queue.Enqueue(data);
+                    list.AddNoResize(data);
                 }
             }
         }
