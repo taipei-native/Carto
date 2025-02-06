@@ -17,7 +17,7 @@ namespace Carto.Utils
         /// </summary>
         /// <typeparam name="T">The type of the item.（物件的型別。）</typeparam>
         /// <param name="item">The input item.（輸入的物件。）</param>
-        public static void Dispose<T>(T item) where T : struct, IDisposable
+        public static void Dispose<T>(ref T item) where T : struct, IDisposable
         {
             item.Dispose();
         }
@@ -28,15 +28,21 @@ namespace Carto.Utils
         /// </summary>
         /// <typeparam name="T">The type of array's items.（陣列內物件的型別。）</typeparam>
         /// <param name="array">The input array.（輸入的陣列。）</param>
-        public static void Dispose<T>(NativeArray<T> array) where T : struct
+        /// <param name="disposeContentsOnly">Only dispose array contents.（僅丟棄陣列內容物。）</param>
+        public static void Dispose<T>(ref NativeArray<T> array, bool disposeContentsOnly = false) where T : struct
         {
+            if (array == null) return;
             if (array.IsCreated)
             {
+                ref NativeArray<T> arrayVar = ref array;
                 for (int i = 0; i < array.Length; i++)
                 {
                     DisposeHelper(array[i]);
                 }
-                array.Dispose();
+                if (!disposeContentsOnly)
+                {
+                    array.Dispose();
+                }
             }
         }
 
@@ -47,16 +53,14 @@ namespace Carto.Utils
         /// <typeparam name="TKey">The type of hashmap's keys.（映射表鍵的型別。）</typeparam>
         /// <typeparam name="TValue">The type of hashmap's values.（映射表值的型別。）</typeparam>
         /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
-        public static void Dispose<TKey, TValue>(NativeHashMap<TKey, TValue> hashmap)
+        public static void Dispose<TKey, TValue>(ref NativeHashMap<TKey, TValue> hashmap)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
             if (hashmap.IsCreated)
             {
-                NativeArray<TKey> keys = hashmap.GetKeyArray(Allocator.Temp);
                 NativeArray<TValue> values = hashmap.GetValueArray(Allocator.Temp);
-                Dispose(keys);
-                Dispose(values);
+                Dispose(ref values, true);
                 hashmap.Dispose();
             }
         }
@@ -67,12 +71,12 @@ namespace Carto.Utils
         /// </summary>
         /// <typeparam name="T">The type of hashset's items.（集合內物件的型別。）</typeparam>
         /// <param name="hashset">The input hashset.（輸入的集合。）</param>
-        public static void Dispose<T>(NativeHashSet<T> hashset) where T : unmanaged, IEquatable<T>
+        public static void Dispose<T>(ref NativeHashSet<T> hashset) where T : unmanaged, IEquatable<T>
         {
             if (hashset.IsCreated)
             {
                 NativeArray<T> items = hashset.ToNativeArray(Allocator.Temp);
-                Dispose(items);
+                Dispose(ref items, true);
                 hashset.Dispose();
             }
         }
@@ -83,7 +87,7 @@ namespace Carto.Utils
         /// </summary>
         /// <typeparam name="T">The type of list's items.（列表內物件的型別。）</typeparam>
         /// <param name="list">The input list.（輸入的列表。）</param>
-        public static void Dispose<T>(NativeList<T> list) where T : unmanaged
+        public static void Dispose<T>(ref NativeList<T> list) where T : unmanaged
         {
             if (list.IsCreated)
             {
@@ -102,16 +106,14 @@ namespace Carto.Utils
         /// <typeparam name="TKey">The type of hashmap's keys.（映射表鍵的型別。）</typeparam>
         /// <typeparam name="TValue">The type of hashmap's values.（映射表值的型別。）</typeparam>
         /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
-        public static void Dispose<TKey, TValue>(NativeParallelHashMap<TKey, TValue> hashmap)
+        public static void Dispose<TKey, TValue>(ref NativeParallelHashMap<TKey, TValue> hashmap)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
             if (hashmap.IsCreated)
             {
-                NativeArray<TKey> keys = hashmap.GetKeyArray(Allocator.Temp);
                 NativeArray<TValue> values = hashmap.GetValueArray(Allocator.Temp);
-                Dispose(keys);
-                Dispose(values);
+                Dispose(ref values, true);
                 hashmap.Dispose();
             }
         }
@@ -122,12 +124,12 @@ namespace Carto.Utils
         /// </summary>
         /// <typeparam name="T">The type of hashset's items.（集合內物件的型別。）</typeparam>
         /// <param name="hashset">The input hashset.（輸入的集合。）</param>
-        public static void Dispose<T>(NativeParallelHashSet<T> hashset) where T : unmanaged, IEquatable<T>
+        public static void Dispose<T>(ref NativeParallelHashSet<T> hashset) where T : unmanaged, IEquatable<T>
         {
             if (hashset.IsCreated)
             {
                 NativeArray<T> items = hashset.ToNativeArray(Allocator.Temp);
-                Dispose(items);
+                Dispose(ref items, true);
                 hashset.Dispose();
             }
         }
@@ -137,7 +139,7 @@ namespace Carto.Utils
         /// （嘗試丟棄一個 <see cref="NativeText" />。）
         /// </summary>
         /// <param name="text">The input text.（輸入的文字。）</param>
-        public static void Dispose(NativeText text)
+        public static void Dispose(ref NativeText text)
         {
             if (text.IsCreated)
             {
@@ -240,11 +242,13 @@ namespace Carto.Utils
         /// Reset a collection.
         /// （重置一個集合。）
         /// </summary>
-        /// <typeparam name="T">The type of the collection items.（集合內物件的型別。）</typeparam>
+        /// <typeparam name="TCollection">The type of the collection.（集合的型別。）</typeparam>
+        /// <typeparam name="TItem">The type of the collection items.（集合內物件的型別。）</typeparam>
         /// <param name="collection">The input collection.（輸入的集合。）</param>
-        public static void Reset<T>(ICollection<T> collection)
+        public static void Reset<TCollection, TItem>(ref TCollection collection) where TCollection : ICollection<TItem>, new()
         {
-            collection?.Clear();
+            collection ??= new();
+            collection.Clear();
             return;
         }
 
@@ -252,12 +256,14 @@ namespace Carto.Utils
         /// Reset a dictionary.
         /// （重置一個字典。）
         /// </summary>
+        /// <typeparam name="TDictionary">The type of the dictionary.（字典的型別。）</typeparam>
         /// <typeparam name="TKey">The type of the dictionary keys.（字典鍵的型別。）</typeparam>
         /// <typeparam name="TValue">The type of the dictionary values.（字典值的型別。）</typeparam>
         /// <param name="dictionary">The input dictionary.（輸入的字典。）</param>
-        public static void Reset<TKey, TValue>(IDictionary<TKey, TValue> dictionary)
+        public static void Reset<TDictionary, TKey, TValue>(ref TDictionary dictionary) where TDictionary : IDictionary<TKey, TValue>, new()
         {
-            dictionary?.Clear();
+            dictionary ??= new();
+            dictionary.Clear();
             return;
         }
 
@@ -271,7 +277,7 @@ namespace Carto.Utils
         /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
         public static void Reset<T>(ref NativeArray<T> array, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : struct
         {
-            Dispose(array);
+            Dispose(ref array);
             array = new(capacity, allocator);
         }
 
@@ -288,7 +294,7 @@ namespace Carto.Utils
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
-            Dispose(hashmap);
+            Dispose(ref hashmap);
             hashmap = new(capacity, allocator);
         }
 
@@ -302,7 +308,7 @@ namespace Carto.Utils
         /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
         public static void Reset<T>(ref NativeHashSet<T> hashset, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : unmanaged, IEquatable<T>
         {
-            Dispose(hashset);
+            Dispose(ref hashset);
             hashset = new(capacity, allocator);
         }
 
@@ -316,7 +322,7 @@ namespace Carto.Utils
         /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
         public static void Reset<T>(ref NativeList<T> list, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : unmanaged
         {
-            Dispose(list);
+            Dispose(ref list);
             list = new(capacity, allocator);
         }
 
@@ -333,7 +339,7 @@ namespace Carto.Utils
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
-            Dispose(hashmap);
+            Dispose(ref hashmap);
             hashmap = new(capacity, allocator);
         }
 
@@ -347,7 +353,7 @@ namespace Carto.Utils
         /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
         public static void Reset<T>(ref NativeParallelHashSet<T> hashset, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : unmanaged, IEquatable<T>
         {
-            Dispose(hashset);
+            Dispose(ref hashset);
             hashset = new(capacity, allocator);
         }
     }

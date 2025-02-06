@@ -1,4 +1,5 @@
 using Carto.Domain;
+using Carto.IO;
 using Colossal.Logging;
 using Game;
 using Game.Buildings;
@@ -11,8 +12,8 @@ using Game.Prefabs;
 using Game.Tools;
 using Game.Zones;
 using System;
+using System.Collections.Generic;
 using Unity.Burst;
-using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -30,6 +31,18 @@ namespace Carto.Systems
         /// See <see cref="Instance.Log"/> for more information.
         /// </summary>
         static readonly ILog _log = Instance.Log;
+
+        /// <summary>
+        /// The query to collect all asset pack prefabs.
+        /// （收集所有資產包預製模板的查詢。）
+        /// </summary>
+        static EntityQuery _assetPackPrefabQuery;
+
+        /// <summary>
+        /// The query to collect all brand entities.
+        /// （收集所有品牌實體的查詢。）
+        /// </summary>
+        static EntityQuery _brandQuery;
 
         /// <summary>
         /// The query to collect all building entities.
@@ -50,40 +63,121 @@ namespace Carto.Systems
         static EntityQuery _spawnableBuildingPrefabQuery;
 
         /// <summary>
+        /// The query to collect all theme prefabs.
+        /// （收集所有建築風格預製模板的查詢。）
+        /// </summary>
+        static EntityQuery _themePrefabQuery;
+
+        /// <summary>
         /// The query to find time settings.
         /// （尋找時間設定的查詢。）
         /// </summary>
         static EntityQuery _timeDataQuery;
 
         /// <summary>
-        /// The query to collect all zoning type prefabs.
+        /// The query to collect all zoning type prefabs. 
         /// （收集所有分區類別預製模板的查詢。）
         /// </summary>
         static EntityQuery _zoningPrefabQuery;
 
         /// <summary>
+        /// The list of in-game brands' / enterprises' prefab name.
+        /// （遊戲內品牌／企業預製模板名稱的列表。）
+        /// </summary>
+        public List<Brand> Brands => _brands;
+
+        /// <summary>
+        /// See <see cref="Brands"/>.
+        /// </summary>
+        private List<Brand> _brands;
+
+        /// <summary>
+        /// The map between brand entities and their index in <see cref="Brands"/>.<br/>
+        /// （品牌／企業實體與其在 <see cref="Brands"/> 索引值的映射表。）
+        /// </summary>
+        public NativeParallelHashMap<Entity, int> BrandsEntityMap => _brandsEntityMap;
+
+        /// <summary>
+        /// See <see cref="BrandsEntityMap"/>.
+        /// </summary>
+        private NativeParallelHashMap<Entity, int> _brandsEntityMap;
+
+        /// <summary>
+        /// The list of all building's statistics in the savegame.
+        /// （遊戲存檔內所有建築的統計數據。）
+        /// </summary>
+        public NativeList<BuildingStat> BuildingStats => _buildingStats;
+
+        /// <summary>
+        /// See <see cref="BuildingStats"/>.
+        /// </summary>
+        private NativeList<BuildingStat> _buildingStats;
+
+        /// <summary>
+        /// The list of in-game themes' / asset packs' information.
+        /// （遊戲內建築風格／資產包資訊的列表。）
+        /// </summary>
+        public List<Theme> Themes => _themes;
+
+        /// <summary>
+        /// See <see cref="Themes"/>.
+        /// </summary>
+        private List<Theme> _themes;
+
+        /// <summary>
+        /// The map between theme / asset pack prefab objects and their index in <see cref="Themes"/>.<br/>
+        /// （建築風格／資產包預製模板物件與其在 <see cref="Themes"/> 索引值的映射表。）
+        /// </summary>
+        public Dictionary<PrefabBase, int> ThemesPrefabMap => _themesPrefabMap;
+
+        /// <summary>
+        /// See <see cref="ThemesPrefabMap"/>.
+        /// </summary>
+        private Dictionary<PrefabBase, int> _themesPrefabMap;
+
+        /// <summary>
         /// The list of in-game zoning types' information.
         /// （遊戲內分區類型資訊的列表。）
         /// </summary>
-        public NativeList<ZoningType> ZoningTypes { get; private set; } = default;
+        public NativeList<ZoningType> ZoningTypes => _zoningTypes;
+
+        /// <summary>
+        /// See <see cref="ZoningTypes"/>.
+        /// </summary>
+        private NativeList<ZoningType> _zoningTypes;
 
         /// <summary>
         /// The map between zoning prefab references and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
         /// （分區預製模板參考與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
         /// </summary>
-        public NativeParallelHashMap<Entity, int> ZoningTypesEntityMap { get; private set; } = default;
+        public NativeParallelHashMap<Entity, int> ZoningTypesEntityMap => _zoningTypesEntityMap;
+
+        /// <summary>
+        /// See <see cref="ZoningTypesEntityMap"/>.
+        /// </summary>
+        private NativeParallelHashMap<Entity, int> _zoningTypesEntityMap;
 
         /// <summary>
         /// The map between zoning ids and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
         /// （分區識別碼與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
         /// </summary>
-        public NativeParallelHashMap<ushort, int> ZoningTypesIdMap { get; private set; } = default;
+        public NativeParallelHashMap<ushort, int> ZoningTypesIdMap => _zoningTypesIdMap;
+
+        /// <summary>
+        /// See <see cref="ZoningTypesIdMap"/>.
+        /// </summary>
+        private NativeParallelHashMap<ushort, int> _zoningTypesIdMap;
 
         /// <summary>
         /// The list of in-game zoning types' prefab name.
         /// （遊戲內分區類型名稱的列表。）
         /// </summary>
-        public NativeList<NativeText> ZoningTypesNames { get; private set; } = default;
+        public NativeList<NativeText> ZoningTypesNames => _zoningTypesNames;
+
+        /// <summary>
+        /// See <see cref="ZoningTypesNames"/>.
+        /// </summary>
+        private NativeList<NativeText> _zoningTypesNames;
 
         /// <summary>
         /// The event triggered when the system instance is created.
@@ -91,6 +185,23 @@ namespace Carto.Systems
         /// </summary>
         protected override void OnCreate()
         {
+            _assetPackPrefabQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<AssetPackData>(),
+                    ComponentType.ReadOnly<PrefabData>()
+                }
+            });
+
+            _brandQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<BrandData>()
+                }
+            });
+
             _buildingQuery = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
@@ -123,6 +234,15 @@ namespace Carto.Systems
                 }
             });
 
+            _themePrefabQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<PrefabData>(),
+                    ComponentType.ReadOnly<ThemeData>()
+                }
+            });
+
             _timeDataQuery = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
@@ -149,10 +269,7 @@ namespace Carto.Systems
         /// </summary>
         protected override void OnDestroy()
         {
-            Utils.CommonUtils.Dispose(ZoningTypes);
-            Utils.CommonUtils.Dispose(ZoningTypesEntityMap);
-            Utils.CommonUtils.Dispose(ZoningTypesIdMap);
-            Utils.CommonUtils.Dispose(ZoningTypesNames);
+            Dispose();
             base.OnDestroy();
         }
 
@@ -163,57 +280,167 @@ namespace Carto.Systems
         protected override void OnUpdate() { }
 
         /// <summary>
+        /// Try disposing of all properties stored in unmanaged memory.
+        /// （嘗試丟棄儲存於未控管記憶體的屬性。）
+        /// </summary>
+        public void Dispose()
+        {
+            Utils.CommonUtils.Dispose(ref _brandsEntityMap);
+            Utils.CommonUtils.Dispose(ref _buildingStats);
+            Utils.CommonUtils.Dispose(ref _zoningTypes);
+            Utils.CommonUtils.Dispose(ref _zoningTypesEntityMap);
+            Utils.CommonUtils.Dispose(ref _zoningTypesIdMap);
+            Utils.CommonUtils.Dispose(ref _zoningTypesNames);
+        }
+
+        /// <summary>
+        /// Retrieve brand's information.
+        /// （獲取品牌的資訊。）
+        /// </summary>
+        private void GetBrands()
+        {
+            // Create local copy of properties.（創造屬性的區域副本。）
+            ref List<Brand> brands = ref _brands;
+            ref NativeParallelHashMap<Entity, int> entityMap = ref _brandsEntityMap;
+
+            // Initialize native containers.（初始化原生容器。）
+            NativeArray<Entity> brandEntities = _brandQuery.ToEntityArray(Allocator.Temp);
+
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset<List<Brand>, Brand>(ref brands);
+            Utils.CommonUtils.Reset(ref entityMap, brandEntities.Length);
+
+            // Add the fallback brand.（添加後備品牌。）
+            brands.Add(new() { entity = Entity.Null, name = string.Empty });
+
+            // Collect brands.（收集品牌。）
+            for (int i = 0; i < brandEntities.Length; i++)
+            {
+                Entity brand = brandEntities[i];
+                Brand data = new()
+                {
+                    entity = brand,
+                    name = Instance.Prefab.GetPrefabName(brand)
+                };
+                brands.Add(data);
+                entityMap.Add(brand, brands.Count - 1);
+            }
+        }
+
+        /// <summary>
         /// Retrieve building entities' statistical data.
         /// （獲取建築實體的統計資料。）
         /// </summary>
-        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
-        /// <returns>The queue with each building's statistics.（包含各建築統計資料的佇列。）</returns>
-        public NativeQueue<BuildingStat> GetBuildingStats(Allocator allocator)
+        /// <param name="option">The export options.（檔案輸出選項。）</param>
+        public void GetBuildingStats(Options option)
         {
-            NativeQueue<BuildingStat> queue = new(allocator);
-            NativeParallelHashMap<Entity, bool> citizenSex = new(2, allocator);
-            TimeData timeData = default;
+            // Create alias for fields.（創造欄位的別名。）
+            ref List<Brand> brands = ref _brands;
+            ref List<Theme> themes = ref _themes;
+            ref NativeList<BuildingStat> stats = ref _buildingStats;
+            ref NativeList<ZoningType> zonings = ref _zoningTypes;
+            ref NativeList<NativeText> zoningsNames = ref _zoningTypesNames;
+            ref NativeParallelHashMap<Entity, int> brandsEntityMap = ref _brandsEntityMap;
+            ref NativeParallelHashMap<Entity, int> zoningsEntityMap = ref _zoningTypesEntityMap;
 
-            // Collect pre-requirements for calculating building statistics.
-            // （收集計算建築統計的事前必備項目。）
-            CollectCitizenSexJob collectSexJob = new()
+            // Collect brands.（收集品牌。）
+            if (option.Contains(Property.Brand))
             {
-                entityType = GetEntityTypeHandle(),
-                citizenDataType = GetComponentTypeHandle<CitizenData>(),
-                hashmap = citizenSex.AsParallelWriter()
-            };
-            JobHandle collectSexHandle = collectSexJob.ScheduleParallel(_citizenPrefabQuery, default);
-            collectSexHandle.Complete();
-
-            if (_timeDataQuery.TryGetSingleton(out TimeData singleton))
+                GetBrands();
+            }
+            else
             {
-                timeData = singleton;
+                brands = new() { new() { entity = Entity.Null, name = string.Empty } };
+                Utils.CommonUtils.Reset(ref brandsEntityMap, 1);
             }
 
-            CollectBuildingStatsJob collectStatsJob = new()
+            // Collect zoning types.（收集分區類型。）
+            if
+            (
+                option.ContainsAny(Property.Theme, Property.Zoning) ||
+                option.ContainsAny(IO.System.Zoning, Property.Category, Property.Color, Property.Density, Property.Name)
+            )
             {
-                entityType = GetEntityTypeHandle(),
-                citizenBufferLookup = GetBufferLookup<HouseholdCitizen>(true),
-                employeeBufferLookup = GetBufferLookup<Employee>(true),
-                employeeBufferType = GetBufferTypeHandle<Employee>(true),
-                renterBufferType = GetBufferTypeHandle<Renter>(true),
-                citizenLookup = GetComponentLookup<Citizen>(true),
-                companyDataLookup = GetComponentLookup<CompanyData>(true),
-                healthProblemLookup = GetComponentLookup<HealthProblem>(true),
-                householdLookup = GetComponentLookup<Household>(true),
-                prefabRefLookup = GetComponentLookup<PrefabRef>(true),
-                processLookup = GetComponentLookup<IndustrialProcessData>(true),
-                travelPurposeLookup = GetComponentLookup<TravelPurpose>(true),
-                currentFrameIndex = Instance.Simulation.frameIndex,
-                initialTime = timeData,
-                sexHashMap = citizenSex,
-                queue = queue.AsParallelWriter()
-            };
-            JobHandle collectStatsHandle = collectStatsJob.ScheduleParallel(_buildingQuery, default);
-            collectStatsHandle.Complete();
+                GetZoningTypes(option);
+            }
+            else
+            {
+                themes = new() { new() { entity = Entity.Null, name = "Carto Generic" } };
+                Utils.CommonUtils.Reset(ref zonings, 1);
+                Utils.CommonUtils.Reset(ref zoningsEntityMap, 1);
+                Utils.CommonUtils.Reset(ref zoningsNames, 1);
+            }
+            zonings.Add(new()
+            {
+                entity = Entity.Null,
+                category = ZoningCategory.None,
+                color = new(),
+                density = ZoningDensity.Generic,
+                id = 0,
+                prefabData = new(),
+                theme = 0
+            });
+            zoningsNames.Add(new("Empty", Allocator.Persistent));
 
-            citizenSex.Dispose();
-            return queue;
+            // Reset output containers.（重置輸出容器。）
+            int buildingEntityCount = _buildingQuery.CalculateEntityCount();
+            Utils.CommonUtils.Reset(ref stats, buildingEntityCount);
+
+            // Initialize native containers.（初始化原生容器。）
+            NativeParallelHashMap<Entity, bool> sexEntityMap = new(_citizenPrefabQuery.CalculateEntityCount(), Allocator.Persistent);
+
+            try
+            {
+                // Collect the sex of each citizen prefab.（收集各種市民預製模板的生理性別。）
+                CollectCitizenSexJob collectSexJob = new()
+                {
+                    hashmap = sexEntityMap.AsParallelWriter()
+                };
+                JobHandle collectSexHandle = collectSexJob.ScheduleParallel(_citizenPrefabQuery, default);
+                collectSexHandle.Complete();
+
+                // Retrieve the current time frame.（獲得目前的時間幀。）
+                TimeData timeData = default;
+                if (_timeDataQuery.TryGetSingleton(out TimeData singleton))
+                {
+                    timeData = singleton;
+                }
+
+                // Collect the statistics of each building.（收集各個建築的統計資料。）
+                CollectBuildingStatsJob collectStatsJob = new()
+                {
+                    citizenBufferLookup = GetBufferLookup<HouseholdCitizen>(true),
+                    employeeBufferLookup = GetBufferLookup<Employee>(true),
+                    renterBufferLookup = GetBufferLookup<Renter>(true),
+                    citizenLookup = GetComponentLookup<Citizen>(true),
+                    companyDataLookup = GetComponentLookup<CompanyData>(true),
+                    healthProblemLookup = GetComponentLookup<HealthProblem>(true),
+                    householdLookup = GetComponentLookup<Household>(true),
+                    prefabRefLookup = GetComponentLookup<PrefabRef>(true),
+                    processLookup = GetComponentLookup<IndustrialProcessData>(true),
+                    spawnableDataLookup = GetComponentLookup<SpawnableBuildingData>(true),
+                    travelPurposeLookup = GetComponentLookup<TravelPurpose>(true),
+                    emptyZoningTypeIndex = zonings.Length - 1,
+                    currentFrameIndex = Instance.Simulation.frameIndex,
+                    initialTime = timeData,
+                    brandEntityMap = brandsEntityMap,
+                    sexEntityMap = sexEntityMap,
+                    zoningEntityMap = zoningsEntityMap,
+                    list = stats.AsParallelWriter()
+                };
+                JobHandle collectStatsHandle = collectStatsJob.ScheduleParallel(_buildingQuery, default);
+                collectStatsHandle.Complete();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref brandsEntityMap);
+                Utils.CommonUtils.Dispose(ref sexEntityMap);
+                Utils.CommonUtils.Dispose(ref zoningsEntityMap);
+            }
         }
 
         /// <summary>
@@ -221,11 +448,8 @@ namespace Carto.Systems
         /// （收集建築統計資訊的工作。）
         /// </summary>
         [BurstCompile]
-        public partial struct CollectBuildingStatsJob : IJobChunk
+        public partial struct CollectBuildingStatsJob : IJobEntity
         {
-            [ReadOnly]
-            public EntityTypeHandle entityType;
-
             [ReadOnly]
             public BufferLookup<HouseholdCitizen> citizenBufferLookup;
 
@@ -233,10 +457,7 @@ namespace Carto.Systems
             public BufferLookup<Employee> employeeBufferLookup;
 
             [ReadOnly]
-            public BufferTypeHandle<Employee> employeeBufferType;
-
-            [ReadOnly]
-            public BufferTypeHandle<Renter> renterBufferType;
+            public BufferLookup<Renter> renterBufferLookup;
 
             [ReadOnly]
             public ComponentLookup<Citizen> citizenLookup;
@@ -257,7 +478,13 @@ namespace Carto.Systems
             public ComponentLookup<IndustrialProcessData> processLookup;
 
             [ReadOnly]
+            public ComponentLookup<SpawnableBuildingData> spawnableDataLookup;
+
+            [ReadOnly]
             public ComponentLookup<TravelPurpose> travelPurposeLookup;
+
+            [ReadOnly]
+            public int emptyZoningTypeIndex;
 
             [ReadOnly]
             public uint currentFrameIndex;
@@ -266,112 +493,115 @@ namespace Carto.Systems
             public TimeData initialTime;
 
             [ReadOnly]
-            public NativeParallelHashMap<Entity, bool> sexHashMap;
+            public NativeParallelHashMap<Entity, int> brandEntityMap;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, bool> sexEntityMap;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, int> zoningEntityMap;
 
             [WriteOnly]
-            public NativeQueue<BuildingStat>.ParallelWriter queue;
+            public NativeList<BuildingStat>.ParallelWriter list;
 
-            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            public void Execute(in PrefabRef prefabRef, Entity building)
             {
-                NativeArray<Entity> entities = chunk.GetNativeArray(entityType);
-                BufferAccessor<Employee> employeeBuffers = chunk.GetBufferAccessor(ref employeeBufferType);
-                BufferAccessor<Renter> renterBuffers = chunk.GetBufferAccessor(ref renterBufferType);
-
                 // Whether the first shop is recorded or not.（第一間商店是否被記錄了？）
                 bool isFirstShop = true;
 
-                for (int i = 0; i < chunk.Count; i++)
+                BuildingStat stat = new()
                 {
-                    Entity building = entities[i];
-                    BuildingStat stat = new()
-                    {
-                        entity = building,
-                        age = 0f,
-                        brand = -1,
-                        company = 0,
-                        employee = 0,
-                        household = 0,
-                        level = 0,
-                        product = Resource.NoResource,
-                        residentFemale = 0,
-                        residentMale = 0,
-                        zoning = -1
-                    };
+                    entity = building,
+                    age = 0f,
+                    brand = 0,
+                    company = 0,
+                    employee = 0,
+                    household = 0,
+                    level = 0,
+                    product = Resource.NoResource,
+                    residentFemale = 0,
+                    residentMale = 0,
+                    zoning = emptyZoningTypeIndex
+                };
 
-                    // Check whether the Employee buffer exist in the entity.
-                    // （確認 Employee 緩衝區是否存在於實體當中。）
-                    if (employeeBuffers.Length > i)
-                    {
-                        DynamicBuffer<Employee> employeeBuffer = employeeBuffers[i];
-                        stat.employee += employeeBuffer.Length;
-                    }
+                if (employeeBufferLookup.TryGetBuffer(building, out DynamicBuffer<Employee> employeeBuffer))
+                {
+                    stat.employee += employeeBuffer.Length;
+                }
 
-                    // Check whether the Renter buffer exist in the entity.
-                    // （確認 Renter 緩衝區是否存在於實體當中。）
-                    if (renterBuffers.Length > i)
+                if (renterBufferLookup.TryGetBuffer(building, out DynamicBuffer<Renter> renterBuffer))
+                {
+                    for (int i = 0; i < renterBuffer.Length; i++)
                     {
-                        DynamicBuffer<Renter> renterBuffer = renterBuffers[i];
-                        for (int j = 0; j < renterBuffer.Length; j++)
+                        Entity renter = renterBuffer[i].m_Renter;
+
+                        if (companyDataLookup.TryGetComponent(renter, out CompanyData companyData))
                         {
-                            Entity renter = renterBuffer[j].m_Renter;
+                            stat.company++;
 
-                            if (companyDataLookup.HasComponent(renter))
+                            if (isFirstShop)
                             {
-                                stat.company++;
-
-                                if (isFirstShop)
+                                if (brandEntityMap.TryGetValue(companyData.m_Brand, out int brandIndex))
                                 {
-                                    Entity facilityPrefab = prefabRefLookup[renter].m_Prefab;
-                                    stat.product = processLookup[facilityPrefab].m_Output.m_Resource;
-                                    isFirstShop = false;
+                                    stat.brand = brandIndex;
                                 }
+                                stat.product = processLookup[prefabRefLookup[renter].m_Prefab].m_Output.m_Resource;
+                                isFirstShop = false;
                             }
+                        }
 
-                            if (employeeBufferLookup.TryGetBuffer(renter, out DynamicBuffer<Employee> employeeBuffer))
-                            {
-                                stat.employee += employeeBuffer.Length;
-                            }
+                        if (employeeBufferLookup.TryGetBuffer(renter, out DynamicBuffer<Employee> employeeBufferPerRenter))
+                        {
+                            stat.employee += employeeBufferPerRenter.Length;
+                        }
 
-                            if (householdLookup.HasComponent(renter))
-                            {
-                                stat.household++;
-                            }
+                        if (householdLookup.HasComponent(renter))
+                        {
+                            stat.household++;
+                        }
 
-                            if (citizenBufferLookup.TryGetBuffer(renter, out DynamicBuffer<HouseholdCitizen> citizenBuffer))
+                        if (citizenBufferLookup.TryGetBuffer(renter, out DynamicBuffer<HouseholdCitizen> citizenBuffer))
+                        {
+                            for (int j = 0; j < citizenBuffer.Length; j++)
                             {
-                                for (int k = 0; k < citizenBuffer.Length; k++)
+                                Entity citizen = citizenBuffer[j].m_Citizen;
+                                if (IsCitizenAlive(citizen))
                                 {
-                                    Entity citizen = citizenBuffer[k].m_Citizen;
-                                    if (IsCitizenAlive(citizen))
+                                    if (!sexEntityMap.TryGetValue(prefabRefLookup[citizen].m_Prefab, out bool isMale))
                                     {
-                                        if (!sexHashMap.TryGetValue(prefabRefLookup[citizen].m_Prefab, out bool isMale))
-                                        {
-                                            continue;
-                                        }
+                                        continue;
+                                    }
 
-                                        if (!citizenLookup.TryGetComponent(citizen, out Citizen citizenComponent))
-                                        {
-                                            continue;
-                                        }
+                                    if (!citizenLookup.TryGetComponent(citizen, out Citizen citizenComponent))
+                                    {
+                                        continue;
+                                    }
 
-                                        stat.age += citizenComponent.GetAgeInDays(currentFrameIndex, initialTime);
+                                    stat.age += citizenComponent.GetAgeInDays(currentFrameIndex, initialTime);
 
-                                        if (isMale)
-                                        {
-                                            stat.residentMale++;
-                                        }
-                                        else
-                                        {
-                                            stat.residentFemale++;
-                                        }
+                                    if (isMale)
+                                    {
+                                        stat.residentMale++;
+                                    }
+                                    else
+                                    {
+                                        stat.residentFemale++;
                                     }
                                 }
                             }
                         }
                     }
-
-                    queue.Enqueue(stat);
                 }
+
+                if (spawnableDataLookup.TryGetComponent(prefabRef.m_Prefab, out SpawnableBuildingData spawnableData))
+                {
+                    if (zoningEntityMap.TryGetValue(spawnableData.m_ZonePrefab, out int zoningIndex))
+                    {
+                        stat.zoning = zoningIndex;
+                    }
+                }
+
+                list.AddNoResize(stat);
             }
 
             private bool IsCitizenAlive(Entity citizen)
@@ -399,25 +629,67 @@ namespace Carto.Systems
         /// （收集市民生理性別資訊的工作。）
         /// </summary>
         [BurstCompile]
-        public partial struct CollectCitizenSexJob : IJobChunk
+        public partial struct CollectCitizenSexJob : IJobEntity
         {
-            [ReadOnly]
-            public EntityTypeHandle entityType;
-
-            [ReadOnly]
-            public ComponentTypeHandle<CitizenData> citizenDataType;
-
             [WriteOnly]
             public NativeParallelHashMap<Entity, bool>.ParallelWriter hashmap;
 
-            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            public void Execute(in CitizenData citizenData, Entity citizen)
             {
-                NativeArray<Entity> entities = chunk.GetNativeArray(entityType);
-                NativeArray<CitizenData> citizenData = chunk.GetNativeArray(ref citizenDataType);
+                hashmap.TryAdd(citizen, citizenData.m_Male);
+            }
+        }
 
-                for (int i = 0; i < chunk.Count; i++)
+        /// <summary>
+        /// Retrieve theme / asset pack's information.
+        /// （獲取建築風格／資產包的資訊。）
+        /// </summary>
+        /// <param name="option">The export options.（檔案輸出選項。）</param>
+        private void GetThemes(Options option)
+        {
+            // Create alias for fields.（創造欄位的別名。）
+            ref List<Theme> themes = ref _themes;
+            ref Dictionary<PrefabBase, int> prefabMap = ref _themesPrefabMap;
+            
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset<List<Theme>, Theme>(ref themes);
+            Utils.CommonUtils.Reset<Dictionary<PrefabBase, int>, PrefabBase, int>(ref prefabMap);
+
+            // Add the fallback theme.（添加後備建築風格。）
+            themes.Add(new() { entity = Entity.Null, name = "Carto Generic" });
+
+            // Collect building themes.（收集建築風格。）
+            NativeArray<Entity> themeEntities = _themePrefabQuery.ToEntityArray(Allocator.Temp);
+            NativeArray<PrefabData> themePrefabs = _themePrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
+            for (int i = 0; i < themeEntities.Length; i++)
+            {
+                Entity theme = themeEntities[i];
+                PrefabBase themePrefab = Instance.Prefab.GetPrefab<PrefabBase>(themePrefabs[i]);
+                Theme data = new()
                 {
-                    hashmap.TryAdd(entities[i], citizenData[i].m_Male);
+                    entity = theme,
+                    name = Instance.Prefab.GetPrefabName(theme),
+                };
+                themes.Add(data);
+                prefabMap.Add(themePrefab, themes.Count - 1);
+            }
+
+            // Collect asset packs.（收集資產包。）
+            if (option.AssetPack)
+            {
+                NativeArray<Entity> assetPacks = _assetPackPrefabQuery.ToEntityArray(Allocator.Temp);
+                NativeArray<PrefabData> assetPackPrefabs = _assetPackPrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
+                for (int i = 0; i < assetPacks.Length; i++)
+                {
+                    Entity assetPack = assetPacks[i];
+                    PrefabBase assetPackPrefab = Instance.Prefab.GetPrefab<PrefabBase>(assetPackPrefabs[i]);
+                    Theme data = new()
+                    {
+                        entity = assetPack,
+                        name = Instance.Prefab.GetPrefabName(assetPack)
+                    };
+                    themes.Add(data);
+                    prefabMap.Add(assetPackPrefab, themes.Count - 1);
                 }
             }
         }
@@ -426,13 +698,14 @@ namespace Carto.Systems
         /// Retrieve zoning types' information.
         /// （獲取分區類別的資訊。）
         /// </summary>
-        public void GetZoningTypes()
+        /// <param name="option">The export options.（檔案輸出選項。）</param>
+        public void GetZoningTypes(Options option)
         {
-            // Create local copy of properties.（創造屬性的區域副本。）
-            NativeParallelHashMap<Entity, int> entityMap = ZoningTypesEntityMap;
-            NativeParallelHashMap<ushort, int> idMap = ZoningTypesIdMap;
-            NativeList<NativeText> names = ZoningTypesNames;
-            NativeList<ZoningType> types = ZoningTypes;
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeParallelHashMap<Entity, int> entityMap = ref _zoningTypesEntityMap;
+            ref NativeParallelHashMap<ushort, int> idMap = ref _zoningTypesIdMap;
+            ref NativeList<NativeText> names = ref _zoningTypesNames;
+            ref NativeList<ZoningType> types = ref _zoningTypes;
 
             // Initialize native containers.（初始化原生容器。）
             int zoningTypeCount = _zoningPrefabQuery.CalculateEntityCount();
@@ -446,6 +719,7 @@ namespace Carto.Systems
 
             try
             {
+                // Collect zoning types by looking at all spawanable building prefabs.（透過檢查所有自長建築預製模板收集分區類型。）
                 CollectZoningTypesJob collectJob = new()
                 {
                     prefabDataLookup = GetComponentLookup<PrefabData>(),
@@ -460,6 +734,7 @@ namespace Carto.Systems
                 JobHandle collectHandle = collectJob.ScheduleParallel(_spawnableBuildingPrefabQuery, default);
                 collectHandle.Complete();
 
+                // Ensure to collect zoning types without buildings (ex. Unzoned).（確保收集到沒有建築的分區類型，例如無分區類型。）
                 VerifyZoningTypesJob verifyJob = new()
                 {
                     list = types.AsParallelWriter(),
@@ -468,21 +743,36 @@ namespace Carto.Systems
                 JobHandle verifyHandle = verifyJob.ScheduleParallel(_zoningPrefabQuery, default);
                 verifyHandle.Complete();
 
+                // Prepare themes / asset packs information.（準備建築風格／資產包資訊。）
+                GetThemes(option);
+
+                // Add the data that can only be retrieved in the main thread.（添加只能在主執行緒取得的資料。）
                 for (int index = 0; index < zoningTypeCount; index++)
                 {
                     ref ZoningType zoningType = ref types.ElementAt(index);
                     ZonePrefab zonePrefabData = Instance.Prefab.GetPrefab<ZonePrefab>(zoningType.prefabData);
                     zoningType.color = zonePrefabData.m_Color;
+
+                    if (zonePrefabData.Has<AssetPackItem>())
+                    {
+                        if (_themesPrefabMap.TryGetValue(zonePrefabData.GetComponent<AssetPackItem>().m_Packs[0], out int themeIndex))
+                        {
+                            zoningType.theme = themeIndex;
+                        }
+                    }
+
+                    if (zonePrefabData.Has<ThemeObject>())
+                    {
+                        if (_themesPrefabMap.TryGetValue(zonePrefabData.GetComponent<ThemeObject>().m_Theme, out int themeIndex))
+                        {
+                            zoningType.theme = themeIndex;
+                        }
+                    }
+
                     entityMap.TryAdd(zoningType.entity, index);
                     idMap.TryAdd(zoningType.id, index);
                     names.Add(new NativeText(Instance.Prefab.GetPrefabName(zoningType.entity), Allocator.Persistent));
                 }
-
-                // Assign properties.（指派屬性。）
-                ZoningTypes = types;
-                ZoningTypesEntityMap = entityMap;
-                ZoningTypesIdMap = idMap;
-                ZoningTypesNames = names;
             }
             catch (Exception ex)
             {
@@ -494,15 +784,8 @@ namespace Carto.Systems
                 {
                     zoningTypePool.Dispose();
                 }
-            }
-        }
 
-        [BurstCompile]
-        public partial struct CollectThemesJob : IJobChunk
-        {
-            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
-            {
-
+                _themesPrefabMap.Clear();
             }
         }
 
@@ -582,7 +865,7 @@ namespace Carto.Systems
                         density = density,
                         id = id,
                         prefabData = prefabDataLookup[zoningPrefab],
-                        theme = -1
+                        theme = 0
                     };
                     list.AddNoResize(data);
                 }
@@ -644,7 +927,7 @@ namespace Carto.Systems
                         density = density,
                         id = id,
                         prefabData = prefabData,
-                        theme = -1
+                        theme = 0
                     };
                     list.AddNoResize(data);
                 }

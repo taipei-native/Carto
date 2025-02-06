@@ -99,6 +99,16 @@ namespace Carto.Systems
             _queryDesc.None = _filters.ToArray();
             EntityQuery query = GetEntityQuery(_queryDesc);
 
+            bool hasName = options.Contains(Property.Name, IO.System.Area);
+            bool hasArea = options.Contains(Property.Area, IO.System.Area);
+            bool hasCompany = options.Contains(Property.Company, IO.System.Area);
+            bool hasEmployee = options.Contains(Property.Employee, IO.System.Area);
+            bool hasHousehold = options.Contains(Property.Household, IO.System.Area);
+            bool hasObject = options.Contains(Property.Object, IO.System.Area);
+            bool hasResident = options.Contains(Property.Resident, IO.System.Area);
+            bool hasUnlocked = options.Contains(Property.Unlocked, IO.System.Area);
+            bool hasWealth = options.Contains(Property.Wealth, IO.System.Area);
+
             foreach (Entity _area in query.ToEntityArray(Allocator.Temp))
             {
                 // Write feature header.（寫出圖徵檔頭。）
@@ -139,42 +149,42 @@ namespace Carto.Systems
                 bool isDistrict = featureType.HasFlag(Feature.District);
                 bool isMapTile = featureType.HasFlag(Feature.MapTile);
 
-                if (properties.Contains(Property.Name))
+                if (hasName)
                 {
                     string name = isDistrict ? _name.GetRenderedLabelName(_area) : _name.GetDebugName(_area);
                     GeoJson.WriteProperty(writer, Property.Name, name);
                 }
-                if (properties.Contains(Property.Area))
+                if (hasArea)
                 {
                     GeoJson.WriteProperty(writer, Property.Area, EntityManager.GetComponentData<Game.Areas.Geometry>(_area).m_SurfaceArea);
                 }
-                if (properties.Contains(Property.Company))
+                if (hasCompany)
                 {
 
                 }
-                if (properties.Contains(Property.Employee))
+                if (hasEmployee)
                 {
 
                 }
-                if (properties.Contains(Property.Household))
+                if (hasHousehold)
                 {
 
                 }
-                if (properties.Contains(Property.Object))
+                if (hasObject)
                 {
                     Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? featureType : Utils.CommonUtils.GetFirstMatch(featureType, IO.IO.FeatureDisplayOrder);
                     GeoJson.WriteProperty(writer, Property.Object, displayType.ToString("G"));
                 }
-                if (properties.Contains(Property.Resident))
+                if (hasResident)
                 {
 
                 }
-                if (properties.Contains(Property.Unlocked))
+                if (hasUnlocked)
                 {
                     bool unlocked = featureType.HasFlag(Feature.MapTile) && !EntityManager.HasComponent<Native>(_area);
                     GeoJson.WriteProperty(writer, Property.Unlocked, unlocked);
                 }
-                if (properties.Contains(Property.Wealth))
+                if (hasWealth)
                 {
 
                 }

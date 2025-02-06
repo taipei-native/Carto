@@ -14,6 +14,12 @@ namespace Carto.IO
     public class Options
     {
         /// <summary>
+        /// Whether to regard asset packs as themes?
+        /// （是否要將資產包視為建築風格？）
+        /// </summary>
+        public bool AssetPack { get; set; } = true;
+        
+        /// <summary>
         /// The path to the target directory.
         /// （目標目錄的路徑。）
         /// </summary>
@@ -136,5 +142,171 @@ namespace Carto.IO
         /// （即將輸出的向量圖形。）
         /// </summary>
         public Dictionary<System, VectorKind> VectorKinds { get; set; }
+
+        /// <summary>
+        /// Check whether a property exist in any system.
+        /// （確認屬性是否存在於任意系統。）
+        /// </summary>
+        /// <param name="property">The property to be checked.（待檢查的屬性。）</param>
+        /// <returns>Return <see cref="true"/> if the property exists.（若屬性存在，回傳 <see cref="true"/>。）</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        public bool Contains(Property property)
+        {
+            PropertiesChecker();
+            HashSet<Property> properties = new();
+            foreach (KeyValuePair<System, HashSet<Property>> kvp in Properties)
+            {
+                if (kvp.Value != null)
+                {
+                    properties.UnionWith(kvp.Value);
+                }
+            }
+            return properties.Contains(property);
+        }
+
+        /// <summary>
+        /// Check whether a property exist in a system.
+        /// （確認屬性是否存在於特定系統。）
+        /// </summary>
+        /// <param name="property">The property to be checked.（待檢查的屬性。）</param>
+        /// <param name="system">The specific system.（特定的系統。）</param>
+        /// <returns>Return <see cref="true"/> if the property exists.（若屬性存在，回傳 <see cref="true"/>。）</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        public bool Contains(Property property, System system)
+        {
+            PropertiesChecker();
+            if (Properties.TryGetValue(system, out HashSet<Property> properties))
+            {
+                if (properties != null)
+                {
+                    return properties.Contains(property);
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Check whether all properties exist in at least one system.
+        /// （確認所有屬性至少存在於任意一個系統。）
+        /// </summary>
+        /// <param name="properties">The properties to be checked.（待檢查的屬性。）</param>
+        /// <returns>Return <see cref="true"/> if the all properties exist.（若所有屬性皆存在，回傳 <see cref="true"/>。）</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        public bool ContainsAll(params Property[] properties)
+        {
+            PropertiesChecker(properties);
+            HashSet<Property> propertiesInputed = new(properties);
+            HashSet<Property> propertiesRecorded = new();
+            foreach (KeyValuePair<System, HashSet<Property>> kvp in Properties)
+            {
+                if (kvp.Value != null)
+                {
+                    propertiesRecorded.UnionWith(kvp.Value);
+                }
+            }
+            return propertiesInputed.IsSubsetOf(propertiesRecorded);
+        }
+
+        /// <summary>
+        /// Check whether all properties exist in the specific system.
+        /// （確認所有屬性存在於特定系統。）
+        /// </summary>
+        /// <param name="system">The specific system.（特定的系統。）</param>
+        /// <param name="properties">The properties to be checked.（待檢查的屬性。）</param>
+        /// <returns>Return <see cref="true"/> if the all properties exist.（若所有屬性皆存在，回傳 <see cref="true"/>。）</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        public bool ContainsAll(System system, params Property[] properties)
+        {
+            PropertiesChecker(properties);
+            if (Properties.TryGetValue(system, out HashSet<Property> propertiesRecorded))
+            {
+                if (propertiesRecorded != null)
+                {
+                    return new HashSet<Property>(properties).IsSubsetOf(propertiesRecorded);
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Check whether any one property exist in at least one system.
+        /// （確認至少一個指定屬性存在於任意一個系統。）
+        /// </summary>
+        /// <param name="properties">The properties to be checked.（待檢查的屬性。）</param>
+        /// <returns>Return <see cref="true"/> if any property exist.（若任意屬性存在，回傳 <see cref="true"/>。）</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        public bool ContainsAny(params Property[] properties)
+        {
+            PropertiesChecker(properties);
+            HashSet<Property> propertiesInputed = new(properties);
+            HashSet<Property> propertiesRecorded = new();
+            foreach (KeyValuePair<System, HashSet<Property>> kvp in Properties)
+            {
+                if (kvp.Value != null)
+                {
+                    propertiesRecorded.UnionWith(kvp.Value);
+                }
+            }
+            propertiesInputed.IntersectWith(propertiesRecorded);
+            return propertiesInputed.Count > 0;
+        }
+
+        /// <summary>
+        /// Check whether any one property exist in the specific system.
+        /// （確認至少一個指定屬性存在於特定系統。）
+        /// </summary>
+        /// <param name="system">The specific system.（特定的系統。）</param>
+        /// <param name="properties">The properties to be checked.（待檢查的屬性。）</param>
+        /// <returns>Return <see cref="true"/> if any property exist.（若任意屬性存在，回傳 <see cref="true"/>。）</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        public bool ContainsAny(System system, params Property[] properties)
+        {
+            PropertiesChecker(properties);
+            if (Properties.TryGetValue(system, out HashSet<Property> propertiesRecorded))
+            {
+                if (propertiesRecorded != null)
+                {
+                    propertiesRecorded.IntersectWith(new HashSet<Property>(properties));
+                    return propertiesRecorded.Count > 0;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Check <see cref="Properties"/>' integrity.
+        /// （確認 <see cref="Properties"/> 的完整性。）
+        /// </summary>
+        /// <exception cref="NullReferenceException"></exception>
+        private void PropertiesChecker()
+        {
+            if (Properties == null)
+            {
+                throw new NullReferenceException("The Properties proprty is null. Properties 屬性為空值。");
+            }
+        }
+
+        /// <summary>
+        /// Check <see cref="Properties"/>' and input parameters' integrity.
+        /// （確認 <see cref="Properties"/> 和輸入參數的完整性。）
+        /// </summary>
+        /// <param name="properties">The input proprty parameters.（輸入的屬性參數。）</param>
+        /// <exception cref="NullReferenceException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        private void PropertiesChecker(Property[] properties)
+        {
+            if (Properties == null)
+            {
+                throw new NullReferenceException("The Properties proprty is null. Properties 屬性為空值。");
+            }
+            if (properties == null)
+            {
+                throw new ArgumentNullException("The parameter properties is null. 參數 properties 為空值。");
+            }
+        }
     }
 }

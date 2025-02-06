@@ -22,8 +22,8 @@ namespace Carto.Domain
         public float age;
 
         /// <summary>
-        /// The index of the brand that operates the building.
-        /// （營運建築的品牌索引值。）
+        /// The brand entity that operates the building.
+        /// （營運建築的品牌實體。）
         /// </summary>
         public int brand;
 

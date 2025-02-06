@@ -1,6 +1,8 @@
+using Carto.Geodata;
 using Colossal.Logging;
 using System;
 using System.Collections.Generic;
+using Unity.Mathematics;
 
 namespace Carto.IO
 {
@@ -132,50 +134,64 @@ namespace Carto.IO
         public static void Export()
         {
             // Export options.（輸出設定。）
-            //Options option = new()
-            //{
-            //    Display = new Dictionary<(Property, System), bool>
-            //    {
-            //        { (Property.Category, System.Building), true },
-            //        { (Property.Category, System.Net), true },
-            //        { (Property.Category, System.POI), false },
-            //        { (Property.Object, System.Unknown), false },
-            //        { (Property.Zoning, System.Unknown), true }
-            //    },
-            //    Features = Feature.District | Feature.MapTile,
-            //    FileFormat = FileFormat.GeoJSON,
-            //    FileName = "Area",
-            //    Minimized = true,
-            //    Properties = new Dictionary<System, HashSet<Property>>
-            //    {
-            //        { System.Area, new HashSet<Property> { Property.Area, Property.Name, Property.Object, Property.Unlocked } }
-            //    },
-            //    RasterKinds = RasterKind.Unknown,
-            //    SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
-            //    SourceProjection = CRS.TransverseMercator,
-            //    SourceProjectionDefinition = new ProjectionDefinition
-            //    (
-            //        new EllipsoidDefinition(Ellipsoid.GRS80),
-            //        (121, 0), (250000, 0), 0.9999, new double[0]
-            //    ),
-            //    Systems = System.Area,
-            //    VectorKinds = new Dictionary<System, VectorKind>
-            //    {
-            //        { System.Area, VectorKind.Boundary }
-            //    }
-            //};
+            Options option = new()
+            {
+                AssetPack = true,
+                Display = new Dictionary<(Property, System), bool>
+                {
+                    { (Property.Category, System.Building), true },
+                    { (Property.Category, System.Net), true },
+                    { (Property.Category, System.POI), false },
+                    { (Property.Object, System.Unknown), false },
+                    { (Property.Zoning, System.Unknown), true }
+                },
+                Features = Feature.District | Feature.MapTile,
+                FileFormat = FileFormat.GeoJSON,
+                FileName = "Area",
+                Minimized = true,
+                Properties = new Dictionary<System, HashSet<Property>>
+                {
+                    { System.Area, new HashSet<Property> { Property.Area, Property.Name, Property.Object, Property.Unlocked } },
+                    { System.Building, new HashSet<Property> { Property.Age, Property.Brand, Property.Theme, Property.Zoning } }
+                },
+                RasterKinds = RasterKind.Unknown,
+                SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
+                SourceProjection = CRS.TransverseMercator,
+                SourceProjectionDefinition = new ProjectionDefinition
+                (
+                    new EllipsoidDefinition(Ellipsoid.GRS80),
+                    (121, 0), (250000, 0), 0.9999, new double[0]
+                ),
+                Systems = System.Area,
+                VectorKinds = new Dictionary<System, VectorKind>
+                {
+                    { System.Area, VectorKind.Boundary }
+                }
+            };
 
             // Retrieve zoning types information.（獲取分區類別的資訊。）
-            Instance.Shared.GetZoningTypes();
+            //Instance.Shared.GetZoningTypes(option);
+
+            // Retrieve building statistics.（獲取建築的統計資料。）
+            Instance.Shared.GetBuildingStats(option);
 
             try
             {
+                _log.Info("\n\n\nZoningTypes\n\n");
                 if (Instance.Shared.ZoningTypes.IsCreated)
                 {
                     for (int i = 0; i < Instance.Shared.ZoningTypes.Length; i++)
                     {
-                        _log.Info(Instance.Shared.ZoningTypesNames[i].ToString());
+                        _log.Info($"{Instance.Shared.ZoningTypesNames[i]} :: {Instance.Shared.Themes[Instance.Shared.ZoningTypes[i].theme]}");
                         _log.Info(Instance.Shared.ZoningTypes[i].ToString());
+                    }
+                }
+                _log.Info("\n\n\nBuildingStats\n\n");
+                if (Instance.Shared.BuildingStats.IsCreated)
+                {
+                    for (int i = 0; i < Instance.Shared.BuildingStats.Length; i++)
+                    {
+                        _log.Info(Instance.Shared.BuildingStats[i].ToString());
                     }
                 }
             }
@@ -184,14 +200,7 @@ namespace Carto.IO
                 _log.Error(ex.ToString());
             }
 
-            //NativeQueue<BuildingStat> buildingQueue = Instance.Shared.GetBuildingStats(Allocator.TempJob);
-            //while (buildingQueue.TryDequeue(out BuildingStat stat))
-            //{
-            //    _log.Info(stat.ToString());
-            //}
-            //buildingQueue.Dispose();
-
-            //if (option.Systems.HasFlag(System.Area)) GeoJson.Write(option, Instance.Dummy.WriteFeatures, OnReport);
+            Instance.Shared.Dispose();
         }
     }
 }

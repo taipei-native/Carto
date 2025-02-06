@@ -4,6 +4,10 @@ using UnityEngine;
 
 namespace Carto.Domain
 {
+    /// <summary>
+    /// The container of zoning type information.
+    /// （分區類型資訊的容器。）
+    /// </summary>
     public struct ZoningType
     {
         /// <summary>
