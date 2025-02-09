@@ -34,6 +34,12 @@ namespace Carto
 
         // Carto instances（Carto 的實例）
         /// <summary>
+        /// The system that searches areas.
+        /// （搜尋區域的系統。）
+        /// </summary>
+        public static AreaSystem Area => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<AreaSystem>();
+
+        /// <summary>
         /// The dummy system that is only used for development purposes.
         /// （用於開發用途的虛假系統。）
         /// </summary>

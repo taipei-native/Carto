@@ -18,7 +18,7 @@ namespace Carto.IO
         /// （是否要將資產包視為建築風格？）
         /// </summary>
         public bool AssetPack { get; set; } = true;
-        
+
         /// <summary>
         /// The path to the target directory.
         /// （目標目錄的路徑。）
@@ -136,6 +136,12 @@ namespace Carto.IO
             0.9996,
             new double[0]
         );
+
+        /// <summary>
+        /// Whether to export taxable income. If false, the gross income are exported.<br/>
+        /// （是否要輸出應納稅所得。若為否，則輸出總所得。）
+        /// </summary>
+        public bool Taxable { get; set; } = false;
 
         /// <summary>
         /// The vector geometries about to export.

@@ -2,6 +2,7 @@ using Carto.Domain;
 using Carto.IO;
 using Colossal.Logging;
 using Game;
+using Game.Agents;
 using Game.Buildings;
 using Game.Citizens;
 using Game.Common;
@@ -9,6 +10,7 @@ using Game.Companies;
 using Game.Economy;
 using Game.Objects;
 using Game.Prefabs;
+using Game.Simulation;
 using Game.Tools;
 using Game.Zones;
 using System;
@@ -55,6 +57,18 @@ namespace Carto.Systems
         /// （收集所有市民預製模板的查詢。）
         /// </summary>
         static EntityQuery _citizenPrefabQuery;
+
+        /// <summary>
+        /// The query to collect all company entities.
+        /// （收集所有公司實體的查詢。）
+        /// </summary>
+        static EntityQuery _companyQuery;
+
+        /// <summary>
+        /// The query to collect basic economic settings.
+        /// （收集基本經濟設定的查詢。）
+        /// </summary>
+        static EntityQuery _economyParameterQuery;
 
         /// <summary>
         /// The query to collect all spawnable building prefabs.
@@ -225,6 +239,30 @@ namespace Carto.Systems
                 }
             });
 
+            _companyQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<CompanyData>(),
+                    ComponentType.ReadOnly<Employee>(),
+                    ComponentType.ReadOnly<Resources>()
+                },
+                None = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Game.Objects.OutsideConnection>(),
+                    ComponentType.ReadOnly<Deleted>(),
+                    ComponentType.ReadOnly<Temp>()
+                }
+            });
+
+            _economyParameterQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<EconomyParameterData>()
+                }
+            });
+
             _spawnableBuildingPrefabQuery = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
@@ -380,17 +418,26 @@ namespace Carto.Systems
                 prefabData = new(),
                 theme = 0
             });
-            zoningsNames.Add(new("Empty", Allocator.Persistent));
+            zoningsNames.Add(new("Empty", Allocator.Persistent)); 
 
             // Reset output containers.（重置輸出容器。）
             int buildingEntityCount = _buildingQuery.CalculateEntityCount();
             Utils.CommonUtils.Reset(ref stats, buildingEntityCount);
 
             // Initialize native containers.（初始化原生容器。）
+            NativeParallelHashMap<Entity, int> dividendEntityMap = new(_companyQuery.CalculateEntityCount(), Allocator.Persistent);
             NativeParallelHashMap<Entity, bool> sexEntityMap = new(_citizenPrefabQuery.CalculateEntityCount(), Allocator.Persistent);
 
             try
             {
+                // Collect the dividend of each company.（收集各公司的員工分紅。）
+                CollectCompanyDividendsJob collectDividendJob = new()
+                {
+                    hashmap = dividendEntityMap.AsParallelWriter()
+                };
+                JobHandle collectDividendHandle = collectDividendJob.ScheduleParallel(_companyQuery, default);
+                collectDividendHandle.Complete();
+                
                 // Collect the sex of each citizen prefab.（收集各種市民預製模板的生理性別。）
                 CollectCitizenSexJob collectSexJob = new()
                 {
@@ -398,6 +445,13 @@ namespace Carto.Systems
                 };
                 JobHandle collectSexHandle = collectSexJob.ScheduleParallel(_citizenPrefabQuery, default);
                 collectSexHandle.Complete();
+
+                // Retrieve the basic economy parameters.（獲得基本經濟參數。）
+                EconomyParameterData economyParameterData = default;
+                if (_economyParameterQuery.TryGetSingleton(out EconomyParameterData economyParameter))
+                {
+                    economyParameterData = economyParameter;
+                }
 
                 // Retrieve the current time frame.（獲得目前的時間幀。）
                 TimeData timeData = default;
@@ -409,6 +463,7 @@ namespace Carto.Systems
                 // Collect the statistics of each building.（收集各個建築的統計資料。）
                 CollectBuildingStatsJob collectStatsJob = new()
                 {
+                    taxableIncomeOnly = option.Taxable,
                     citizenBufferLookup = GetBufferLookup<HouseholdCitizen>(true),
                     employeeBufferLookup = GetBufferLookup<Employee>(true),
                     renterBufferLookup = GetBufferLookup<Renter>(true),
@@ -419,11 +474,15 @@ namespace Carto.Systems
                     prefabRefLookup = GetComponentLookup<PrefabRef>(true),
                     processLookup = GetComponentLookup<IndustrialProcessData>(true),
                     spawnableDataLookup = GetComponentLookup<SpawnableBuildingData>(true),
+                    taxPayerLookup = GetComponentLookup<TaxPayer>(true),
                     travelPurposeLookup = GetComponentLookup<TravelPurpose>(true),
+                    workerLookup = GetComponentLookup<Worker>(true),
+                    economyParameter = economyParameterData,
                     emptyZoningTypeIndex = zonings.Length - 1,
                     currentFrameIndex = Instance.Simulation.frameIndex,
                     initialTime = timeData,
                     brandEntityMap = brandsEntityMap,
+                    dividendEntityMap = dividendEntityMap,
                     sexEntityMap = sexEntityMap,
                     zoningEntityMap = zoningsEntityMap,
                     list = stats.AsParallelWriter()
@@ -438,6 +497,7 @@ namespace Carto.Systems
             finally
             {
                 Utils.CommonUtils.Dispose(ref brandsEntityMap);
+                Utils.CommonUtils.Dispose(ref dividendEntityMap);
                 Utils.CommonUtils.Dispose(ref sexEntityMap);
                 Utils.CommonUtils.Dispose(ref zoningsEntityMap);
             }
@@ -450,6 +510,9 @@ namespace Carto.Systems
         [BurstCompile]
         public partial struct CollectBuildingStatsJob : IJobEntity
         {
+            [ReadOnly]
+            public bool taxableIncomeOnly;
+            
             [ReadOnly]
             public BufferLookup<HouseholdCitizen> citizenBufferLookup;
 
@@ -481,7 +544,16 @@ namespace Carto.Systems
             public ComponentLookup<SpawnableBuildingData> spawnableDataLookup;
 
             [ReadOnly]
+            public ComponentLookup<TaxPayer> taxPayerLookup;
+
+            [ReadOnly]
             public ComponentLookup<TravelPurpose> travelPurposeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Worker> workerLookup;
+
+            [ReadOnly]
+            public EconomyParameterData economyParameter;
 
             [ReadOnly]
             public int emptyZoningTypeIndex;
@@ -494,6 +566,9 @@ namespace Carto.Systems
 
             [ReadOnly]
             public NativeParallelHashMap<Entity, int> brandEntityMap;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, int> dividendEntityMap;
 
             [ReadOnly]
             public NativeParallelHashMap<Entity, bool> sexEntityMap;
@@ -519,8 +594,10 @@ namespace Carto.Systems
                     household = 0,
                     level = 0,
                     product = Resource.NoResource,
+                    profit = 0,
                     residentFemale = 0,
                     residentMale = 0,
+                    wage = 0,
                     zoning = emptyZoningTypeIndex
                 };
 
@@ -545,7 +622,16 @@ namespace Carto.Systems
                                 {
                                     stat.brand = brandIndex;
                                 }
+
                                 stat.product = processLookup[prefabRefLookup[renter].m_Prefab].m_Output.m_Resource;
+
+                                if (taxPayerLookup.TryGetComponent(renter, out TaxPayer taxData))
+                                {
+                                    // Commercial / industiral taxes are collected 32 times each day, so the value is estimated.（商業／工業稅每天稽徵 32 次，因此金額為估計值。）
+                                    // As of the version 1.2.3f1, warehousing companies seem to have full tax exemption.（截至 1.2.3f1 版本，倉儲業似乎完全免稅。）
+                                    stat.profit = taxData.m_UntaxedIncome * TaxSystem.kUpdatesPerDay;
+                                }
+
                                 isFirstShop = false;
                             }
                         }
@@ -565,27 +651,71 @@ namespace Carto.Systems
                             for (int j = 0; j < citizenBuffer.Length; j++)
                             {
                                 Entity citizen = citizenBuffer[j].m_Citizen;
-                                if (IsCitizenAlive(citizen))
+                                if (!IsCitizenAlive(citizen))
                                 {
-                                    if (!sexEntityMap.TryGetValue(prefabRefLookup[citizen].m_Prefab, out bool isMale))
-                                    {
-                                        continue;
-                                    }
+                                    continue;
+                                }
 
-                                    if (!citizenLookup.TryGetComponent(citizen, out Citizen citizenComponent))
-                                    {
-                                        continue;
-                                    }
+                                if (!sexEntityMap.TryGetValue(prefabRefLookup[citizen].m_Prefab, out bool isMale))
+                                {
+                                    continue;
+                                }
 
-                                    stat.age += citizenComponent.GetAgeInDays(currentFrameIndex, initialTime);
+                                if (!citizenLookup.TryGetComponent(citizen, out Citizen citizenComponent))
+                                {
+                                    continue;
+                                }
 
-                                    if (isMale)
+                                stat.age += citizenComponent.GetAgeInDays(currentFrameIndex, initialTime);
+
+                                if (isMale)
+                                {
+                                    stat.residentMale++;
+                                }
+                                else
+                                {
+                                    stat.residentFemale++;
+                                }
+
+                                if (workerLookup.TryGetComponent(citizen, out Worker workerData))
+                                {
+                                    Entity workplace = workerData.m_Workplace;
+                                    if ((workplace != Entity.Null) & (employeeBufferLookup.TryGetBuffer(workplace, out DynamicBuffer<Employee> employeeBufferPerWorkplace)))
                                     {
-                                        stat.residentMale++;
-                                    }
-                                    else
-                                    {
-                                        stat.residentFemale++;
+                                        for (int k = 0; k < employeeBufferPerWorkplace.Length; k++)
+                                        {
+                                            if (employeeBufferPerWorkplace[k].m_Worker == citizen)
+                                            {
+                                                // As of version 1.2.3f1, citizens are paid according to their education level. （截至 1.2.3f1 版本，市民的薪資是根據其教育程度給付。）
+                                                // The salary brackets in a vanilla game are:（遊戲的原始薪資級距如下：）
+                                                // * Uneducated（未受教育）－ ₡1500
+                                                // * Poorly educated（教育不良）－ ₡1800
+                                                // * Educated（受過教育）－ ₡2100
+                                                // * Well educated（教育良好）－ ₡2400
+                                                // * Highly educated（高等教育水準）－ ₡2700
+                                                // See `Game.Simulation.PayWageSystem` for more information.（更多資訊請參見 `Game.Simulation.PayWageSystem`。）
+                                                int salary = economyParameter.GetWage(workerData.m_Level);
+
+                                                // According to `Game.Simulation.CompanyDividendSystem`, the company sets aside 12.5% (or 1/8) of its cash for employee dividends,
+                                                // which are then distributed equally among all employees.
+                                                // （根據 `Game.Simulation.CompanyDividendSystem`，公司會將 12.5%（1 / 8）的現金保留為員工分紅，並平分給所有員工。）
+                                                if (dividendEntityMap.TryGetValue(workplace, out int dividend))
+                                                {
+                                                    salary += dividend;
+                                                }
+
+                                                // Taxable income = Gross income - Exemptions（應納稅所得 = 總收入 - 免稅額）
+                                                // The exemption worths ₡1400.（免稅額為 ₡1400。）
+                                                if (taxableIncomeOnly)
+                                                {
+                                                    salary -= economyParameter.m_ResidentialMinimumEarnings;
+                                                    if (salary < 0) salary = 0;
+                                                }
+
+                                                stat.wage += salary;
+                                                break;
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -637,6 +767,27 @@ namespace Carto.Systems
             public void Execute(in CitizenData citizenData, Entity citizen)
             {
                 hashmap.TryAdd(citizen, citizenData.m_Male);
+            }
+        }
+
+        /// <summary>
+        /// The job to collect each company's dividend.
+        /// （收集每間公司員工分紅的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CollectCompanyDividendsJob : IJobEntity
+        {
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter hashmap;
+
+            public void Execute(in DynamicBuffer<Employee> employee, in DynamicBuffer<Resources> resources, Entity company)
+            {
+                // According to `Game.Simulation.CompanyDividendSystem`, the company sets aside 12.5% (or 1/8) of its cash for employee dividends,
+                // which are then distributed equally among all employees.
+                // （根據 `Game.Simulation.CompanyDividendSystem`，公司會將 12.5%（1 / 8）的現金保留為員工分紅，並平分給所有員工。）
+                int cash = EconomyUtils.GetResources(Resource.Money, resources);
+                if (cash <= 0 || employee.Length <= 0) return;
+                hashmap.TryAdd(company, cash / (8 * employee.Length));
             }
         }
 

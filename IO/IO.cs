@@ -18,6 +18,17 @@ namespace Carto.IO
         /// </summary>
         static readonly ILog _log = Instance.Log;
 
+        public static readonly Dictionary<System, HashSet<Property>> AvailablePropertyTable = new()
+        {
+            { System.Unknown, new() { } },
+            { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
+            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zoning } },
+            { System.Net, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
+            { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
+            { System.Route, new() { Property.Name, Property.Object, Property.Length, Property.Model, Property.Passenger, Property.Stop, Property.Transport, Property.Vehicle} },
+            { System.Zoning, new() { Property.Name, Property.Object, Property.Color, Property.Density, Property.Theme, Property.Zoning} }
+        };
+
         /// <summary>
         /// The look-up table of composite property's sub-field name.
         /// （每個複合屬性的子欄位名稱對照表。）
@@ -107,6 +118,7 @@ namespace Carto.IO
             { Property.Object, typeof(string) },
             { Property.Passenger, typeof(int) },
             { Property.Product, typeof(string) },
+            { Property.Profit, typeof(float) },
             { Property.Resident, typeof(int) },
             { Property.SexRatio, typeof(float) },
             { Property.Stop, typeof(int) },
@@ -117,7 +129,7 @@ namespace Carto.IO
             { Property.Value, typeof(float) },
             { Property.Vehicle, typeof(int) },
             { Property.Volume, typeof(float) },
-            { Property.Wealth, typeof(string) },
+            { Property.Wage, typeof(float) },
             { Property.Width, typeof(float) },
             { Property.Zoning, typeof(string) }
         };
@@ -163,32 +175,33 @@ namespace Carto.IO
                     (121, 0), (250000, 0), 0.9999, new double[0]
                 ),
                 Systems = System.Area,
+                Taxable = false,
                 VectorKinds = new Dictionary<System, VectorKind>
                 {
                     { System.Area, VectorKind.Boundary }
                 }
             };
 
-            // Retrieve zoning types information.（獲取分區類別的資訊。）
-            //Instance.Shared.GetZoningTypes(option);
-
-            // Retrieve building statistics.（獲取建築的統計資料。）
-            Instance.Shared.GetBuildingStats(option);
-
             try
             {
-                _log.Info("\n\n\nZoningTypes\n\n");
+                // Retrieve zoning types information.（獲取分區類別的資訊。）
+                //Instance.Shared.GetZoningTypes(option);
+
+                // Retrieve building statistics.（獲取建築的統計資料。）
+                Instance.Shared.GetBuildingStats(option);
+
                 if (Instance.Shared.ZoningTypes.IsCreated)
                 {
+                    _log.Info("\n\n\nZoningTypes\n\n");
                     for (int i = 0; i < Instance.Shared.ZoningTypes.Length; i++)
                     {
                         _log.Info($"{Instance.Shared.ZoningTypesNames[i]} :: {Instance.Shared.Themes[Instance.Shared.ZoningTypes[i].theme]}");
                         _log.Info(Instance.Shared.ZoningTypes[i].ToString());
                     }
                 }
-                _log.Info("\n\n\nBuildingStats\n\n");
                 if (Instance.Shared.BuildingStats.IsCreated)
                 {
+                    _log.Info("\n\n\nBuildingStats\n\n");
                     for (int i = 0; i < Instance.Shared.BuildingStats.Length; i++)
                     {
                         _log.Info(Instance.Shared.BuildingStats[i].ToString());
@@ -199,8 +212,10 @@ namespace Carto.IO
             {
                 _log.Error(ex.ToString());
             }
-
-            Instance.Shared.Dispose();
+            finally
+            {
+                Instance.Shared.Dispose();
+            }
         }
     }
 }

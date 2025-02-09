@@ -341,6 +341,11 @@ namespace Carto.IO
         Product,
 
         /// <summary>
+        /// The average profit of all companies in the area in ₡ per month (₡/month).（利潤，區域內所有公司的平均利潤金額，單位為₡／月（₡/month）。）
+        /// </summary>
+        Profit,
+
+        /// <summary>
         /// The number of residents in the area.（居民，區域內的居民數量。）
         /// </summary>
         Resident,
@@ -391,9 +396,9 @@ namespace Carto.IO
         Volume,
 
         /// <summary>
-        /// The average economy conditions of all households in the area.（財富，區域內所有家庭的平均經濟情況。）
+        /// The average wage of all households in the area in ₡ per month (₡/month).（薪資，區域內所有家庭的平均薪資金額，單位為₡／月（₡/month）。）
         /// </summary>
-        Wealth,
+        Wage,
 
         /// <summary>
         /// The width of the networks in meters (m).（寬度，網路的寬度，單位為公尺（m）。）

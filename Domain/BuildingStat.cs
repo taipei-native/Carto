@@ -22,8 +22,8 @@ namespace Carto.Domain
         public float age;
 
         /// <summary>
-        /// The brand entity that operates the building.
-        /// （營運建築的品牌實體。）
+        /// The index of the brand that operates the building.
+        /// （營運建築的品牌索引值。）
         /// </summary>
         public int brand;
 
@@ -58,6 +58,12 @@ namespace Carto.Domain
         public Resource product;
 
         /// <summary>
+        /// The amount of profit earned by the company in the building.
+        /// （建築內公司賺取的利潤金額。）
+        /// </summary>
+        public int profit;
+
+        /// <summary>
         /// The number of female residents in the building.
         /// （建築內的女性居民數量。）
         /// </summary>
@@ -70,6 +76,12 @@ namespace Carto.Domain
         public int residentMale;
 
         /// <summary>
+        /// The total amount of wage earned by the residents in the building.
+        /// （建築內居民所賺取的薪資總額。）
+        /// </summary>
+        public int wage;
+
+        /// <summary>
         /// The index of the zoning type that the building spawns in.
         /// （生成建築的分區類型索引值。）
         /// </summary>
@@ -77,7 +89,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Building ({entity.Index}:{entity.Version}) - Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Product [{product}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Zoning [{zoning}]";
+            return $"Building ({entity.Index}:{entity.Version}) - Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Product [{product}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
         }
     }
 }

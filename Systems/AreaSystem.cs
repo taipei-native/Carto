@@ -17,10 +17,10 @@ using Unity.Mathematics;
 namespace Carto.Systems
 {
     /// <summary>
-    /// The dummy system that is only used for development purposes.
-    /// （用於開發用途的虛假系統。）
+    /// The system that searches area.
+    /// （搜尋區域的系統。）
     /// </summary>
-    public partial class DummySystem : GameSystemBase
+    public partial class AreaSystem : GameSystemBase
     {
         /// <summary>
         /// The exclusion filters in the entity query.
@@ -33,7 +33,7 @@ namespace Carto.Systems
             ComponentType.ReadOnly<Space>(),
             ComponentType.ReadOnly<Temp>()
         };
-        
+
         /// <summary>
         /// Mod's logger.（模組的記錄器。）<br/>
         /// See <see cref="Instance.Log"/> for more information.
@@ -64,9 +64,9 @@ namespace Carto.Systems
                     ComponentType.ReadOnly<Area>()
                 }
             };
-            
+
             base.OnCreate();
-            _log.Debug("DummySystem instance created. 虛假系統實例創造完成。");
+            _log.Debug("AreaSystem instance created. 區域系統實例創造完成。");
         }
 
         /// <summary>
@@ -107,7 +107,6 @@ namespace Carto.Systems
             bool hasObject = options.Contains(Property.Object, IO.System.Area);
             bool hasProfit = options.Contains(Property.Profit, IO.System.Area);
             bool hasResident = options.Contains(Property.Resident, IO.System.Area);
-            bool hasSexRatio = options.Contains(Property.SexRatio, IO.System.Area);
             bool hasUnlocked = options.Contains(Property.Unlocked, IO.System.Area);
             bool hasWage = options.Contains(Property.Wage, IO.System.Area);
 
@@ -194,7 +193,7 @@ namespace Carto.Systems
                 {
 
                 }
-                
+
                 writer.WriteEndObject();
                 writer.WriteEndObject();
 
