@@ -3,6 +3,37 @@ using System;
 namespace Carto.Domain
 {
     /// <summary>
+    /// The specific phase to dipose native containers.
+    /// （丟棄原生容器的特定階段。）
+    /// </summary>
+    public enum DisposePhase
+    {
+        /// <summary>
+        /// Dispose containers no longer needed after <see cref="Systems.AreaSystem"/>'s operation.<br/>
+        /// （丟棄在 <see cref="Systems.AreaSystem"/> 操作後不再需要的容器。）
+        /// </summary>
+        AfterAreaSystem,
+
+        /// <summary>
+        /// Dispose containers no longer needed after <see cref="Systems.BuildingSystem"/>'s operation.<br/>
+        /// （丟棄在 <see cref="Systems.BuildingSystem"/> 操作後不再需要的容器。）
+        /// </summary>
+        AfterBuildingSystem,
+
+        /// <summary>
+        /// Dispose containers no longer needed after <see cref="Systems.SharedDataCollectionSystem.GetBuildingStats"/>'s operation.<br/>
+        /// （丟棄在 <see cref="Systems.SharedDataCollectionSystem.GetBuildingStats"/> 操作後不再需要的容器。）
+        /// </summary>
+        AfterBuildingStats,
+
+        /// <summary>
+        /// Dispose containers no longer needed after <see cref="Systems.ZoningSystem"/>'s operation.<br/>
+        /// （丟棄在 <see cref="Systems.ZoningSystem"/> 操作後不再需要的容器。）
+        /// </summary>
+        AfterZoningSystem
+    }
+    
+    /// <summary>
     /// The basic zoning types in the game.
     /// （遊戲內的基本分區類別。）
     /// </summary>

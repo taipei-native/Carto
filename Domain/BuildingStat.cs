@@ -46,6 +46,12 @@ namespace Carto.Domain
         public int household;
 
         /// <summary>
+        /// The number of labor force reside in the building.
+        /// （建築內居住的勞工人數。）
+        /// </summary>
+        public int labor;
+
+        /// <summary>
         /// The upgrade progess of the building.
         /// （建築的升級進度。）
         /// </summary>
@@ -89,7 +95,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Building ({entity.Index}:{entity.Version}) - Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Product [{product}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
+            return $"Building ({entity.Index}:{entity.Version}) - Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Labor [{labor}], Level [{level}], Product [{product}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
         }
     }
 }

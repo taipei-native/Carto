@@ -1,3 +1,4 @@
+using Carto.IO;
 using Unity.Entities;
 
 namespace Carto.Domain
@@ -21,10 +22,16 @@ namespace Carto.Domain
         public float age;
 
         /// <summary>
+        /// The extent of the area in square meters.
+        /// （區域以平方公尺計算的面積。）
+        /// </summary>
+        public float area;
+
+        /// <summary>
         /// The number of companies in the area.
         /// （區域內的公司數量。）
         /// </summary>
-        public float company;
+        public int company;
 
         /// <summary>
         /// The number of employee in the area.
@@ -37,6 +44,18 @@ namespace Carto.Domain
         /// （區域內家庭的數量。）
         /// </summary>
         public int household;
+
+        /// <summary>
+        /// The number of labor force reside in the area.
+        /// （區域內居住的勞工人數。）
+        /// </summary>
+        public int labor;
+
+        /// <summary>
+        /// The feature classification.
+        /// （圖徵分類。）
+        /// </summary>
+        public Feature objectType;
 
         /// <summary>
         /// The amount of profit earned by the company in the area.
@@ -57,9 +76,20 @@ namespace Carto.Domain
         public int residentMale;
 
         /// <summary>
+        /// The purchase status of the map tile.
+        /// （地圖區塊的購買狀態。）
+        /// </summary>
+        public bool unlocked;
+
+        /// <summary>
         /// The total amount of wage earned by the residents in the area.
         /// （區域內居民所賺取的薪資總額。）
         /// </summary>
         public int wage;
+
+        public override readonly string ToString()
+        {
+            return $"Area ({entity.Index}:{entity.Version}) - Age [{age}], Company [{company}], Employee [{employee}], Household [{household}], Labor [{labor}], ObjectType [{objectType}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Unlocked [{unlocked}], Wage [{wage}]";
+        }
     }
 }

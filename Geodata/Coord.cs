@@ -83,15 +83,6 @@ namespace Carto.Geodata
             zone = coordinate.zone;
         }
 
-        public Coord(CoordSafe coord)
-        {
-            hemisphere = coord.hemisphere == 0 ? Hemisphere.North : Hemisphere.South;
-            x = coord.x;
-            y = coord.y;
-            z = coord.z;
-            zone = coord.zone;
-        }
-
         /// <summary>
         /// The <see cref="double3"/> representation of the coordinates.<br/>
         /// （坐標的 <see cref="double3"/> 表示法。）
@@ -115,41 +106,5 @@ namespace Carto.Geodata
         /// （UTM 坐標的元組表示法。）
         /// </summary>
         public readonly (double easting, double northing, int zone, Hemisphere hemisphere) UTMTuple => (x, y, zone, hemisphere);
-
-        /// <summary>
-        /// The safe version of the struct that can be passed into the job.
-        /// （可被傳遞進工作中的安全版本。）
-        /// </summary>
-        /// <returns>The <see cref="CoordSafe"/> object.（<see cref="CoordSafe"/> 物件。）</returns>
-        public readonly CoordSafe ToSafe() => new(this);
-    }
-
-    public struct CoordSafe
-    {
-        public int hemisphere;
-        public double x;
-        public double y;
-        public double z;
-        public int zone;
-
-        public CoordSafe(Coord coord)
-        {
-            hemisphere = (int) coord.hemisphere;
-            x = coord.x;
-            y = coord.y;
-            z = coord.z;
-            zone = coord.zone;
-        }
-
-        public CoordSafe(double x, double y, double z, int hemisphere, int zone)
-        {
-            this.hemisphere = hemisphere;
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.zone = zone;
-        }
-
-        public readonly Coord ToUnsafe() => new(this);
     }
 }

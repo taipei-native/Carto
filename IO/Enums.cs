@@ -296,6 +296,11 @@ namespace Carto.IO
         Household,
 
         /// <summary>
+        /// The number of labor force reside in the area.（勞動力，居住於區域內的勞工數量。）
+        /// </summary>
+        Labor,
+
+        /// <summary>
         /// The length of the networks or the routes in meters (m).（長度，網路或路線的長度，單位為公尺（m）。）
         /// </summary>
         Length,

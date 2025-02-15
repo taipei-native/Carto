@@ -56,40 +56,6 @@ namespace Carto.Geodata
             }
         }
 
-        public ProjectionDefinition(ProjectionDefinitionSafe projection)
-        {
-            ellipsoid = default;
-            origin = projection.origin;
-            shift = projection.shift;
-            scaleFactor = projection.scaleFactor;
-            if (projection.transformA == double.MinValue)
-            {
-                transform = new double[0];
-            }
-            else if (projection.transformD == double.MinValue)
-            {
-                transform = new double[3];
-                transform[0] = projection.transformA;
-                transform[1] = projection.transformB;
-                transform[2] = projection.transformC;
-            }
-            else if (projection.transformG != double.MinValue)
-            {
-                transform = new double[7];
-                transform[0] = projection.transformA;
-                transform[1] = projection.transformB;
-                transform[2] = projection.transformC;
-                transform[3] = projection.transformD;
-                transform[4] = projection.transformE;
-                transform[5] = projection.transformF;
-                transform[6] = projection.transformG;
-            }
-            else
-            {
-                transform = new double[0];
-            }
-        }
-
         public override readonly bool Equals(object obj)
         {
             return obj is ProjectionDefinition other && Equals(other);
@@ -131,8 +97,6 @@ namespace Carto.Geodata
             return transform.Length > 0;
         }
 
-        public readonly ProjectionDefinitionSafe ToSafe() => new(this);
-
         public static bool operator ==(ProjectionDefinition left, ProjectionDefinition right)
         {
             return left.Equals(right);
@@ -142,77 +106,5 @@ namespace Carto.Geodata
         {
             return !left.Equals(right);
         }
-    }
-
-    public struct ProjectionDefinitionSafe
-    {
-        public (double longitude, double latitude) origin;
-        public (double easting, double northing) shift;
-        public double scaleFactor;
-        public double transformA;
-        public double transformB;
-        public double transformC;
-        public double transformD;
-        public double transformE;
-        public double transformF;
-        public double transformG;
-
-        public ProjectionDefinitionSafe(ProjectionDefinition projection)
-        {
-            origin = projection.origin;
-            shift = projection.shift;
-            scaleFactor = projection.scaleFactor;
-            transformA = double.MinValue;
-            transformB = double.MinValue;
-            transformC = double.MinValue;
-            transformD = double.MinValue;
-            transformE = double.MinValue;
-            transformF = double.MinValue;
-            transformG = double.MinValue;
-
-            if (projection.transform.Length == 3)
-            {
-                transformA = projection.transform[0];
-                transformB = projection.transform[1];
-                transformC = projection.transform[2];
-            }
-            if (projection.transform.Length == 7)
-            {
-                transformD = projection.transform[3];
-                transformE = projection.transform[4];
-                transformF = projection.transform[5];
-                transformG = projection.transform[6];
-            }
-        }
-
-        public ProjectionDefinitionSafe((double longitude, double latitude) origin, (double easting, double northing) shift, double scaleFactor, double[] transform)
-        {
-            this.origin = origin;
-            this.shift = shift;
-            this.scaleFactor = scaleFactor;
-            transformA = double.MinValue;
-            transformB = double.MinValue;
-            transformC = double.MinValue;
-            transformD = double.MinValue;
-            transformE = double.MinValue;
-            transformF = double.MinValue;
-            transformG = double.MinValue;
-
-            if (transform.Length == 3)
-            {
-                transformA = transform[0];
-                transformB = transform[1];
-                transformC = transform[2];
-            }
-            if (transform.Length == 7)
-            {
-                transformD = transform[3];
-                transformE = transform[4];
-                transformF = transform[5];
-                transformG = transform[6];
-            }
-        }
-
-        public readonly ProjectionDefinition ToUnsafe() => new(this);
     }
 }

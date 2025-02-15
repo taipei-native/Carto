@@ -2,6 +2,8 @@ using Carto.Geodata;
 using Colossal.Logging;
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Entities;
 using Unity.Mathematics;
 
 namespace Carto.IO
@@ -21,8 +23,8 @@ namespace Carto.IO
         public static readonly Dictionary<System, HashSet<Property>> AvailablePropertyTable = new()
         {
             { System.Unknown, new() { } },
-            { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
-            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zoning } },
+            { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
+            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zoning } },
             { System.Net, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
             { System.Route, new() { Property.Name, Property.Object, Property.Length, Property.Model, Property.Passenger, Property.Stop, Property.Transport, Property.Vehicle} },
@@ -109,6 +111,7 @@ namespace Carto.IO
             { Property.Form, typeof(string) },
             { Property.Height, typeof(float) },
             { Property.Household, typeof(int) },
+            { Property.Labor, typeof(int) },
             { Property.Length, typeof(float) },
             { Property.Level, typeof(int) },
             { Property.Limit, typeof(float) },
@@ -163,8 +166,9 @@ namespace Carto.IO
                 Minimized = true,
                 Properties = new Dictionary<System, HashSet<Property>>
                 {
-                    { System.Area, new HashSet<Property> { Property.Area, Property.Name, Property.Object, Property.Unlocked } },
-                    { System.Building, new HashSet<Property> { Property.Age, Property.Brand, Property.Theme, Property.Zoning } }
+                    //{ System.Area, new() { Property.Area, Property.Name, Property.Object, Property.Unlocked } },
+                    { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
+                    { System.Building, new() { Property.Age, Property.Brand, Property.Theme, Property.Zoning } }
                 },
                 RasterKinds = RasterKind.Unknown,
                 SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
@@ -190,22 +194,36 @@ namespace Carto.IO
                 // Retrieve building statistics.（獲取建築的統計資料。）
                 Instance.Shared.GetBuildingStats(option);
 
-                if (Instance.Shared.ZoningTypes.IsCreated)
+                //if (Instance.Shared.BuildingStats.IsCreated)
+                //{
+                //    _log.Info("\n\n\nBuildingStats\n\n");
+                //    for (int i = 0; i < Instance.Shared.BuildingStats.Length; i++)
+                //    {
+                //        _log.Info($"{i} {Instance.Shared.BuildingStats[i]}");
+                //    }
+                //}
+                //if (Instance.Shared.AreaStatsEntityMap.IsCreated)
+                //{
+                //    _log.Info("\n\n\nAreaStatsEntityMap\n\n");
+                //    (NativeArray<Entity> array, int) unique = Instance.Shared.AreaStatsEntityMap.GetUniqueKeyArray(Allocator.Temp);
+                //    for (int i = 0; i < unique.array.Length; i++)
+                //    {
+                //        Entity entity = unique.array[i];
+                //        _log.Info($"{i} - {entity}");
+                //        if (Instance.Shared.AreaStatsEntityMap.TryGetFirstValue(entity, out int n, out var it))
+                //        {
+                //            do
+                //            {
+                //                _log.Info($"\t\t{n}, {Instance.Shared.BuildingStats[n]}");
+                //            }
+                //            while (Instance.Shared.AreaStatsEntityMap.TryGetNextValue(out n, ref it));
+                //        }
+                //    }
+                //}
+
+                if (option.Systems.HasFlag(System.Area))
                 {
-                    _log.Info("\n\n\nZoningTypes\n\n");
-                    for (int i = 0; i < Instance.Shared.ZoningTypes.Length; i++)
-                    {
-                        _log.Info($"{Instance.Shared.ZoningTypesNames[i]} :: {Instance.Shared.Themes[Instance.Shared.ZoningTypes[i].theme]}");
-                        _log.Info(Instance.Shared.ZoningTypes[i].ToString());
-                    }
-                }
-                if (Instance.Shared.BuildingStats.IsCreated)
-                {
-                    _log.Info("\n\n\nBuildingStats\n\n");
-                    for (int i = 0; i < Instance.Shared.BuildingStats.Length; i++)
-                    {
-                        _log.Info(Instance.Shared.BuildingStats[i].ToString());
-                    }
+                    GeoJson.Write(option, Instance.Area.WriteFeatures, OnReport);
                 }
             }
             catch (Exception ex)

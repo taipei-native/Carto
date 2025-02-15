@@ -1,7 +1,9 @@
+using Colossal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Carto.Utils
 {
@@ -34,15 +36,30 @@ namespace Carto.Utils
             if (array == null) return;
             if (array.IsCreated)
             {
-                ref NativeArray<T> arrayVar = ref array;
                 for (int i = 0; i < array.Length; i++)
                 {
-                    DisposeHelper(array[i]);
+                    unsafe
+                    {
+                        DisposeHelper(ref UnsafeUtility.ArrayElementAsRef<T>(array.GetUnsafePtr(), i));
+                    }
                 }
                 if (!disposeContentsOnly)
                 {
                     array.Dispose();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeCounter"/>.
+        /// （嘗試丟棄一個 <see cref="NativeCounter"/>。）
+        /// </summary>
+        /// <param name="counter">The input counter.（輸入的計數器。）</param>
+        public static void Dispose(ref NativeCounter counter)
+        {
+            if (counter.IsCreated)
+            {
+                counter.Dispose();
             }
         }
 
@@ -93,7 +110,7 @@ namespace Carto.Utils
             {
                 for (int i = 0; i < list.Length; i++)
                 {
-                    DisposeHelper(list[i]);
+                    DisposeHelper(ref list.ElementAt(i));
                 }
                 list.Dispose();
             }
@@ -135,6 +152,25 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Try disposing of a <see cref="NativeParallelMultiHashMap{TKey, TValue}"/>.
+        /// （嘗試丟棄一個 <see cref="NativeParallelMultiHashMap{TKey, TValue}"/>。）
+        /// </summary>
+        /// <typeparam name="TKey">The type of hashmap's keys.（映射表鍵的型別。）</typeparam>
+        /// <typeparam name="TValue">The type of hashmap's values.（映射表值的型別。）</typeparam>
+        /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
+        public static void Dispose<TKey, TValue>(ref NativeParallelMultiHashMap<TKey, TValue> hashmap)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            if (hashmap.IsCreated)
+            {
+                NativeArray<TValue> values = hashmap.GetValueArray(Allocator.Temp);
+                Dispose(ref values, true);
+                hashmap.Dispose();
+            }
+        }
+
+        /// <summary>
         /// Try disposing of a <see cref="NativeText" />.
         /// （嘗試丟棄一個 <see cref="NativeText" />。）
         /// </summary>
@@ -153,10 +189,10 @@ namespace Carto.Utils
         /// </summary>
         /// <typeparam name="T">The type of the item.（物件的型別。）</typeparam>
         /// <param name="item">The item waiting to be examined.（等待被檢驗的物件。）</param>
-        private static void DisposeHelper<T>(T item) where T : struct
+        private static void DisposeHelper<T>(ref T item) where T : struct
         {
             if (item is IDisposable disposable)
-            {
+            {                
                 disposable.Dispose();
             }
         }
@@ -282,6 +318,18 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Reset a native counter.
+        /// （重置一個原生計數器。）
+        /// </summary>
+        /// <param name="counter">The input counter.（輸入的計數器。）</param>
+        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
+        public static void Reset(ref NativeCounter counter, Allocator allocator = Allocator.Persistent)
+        {
+            Dispose(ref counter);
+            counter = new(allocator);
+        }
+
+        /// <summary>
         /// Reset a native hashmap.
         /// （重置一個原生映射表。）
         /// </summary>
@@ -355,6 +403,23 @@ namespace Carto.Utils
         {
             Dispose(ref hashset);
             hashset = new(capacity, allocator);
+        }
+
+        /// <summary>
+        /// Reset a native hashmap (parallel, multi variant).
+        /// （重置一個原生映射表（平行運算、重複變種）。）
+        /// </summary>
+        /// <typeparam name="TKey">The type of the hashmap's keys.（映射表鍵的型別。）</typeparam>
+        /// <typeparam name="TValue">The type of the hashmap's values.（映射表值的型別。）</typeparam>
+        /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
+        /// <param name="capacity">The capacity used to initialize the hashmap.（用於初始化映射表的容量。）</param>
+        /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
+        public static void Reset<TKey, TValue>(ref NativeParallelMultiHashMap<TKey, TValue> hashmap, int capacity = 16, Allocator allocator = Allocator.Persistent)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            Dispose(ref hashmap);
+            hashmap = new(capacity, allocator);
         }
     }
 }

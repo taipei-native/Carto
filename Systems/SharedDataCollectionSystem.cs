@@ -12,7 +12,6 @@ using Game.Objects;
 using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
-using Game.Zones;
 using System;
 using System.Collections.Generic;
 using Unity.Burst;
@@ -98,7 +97,7 @@ namespace Carto.Systems
         /// The list of in-game brands' / enterprises' prefab name.
         /// （遊戲內品牌／企業預製模板名稱的列表。）
         /// </summary>
-        public List<Brand> Brands => _brands;
+        public ref List<Brand> Brands => ref _brands;
 
         /// <summary>
         /// See <see cref="Brands"/>.
@@ -109,7 +108,7 @@ namespace Carto.Systems
         /// The map between brand entities and their index in <see cref="Brands"/>.<br/>
         /// （品牌／企業實體與其在 <see cref="Brands"/> 索引值的映射表。）
         /// </summary>
-        public NativeParallelHashMap<Entity, int> BrandsEntityMap => _brandsEntityMap;
+        public ref NativeParallelHashMap<Entity, int> BrandsEntityMap => ref _brandsEntityMap;
 
         /// <summary>
         /// See <see cref="BrandsEntityMap"/>.
@@ -120,18 +119,18 @@ namespace Carto.Systems
         /// The list of all building's statistics in the savegame.
         /// （遊戲存檔內所有建築的統計數據。）
         /// </summary>
-        public NativeList<BuildingStat> BuildingStats => _buildingStats;
+        public ref NativeList<BuildingStat> BuildingStats => ref _buildingStats;
 
         /// <summary>
         /// See <see cref="BuildingStats"/>.
         /// </summary>
         private NativeList<BuildingStat> _buildingStats;
-
+         
         /// <summary>
         /// The list of in-game themes' / asset packs' information.
         /// （遊戲內建築風格／資產包資訊的列表。）
         /// </summary>
-        public List<Theme> Themes => _themes;
+        public ref List<Theme> Themes => ref _themes;
 
         /// <summary>
         /// See <see cref="Themes"/>.
@@ -142,7 +141,7 @@ namespace Carto.Systems
         /// The map between theme / asset pack prefab objects and their index in <see cref="Themes"/>.<br/>
         /// （建築風格／資產包預製模板物件與其在 <see cref="Themes"/> 索引值的映射表。）
         /// </summary>
-        public Dictionary<PrefabBase, int> ThemesPrefabMap => _themesPrefabMap;
+        public ref Dictionary<PrefabBase, int> ThemesPrefabMap => ref _themesPrefabMap;
 
         /// <summary>
         /// See <see cref="ThemesPrefabMap"/>.
@@ -153,7 +152,7 @@ namespace Carto.Systems
         /// The list of in-game zoning types' information.
         /// （遊戲內分區類型資訊的列表。）
         /// </summary>
-        public NativeList<ZoningType> ZoningTypes => _zoningTypes;
+        public ref NativeList<ZoningType> ZoningTypes => ref _zoningTypes;
 
         /// <summary>
         /// See <see cref="ZoningTypes"/>.
@@ -164,7 +163,7 @@ namespace Carto.Systems
         /// The map between zoning prefab references and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
         /// （分區預製模板參考與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
         /// </summary>
-        public NativeParallelHashMap<Entity, int> ZoningTypesEntityMap => _zoningTypesEntityMap;
+        public ref NativeParallelHashMap<Entity, int> ZoningTypesEntityMap => ref _zoningTypesEntityMap;
 
         /// <summary>
         /// See <see cref="ZoningTypesEntityMap"/>.
@@ -175,7 +174,7 @@ namespace Carto.Systems
         /// The map between zoning ids and their index in <see cref="ZoningTypes"/> and <see cref="ZoningTypesNames"/>.<br/>
         /// （分區識別碼與其在 <see cref="ZoningTypes"/> 與 <see cref="ZoningTypesNames"/> 索引值的映射表。）
         /// </summary>
-        public NativeParallelHashMap<ushort, int> ZoningTypesIdMap => _zoningTypesIdMap;
+        public ref NativeParallelHashMap<ushort, int> ZoningTypesIdMap => ref _zoningTypesIdMap;
 
         /// <summary>
         /// See <see cref="ZoningTypesIdMap"/>.
@@ -186,7 +185,7 @@ namespace Carto.Systems
         /// The list of in-game zoning types' prefab name.
         /// （遊戲內分區類型名稱的列表。）
         /// </summary>
-        public NativeList<NativeText> ZoningTypesNames => _zoningTypesNames;
+        public ref NativeList<NativeText> ZoningTypesNames => ref _zoningTypesNames;
 
         /// <summary>
         /// See <see cref="ZoningTypesNames"/>.
@@ -329,6 +328,50 @@ namespace Carto.Systems
             Utils.CommonUtils.Dispose(ref _zoningTypesEntityMap);
             Utils.CommonUtils.Dispose(ref _zoningTypesIdMap);
             Utils.CommonUtils.Dispose(ref _zoningTypesNames);
+        }
+
+        /// <summary>
+        /// Try disposing of the specific properties set in unmanaged memory.
+        /// （嘗試丟棄儲存於未控管記憶體的特定屬性。）
+        /// </summary>
+        /// <param name="lifeCycle">The phase to dispose of specific properties.（丟棄特定屬性的階段。）</param>
+        public void Dispose(DisposePhase lifeCycle)
+        {
+            switch (lifeCycle)
+            {
+                case DisposePhase.AfterAreaSystem:
+                    // The following properties are disposed of after area system finishes its work, since they are required for calculating statistics.
+                    //（以下屬性在區域系統完成工作後丟棄，因為它們被用於計算區域統計資訊。）
+                    Utils.CommonUtils.Dispose(ref _buildingStats);
+
+                    // Manually call the dispose for AfterBuildingSystem, in case of the situation that the system is not used.
+                    // （手動呼叫 AfterBuildingSystem 的拋棄指令，以避免該系統並未被使用。）
+                    Dispose(DisposePhase.AfterBuildingSystem);
+                    break;
+
+                case DisposePhase.AfterBuildingStats:
+                    Utils.CommonUtils.Dispose(ref _brandsEntityMap);
+                    break;
+
+                case DisposePhase.AfterBuildingSystem:
+                    // The following properties are disposed of after building system finishes its work, since they are required for the zoning field.
+                    // （以下屬性在建築系統完成工作後丟棄，因為 zoning 欄位會用到它們。）
+                    Utils.CommonUtils.Dispose(ref _zoningTypes);
+                    Utils.CommonUtils.Dispose(ref _zoningTypesEntityMap);
+
+                    // Manually call the dispose for AfterZoningSystem, in case of the situation that the system is not used.
+                    // （手動呼叫 AfterZoningSystem 的拋棄指令，以避免該系統並未被使用。）
+                    Dispose(DisposePhase.AfterZoningSystem);
+                    break;
+
+                case DisposePhase.AfterZoningSystem:
+                    Utils.CommonUtils.Dispose(ref _zoningTypesIdMap);
+                    Utils.CommonUtils.Dispose(ref _zoningTypesNames);
+                    break;
+
+                default:
+                    break;
+            }
         }
 
         /// <summary>
@@ -485,7 +528,7 @@ namespace Carto.Systems
                     dividendEntityMap = dividendEntityMap,
                     sexEntityMap = sexEntityMap,
                     zoningEntityMap = zoningsEntityMap,
-                    list = stats.AsParallelWriter()
+                    list = stats.AsParallelWriter(),
                 };
                 JobHandle collectStatsHandle = collectStatsJob.ScheduleParallel(_buildingQuery, default);
                 collectStatsHandle.Complete();
@@ -496,10 +539,9 @@ namespace Carto.Systems
             }
             finally
             {
-                Utils.CommonUtils.Dispose(ref brandsEntityMap);
                 Utils.CommonUtils.Dispose(ref dividendEntityMap);
                 Utils.CommonUtils.Dispose(ref sexEntityMap);
-                Utils.CommonUtils.Dispose(ref zoningsEntityMap);
+                Dispose(DisposePhase.AfterBuildingStats); // brandsEntityMap
             }
         }
 
@@ -616,6 +658,13 @@ namespace Carto.Systems
                         {
                             stat.company++;
 
+                            if (taxPayerLookup.TryGetComponent(renter, out TaxPayer taxData))
+                            {
+                                // Commercial / industiral taxes are collected 32 times each day, so the value is estimated.（商業／工業稅每天稽徵 32 次，因此金額為估計值。）
+                                // As of the version 1.2.3f1, warehousing companies seem to have full tax exemption.（截至 1.2.3f1 版本，倉儲業似乎完全免稅。）
+                                stat.profit = taxData.m_UntaxedIncome * TaxSystem.kUpdatesPerDay;
+                            }
+
                             if (isFirstShop)
                             {
                                 if (brandEntityMap.TryGetValue(companyData.m_Brand, out int brandIndex))
@@ -624,14 +673,6 @@ namespace Carto.Systems
                                 }
 
                                 stat.product = processLookup[prefabRefLookup[renter].m_Prefab].m_Output.m_Resource;
-
-                                if (taxPayerLookup.TryGetComponent(renter, out TaxPayer taxData))
-                                {
-                                    // Commercial / industiral taxes are collected 32 times each day, so the value is estimated.（商業／工業稅每天稽徵 32 次，因此金額為估計值。）
-                                    // As of the version 1.2.3f1, warehousing companies seem to have full tax exemption.（截至 1.2.3f1 版本，倉儲業似乎完全免稅。）
-                                    stat.profit = taxData.m_UntaxedIncome * TaxSystem.kUpdatesPerDay;
-                                }
-
                                 isFirstShop = false;
                             }
                         }
@@ -712,6 +753,7 @@ namespace Carto.Systems
                                                     if (salary < 0) salary = 0;
                                                 }
 
+                                                stat.labor++;
                                                 stat.wage += salary;
                                                 break;
                                             }
@@ -901,7 +943,15 @@ namespace Carto.Systems
                 for (int index = 0; index < zoningTypeCount; index++)
                 {
                     ref ZoningType zoningType = ref types.ElementAt(index);
-                    ZonePrefab zonePrefabData = Instance.Prefab.GetPrefab<ZonePrefab>(zoningType.prefabData);
+
+                    // Ensure safety when the zonings are not correctly loaded (e.g. a region pack is missing).
+                    // （確保分區未正確載入時的安全性（例如缺少地區包）。）
+                    if (!Instance.Prefab.TryGetPrefab(zoningType.prefabData, out ZonePrefab zonePrefabData))
+                    {
+                        names.Add(new("Placeholder", Allocator.Persistent));
+                        continue;
+                    }
+
                     zoningType.color = zonePrefabData.m_Color;
 
                     if (zonePrefabData.Has<AssetPackItem>())
@@ -1050,9 +1100,9 @@ namespace Carto.Systems
                     // Find out categories.（找出分類。）
                     ZoningCategory categories = zoneData.m_AreaType switch
                     {
-                        AreaType.Residential => ZoningCategory.Residential,
-                        AreaType.Commercial => ZoningCategory.Commercial,
-                        AreaType.Industrial => ZoningCategory.Industrial,
+                        Game.Zones.AreaType.Residential => ZoningCategory.Residential,
+                        Game.Zones.AreaType.Commercial => ZoningCategory.Commercial,
+                        Game.Zones.AreaType.Industrial => ZoningCategory.Industrial,
                         _ => ZoningCategory.None,
                     };
 

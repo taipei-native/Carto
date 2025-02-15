@@ -1,3 +1,4 @@
+using Carto.Domain;
 using Carto.Geodata;
 using Carto.IO;
 using Carto.Utils;
@@ -10,8 +11,11 @@ using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace Carto.Systems
@@ -29,8 +33,11 @@ namespace Carto.Systems
         static readonly List<ComponentType> _filters = new()
         {
             ComponentType.ReadOnly<Deleted>(),
+            ComponentType.ReadOnly<Extractor>(),
             ComponentType.ReadOnly<Navigation>(),
             ComponentType.ReadOnly<Space>(),
+            ComponentType.ReadOnly<Storage>(),
+            ComponentType.ReadOnly<Game.Areas.Surface>(),
             ComponentType.ReadOnly<Temp>()
         };
 
@@ -47,9 +54,20 @@ namespace Carto.Systems
         static readonly NameSystem _name = Instance.Name;
 
         /// <summary>
+        /// The query gor existing map tiles.（現有地圖區塊的查詢。）
+        /// </summary>
+        static EntityQuery _mapTileQuery;
+
+        /// <summary>
         /// The query for existing areas.（現有區域的查詢。）
         /// </summary>
         static EntityQueryDesc _queryDesc;
+
+        /// <summary>
+        /// The system collecting shared data.（收集共享資料的系統。）<br/>
+        /// See <see cref="Instance.Shared"/> for more information.
+        /// </summary>
+        static readonly SharedDataCollectionSystem _shared = Instance.Shared;
 
         /// <summary>
         /// The event triggered when the system instance is created.
@@ -57,6 +75,16 @@ namespace Carto.Systems
         /// </summary>
         protected override void OnCreate()
         {
+            _mapTileQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<MapTile>()
+                },
+                None = _filters.ToArray()
+            });
+            
             _queryDesc = new EntityQueryDesc
             {
                 All = new ComponentType[]
@@ -92,113 +120,366 @@ namespace Carto.Systems
         {
             Feature featureFlag = options.Features;
             if (!featureFlag.HasFlag(Feature.District)) _filters.Add(ComponentType.ReadOnly<District>());
-            if (!featureFlag.HasFlag(Feature.Extractor)) _filters.Add(ComponentType.ReadOnly<Extractor>());
-            if (!featureFlag.HasFlag(Feature.Landfill)) _filters.Add(ComponentType.ReadOnly<Storage>());
             if (!featureFlag.HasFlag(Feature.MapTile)) _filters.Add(ComponentType.ReadOnly<MapTile>());
-            if (!featureFlag.HasFlag(Feature.Surface)) _filters.Add(ComponentType.ReadOnly<Surface>());
             _queryDesc.None = _filters.ToArray();
             EntityQuery query = GetEntityQuery(_queryDesc);
 
             bool hasName = options.Contains(Property.Name, IO.System.Area);
+            bool hasAge = options.Contains(Property.Age, IO.System.Area);
             bool hasArea = options.Contains(Property.Area, IO.System.Area);
             bool hasCompany = options.Contains(Property.Company, IO.System.Area);
             bool hasEmployee = options.Contains(Property.Employee, IO.System.Area);
             bool hasHousehold = options.Contains(Property.Household, IO.System.Area);
+            bool hasLabor = options.Contains(Property.Labor, IO.System.Area);
             bool hasObject = options.Contains(Property.Object, IO.System.Area);
             bool hasProfit = options.Contains(Property.Profit, IO.System.Area);
             bool hasResident = options.Contains(Property.Resident, IO.System.Area);
+            bool hasSexRatio = options.Contains(Property.SexRatio, IO.System.Area);
             bool hasUnlocked = options.Contains(Property.Unlocked, IO.System.Area);
             bool hasWage = options.Contains(Property.Wage, IO.System.Area);
 
-            foreach (Entity _area in query.ToEntityArray(Allocator.Temp))
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeList<BuildingStat> buildingStats = ref _shared.BuildingStats;
+
+            // Initialize native containers.（初始化原生容器。）
+            int areaCount = query.CalculateEntityCount();
+            NativeArray<float3> locations = new(buildingStats.Length, Allocator.Persistent);
+            NativeList<AreaStat> areaStats = new(areaCount, Allocator.Persistent);
+            NativeList<NativeText> areaNames = new(areaCount, Allocator.Persistent);
+            NativeList<BVHUtils.Triangle> triangles = new(_mapTileQuery.CalculateEntityCount() * 4, Allocator.Persistent);
+            NativeParallelHashMap<Entity, NativeArray<float3>> nodeEntityMap = new(areaCount, Allocator.Persistent);
+            NativeParallelMultiHashMap<Entity, int> areaEntityMap = new(buildingStats.Length * 2, Allocator.Persistent);
+
+            try
             {
-                // Write feature header.（寫出圖徵檔頭。）
-                writer.WriteStartObject();
-                GeoJson.WritePropertyPair(writer, "type", "Feature");
-
-                // Write feature geometry.（寫出圖徵幾何圖形。）
-                writer.WritePropertyName("geometry");
-                DynamicBuffer<Node> buffer = EntityManager.GetBuffer<Node>(_area);
-                float3[] boundary = new float3[buffer.Length];
-                bool isCounterClockwise = EntityManager.GetComponentData<Area>(_area).m_Flags.HasFlag(AreaFlags.CounterClockwise);
-
-                if (isCounterClockwise)
+                // Map each building to districts.（將各棟建築映射至行政區。）
+                MapBuildingsToDistrictsJob mapDistrictsJob = new()
                 {
-                    for (int i = 0; i < buffer.Length; i++)
+                    currentDistrictLookup = GetComponentLookup<CurrentDistrict>(true),
+                    buildingStats = buildingStats,
+                    hashmap = areaEntityMap.AsParallelWriter()
+                };
+                JobHandle mapDistrictsHandle = mapDistrictsJob.Schedule(buildingStats.Length, 8);
+                mapDistrictsHandle.Complete();
+
+                GetBuildingLocationsJob getLocationsJob = new()
+                {
+                    transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
+                    buildingStats = buildingStats,
+                    locations = locations
+                };
+                JobHandle getLocationHandle = getLocationsJob.Schedule(buildingStats.Length, 8);
+                getLocationHandle.Complete();
+
+                // Can't apply parallel operation on this job since the length of `triangles` is unknown.（無法在這個工作上執行平行處理，因為 `triangle` 的長度未知。）
+                RetrieveTrianglesJob retrieveJob = new()
+                {
+                    triangleList = triangles
+                };
+                JobHandle retrieveHandle = retrieveJob.Schedule(_mapTileQuery, default);
+                retrieveHandle.Complete();
+
+                BVHUtils.GetIntersectMap(ref triangles, ref locations, ref areaEntityMap);
+
+                // Collect the statistics of each area.（收集各個區域的統計資料。）
+                CollectAreaStatsJob collectJob = new()
+                {
+                    districtLookup = GetComponentLookup<District>(true),
+                    mapTileLookup = GetComponentLookup<MapTile>(true),
+                    nativeLookup = GetComponentLookup<Native>(true),
+                    areaEntityMap = areaEntityMap,
+                    buildingStats = buildingStats,
+                    statslist = areaStats.AsParallelWriter(),
+                    nodeEntityMap = nodeEntityMap.AsParallelWriter(),
+                };
+                JobHandle collectHandle = collectJob.ScheduleParallel(query, default);
+                collectHandle.Complete();
+
+                // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
+                if (hasName)
+                {
+                    for (int i = 0; i < areaStats.Length; i++)
                     {
-                        Coord coord = new(options.SourceCoordinates.Double3 + buffer[i].m_Position.xzy, options.SourceCoordinates);
-                        boundary[i] = Transform.Apply(coord, options.SourceProjection, CRS.WGS84, options.SourceProjectionDefinition, new ProjectionDefinition()).Float3;
+                        AreaStat stat = areaStats[i];
+                        areaNames[i] = new(stat.objectType == Feature.District ? _name.GetRenderedLabelName(stat.entity) : _name.GetDebugName(stat.entity), Allocator.Persistent);
+                    }
+                }
+
+                // Initialize the writer thread.（初始化負責寫出的執行緒。）
+                Task writerThread = Task.Run(() =>
+                {
+                    for (int i = 0; i < areaStats.Length; i++)
+                    {
+                        AreaStat stat = areaStats[i];
+                        if (!nodeEntityMap.TryGetValue(stat.entity, out NativeArray<float3> areaNodes)) continue;
+                        float3[] transformedAreaNodes = new float3[areaNodes.Length];
+
+                        // Write feature header.（寫出圖徵檔頭。）
+                        writer.WriteStartObject();
+                        GeoJson.WritePropertyPair(writer, "type", "Feature");
+
+                        // Write feature geometry.（寫出圖徵幾何圖形。）
+                        writer.WritePropertyName("geometry");
+                        for (int j = 0; j < areaNodes.Length; j++)
+                        {
+                            Coord coord = new(options.SourceCoordinates.Double3 + areaNodes[j], options.SourceCoordinates);
+                            transformedAreaNodes[j] = Transform.Apply(coord, options.SourceProjection, CRS.WGS84, options.SourceProjectionDefinition, new ProjectionDefinition()).Float3;
+                        }
+
+                        GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { transformedAreaNodes }), Shape.Polygon, options.Elevation);
+
+                        // Write feature properties.（寫出圖徵）
+                        writer.WritePropertyName("properties");
+                        writer.WriteStartObject();
+                        if (hasName)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Name, areaNames[i].ToString());
+                        }
+                        if (hasAge)
+                        {
+                            float age = (stat.residentFemale + stat.residentMale <= 0) ? 0f : (float)Math.Round(stat.age / (stat.residentFemale + stat.residentMale), 1);
+                            GeoJson.WriteProperty(writer, Property.Age, age);
+                        }
+                        if (hasArea)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Area, stat.area);
+                        }
+                        if (hasCompany)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Company, stat.company);
+                        }
+                        if (hasEmployee)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Employee, stat.employee);
+                        }
+                        if (hasHousehold)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Household, stat.household);
+                        }
+                        if (hasLabor)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Labor, stat.labor);
+                        }
+                        if (hasObject)
+                        {
+                            Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? stat.objectType : Utils.CommonUtils.GetFirstMatch(stat.objectType, IO.IO.FeatureDisplayOrder);
+                            GeoJson.WriteProperty(writer, Property.Object, displayType.ToString("G"));
+                        }
+                        if (hasProfit)
+                        {
+                            float profit = stat.company <= 0 ? 0f : (float)Math.Round((double)stat.profit / stat.company, 2);
+                            GeoJson.WriteProperty(writer, Property.Profit, profit);
+                        }
+                        if (hasResident)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Resident, stat.residentFemale + stat.residentMale);
+                        }
+                        if (hasSexRatio)
+                        {
+                            float sexRatio = stat.residentFemale <= 0 ? 0f : (float)Math.Round((double)stat.residentMale / stat.residentFemale * 100, 4);
+                            GeoJson.WriteProperty(writer, Property.SexRatio, sexRatio);
+                        }
+                        if (hasUnlocked)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Unlocked, stat.unlocked);
+                        }
+                        if (hasWage)
+                        {
+                            float wage = stat.labor <= 0 ? 0f : (float)Math.Round((double)stat.wage / stat.labor, 2);
+                            GeoJson.WriteProperty(writer, Property.Wage, wage);
+                        }
+
+                        writer.WriteEndObject();
+                        writer.WriteEndObject();
+
+                        // Report method, not filled temporary.
+                        onReportMethod?.Invoke(string.Empty, 0);
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref areaEntityMap);
+                Utils.CommonUtils.Dispose(ref areaNames);
+                Utils.CommonUtils.Dispose(ref areaStats);
+                Utils.CommonUtils.Dispose(ref locations);
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                Instance.Shared.Dispose(DisposePhase.AfterAreaSystem);
+            }
+        }
+
+        /// <summary>
+        /// The job to collect and aggregate area statistics.
+        /// （收集並聚合區域統計的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CollectAreaStatsJob : IJobEntity
+        {
+            [ReadOnly]
+            public ComponentLookup<District> districtLookup;
+
+            [ReadOnly]
+            public ComponentLookup<MapTile> mapTileLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Native> nativeLookup;
+
+            [ReadOnly]
+            public NativeParallelMultiHashMap<Entity, int> areaEntityMap;
+
+            [ReadOnly]
+            public NativeList<BuildingStat> buildingStats;
+
+            [WriteOnly]
+            public NativeList<AreaStat>.ParallelWriter statslist;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, NativeArray<float3>>.ParallelWriter nodeEntityMap;
+
+            public void Execute(in Area areaComponent, in Game.Areas.Geometry geometry, in DynamicBuffer<Node> nodes, Entity area)
+            {
+                AreaStat stat = new()
+                {
+                    entity = area,
+                    age = 0f,
+                    area = geometry.m_SurfaceArea,
+                    company = 0,
+                    employee = 0,
+                    household = 0,
+                    labor = 0,
+                    objectType = Feature.None,
+                    profit = 0,
+                    residentFemale = 0,
+                    residentMale = 0,
+                    wage = 0,
+                    unlocked = false
+                };
+
+                if (areaEntityMap.TryGetFirstValue(area, out int buildingIndex, out NativeParallelMultiHashMapIterator<Entity> iterator))
+                {
+                    do
+                    {
+                        if ((buildingIndex >= 0) & (buildingIndex < buildingStats.Length))
+                        {
+                            ref BuildingStat building = ref buildingStats.ElementAt(buildingIndex);
+                            stat.age += building.age;
+                            stat.company += building.company;
+                            stat.employee += building.employee;
+                            stat.household += building.household;
+                            stat.labor += building.labor;
+                            stat.profit += building.profit;
+                            stat.residentFemale += building.residentFemale;
+                            stat.residentMale += building.residentMale;
+                            stat.wage += building.wage;
+                        }
+                    }
+                    while (areaEntityMap.TryGetNextValue(out buildingIndex, ref iterator));
+                }
+
+                if (districtLookup.TryGetComponent(area, out _)) stat.objectType |= Feature.District;
+                if (mapTileLookup.TryGetComponent(area, out _)) stat.objectType |= Feature.MapTile;
+
+                if (mapTileLookup.TryGetComponent(area, out _) && !nativeLookup.TryGetComponent(area, out _))
+                {
+                    stat.unlocked = true;
+                }
+
+                NativeArray<float3> nodesArray = new(nodes.Length, Allocator.Persistent);
+                if ((areaComponent.m_Flags & AreaFlags.CounterClockwise) != 0)
+                {
+                    for (int i = 0; i < nodes.Length; i++)
+                    {
+                        nodesArray[i] = nodes[i].m_Position.xzy;
                     }
                 }
                 else
                 {
-                    for (int i = buffer.Length - 1; i > -1; i--)
+                    for (int i = nodes.Length - 1; i > -1; i--)
                     {
-                        Coord coord = new(options.SourceCoordinates.Double3 + buffer[i].m_Position.xzy, options.SourceCoordinates);
-                        boundary[i] = Transform.Apply(coord, options.SourceProjection, CRS.WGS84, options.SourceProjectionDefinition, new ProjectionDefinition()).Float3;
+                        nodesArray[i] = nodes[i].m_Position.xzy;
                     }
                 }
 
-                GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { boundary }), Shape.Polygon, options.Elevation);
+                nodeEntityMap.TryAdd(area, nodesArray);
+                statslist.AddNoResize(stat);
+            }
+        }
 
-                // Write feature properties.（寫出圖徵）
-                writer.WritePropertyName("properties");
-                writer.WriteStartObject();
-                HashSet<Property> properties = options.Properties[IO.System.Area];
-                Feature featureType = IOUtils.GetFeatureType(EntityManager, _area);
+        [BurstCompile]
+        public partial struct GetBuildingLocationsJob : IJobParallelFor
+        {
+            [ReadOnly]
+            public ComponentLookup<Game.Objects.Transform> transformLookup; 
+            
+            [ReadOnly]
+            public NativeList<BuildingStat> buildingStats;
 
-                bool isDistrict = featureType.HasFlag(Feature.District);
-                bool isMapTile = featureType.HasFlag(Feature.MapTile);
+            [WriteOnly]
+            public NativeArray<float3> locations;
 
-                if (hasName)
+            public void Execute(int index)
+            {
+                Entity building = buildingStats[index].entity;
+                if (building != Entity.Null)
                 {
-                    string name = isDistrict ? _name.GetRenderedLabelName(_area) : _name.GetDebugName(_area);
-                    GeoJson.WriteProperty(writer, Property.Name, name);
-                }
-                if (hasArea)
-                {
-                    GeoJson.WriteProperty(writer, Property.Area, EntityManager.GetComponentData<Game.Areas.Geometry>(_area).m_SurfaceArea);
-                }
-                if (hasCompany)
-                {
-
-                }
-                if (hasEmployee)
-                {
-
-                }
-                if (hasHousehold)
-                {
-
-                }
-                if (hasObject)
-                {
-                    Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? featureType : Utils.CommonUtils.GetFirstMatch(featureType, IO.IO.FeatureDisplayOrder);
-                    GeoJson.WriteProperty(writer, Property.Object, displayType.ToString("G"));
-                }
-                if (hasProfit)
-                {
-
-                }
-                if (hasResident)
-                {
-
-                }
-                if (hasUnlocked)
-                {
-                    bool unlocked = featureType.HasFlag(Feature.MapTile) && !EntityManager.HasComponent<Native>(_area);
-                    GeoJson.WriteProperty(writer, Property.Unlocked, unlocked);
-                }
-                if (hasWage)
-                {
-
+                    if (transformLookup.TryGetComponent(building, out Game.Objects.Transform transform))
+                    {
+                        locations[index] = transform.m_Position;
+                        return;
+                    }
                 }
 
-                writer.WriteEndObject();
-                writer.WriteEndObject();
+                locations[index] = new(float.MaxValue);
+            }
+        }
 
-                // Report method, not filled temporary.
-                onReportMethod?.Invoke(string.Empty, 0);
+        /// <summary>
+        /// The job to map each building to districts.
+        /// （映射每棟建築至行政區的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct MapBuildingsToDistrictsJob : IJobParallelFor
+        {
+            [ReadOnly]
+            public ComponentLookup<CurrentDistrict> currentDistrictLookup;
+            
+            [ReadOnly]
+            public NativeList<BuildingStat> buildingStats;
+
+            [WriteOnly]
+            public NativeParallelMultiHashMap<Entity, int>.ParallelWriter hashmap;
+
+            public void Execute(int index)
+            {
+                Entity building = buildingStats[index].entity;
+                if (currentDistrictLookup.TryGetComponent(building, out CurrentDistrict currentDistrict))
+                {
+                    if (currentDistrict.m_District != Entity.Null)
+                    {
+                        hashmap.Add(currentDistrict.m_District, index);
+                    }
+                }
+            }
+        }
+
+        [BurstCompile]
+        public partial struct RetrieveTrianglesJob : IJobEntity
+        {
+            [WriteOnly]
+            public NativeList<BVHUtils.Triangle> triangleList;
+
+            public void Execute(in DynamicBuffer<Node> nodes, in DynamicBuffer<Triangle> triangles, Entity area)
+            {
+                for (int i = 0; i < triangles.Length; i++)
+                {
+                    BVHUtils.Triangle triangle = new(AreaUtils.GetTriangle2(nodes, triangles[i]), area);
+                    triangleList.Add(triangle);
+                }
             }
         }
     }
