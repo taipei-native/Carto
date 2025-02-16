@@ -37,7 +37,7 @@ namespace Carto.Systems
             ComponentType.ReadOnly<Navigation>(),
             ComponentType.ReadOnly<Space>(),
             ComponentType.ReadOnly<Storage>(),
-            ComponentType.ReadOnly<Game.Areas.Surface>(),
+            ComponentType.ReadOnly<Surface>(),
             ComponentType.ReadOnly<Temp>()
         };
 
@@ -54,7 +54,7 @@ namespace Carto.Systems
         static readonly NameSystem _name = Instance.Name;
 
         /// <summary>
-        /// The query gor existing map tiles.（現有地圖區塊的查詢。）
+        /// The query for existing map tiles.（現有地圖區塊的查詢。）
         /// </summary>
         static EntityQuery _mapTileQuery;
 
@@ -137,6 +137,7 @@ namespace Carto.Systems
             bool hasSexRatio = options.Contains(Property.SexRatio, IO.System.Area);
             bool hasUnlocked = options.Contains(Property.Unlocked, IO.System.Area);
             bool hasWage = options.Contains(Property.Wage, IO.System.Area);
+            bool hasStatistics = hasAge | hasCompany | hasEmployee | hasHousehold | hasLabor | hasProfit | hasResident | hasSexRatio | hasWage;
 
             // Create alias for fields.（創造欄位的別名。）
             ref NativeList<BuildingStat> buildingStats = ref _shared.BuildingStats;
@@ -152,34 +153,47 @@ namespace Carto.Systems
 
             try
             {
-                // Map each building to districts.（將各棟建築映射至行政區。）
-                MapBuildingsToDistrictsJob mapDistrictsJob = new()
+                // Only execute this part when any of these fields are required: age, company, employee, household, labor, profit, resident, sex ratio, and wage.
+                //（僅在需要下列任何欄位時執行：年齡、公司、員工、家庭、勞工、利潤、居民、性別比、薪資）
+                if (hasStatistics)
                 {
-                    currentDistrictLookup = GetComponentLookup<CurrentDistrict>(true),
-                    buildingStats = buildingStats,
-                    hashmap = areaEntityMap.AsParallelWriter()
-                };
-                JobHandle mapDistrictsHandle = mapDistrictsJob.Schedule(buildingStats.Length, 8);
-                mapDistrictsHandle.Complete();
+                    // Map each building to districts.（將各棟建築映射至行政區。）
+                    MapBuildingsToDistrictsJob mapDistrictsJob = new()
+                    {
+                        currentDistrictLookup = GetComponentLookup<CurrentDistrict>(true),
+                        buildingStats = buildingStats,
+                        hashmap = areaEntityMap.AsParallelWriter()
+                    };
+                    JobHandle mapDistrictsHandle = mapDistrictsJob.Schedule(buildingStats.Length, 8);
+                    mapDistrictsHandle.Complete();
 
-                GetBuildingLocationsJob getLocationsJob = new()
-                {
-                    transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
-                    buildingStats = buildingStats,
-                    locations = locations
-                };
-                JobHandle getLocationHandle = getLocationsJob.Schedule(buildingStats.Length, 8);
-                getLocationHandle.Complete();
+                    // Only execute this part when map tile requires statistical fields.
+                    //（僅在地圖區塊需要統計欄位時執行。）
+                    if (options.StatisticsMapTile)
+                    {
+                        // Extract building centroids.（萃取建築中點。）
+                        GetBuildingLocationsJob getLocationsJob = new()
+                        {
+                            transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
+                            buildingStats = buildingStats,
+                            locations = locations
+                        };
+                        JobHandle getLocationHandle = getLocationsJob.Schedule(buildingStats.Length, 8);
+                        getLocationHandle.Complete();
 
-                // Can't apply parallel operation on this job since the length of `triangles` is unknown.（無法在這個工作上執行平行處理，因為 `triangle` 的長度未知。）
-                RetrieveTrianglesJob retrieveJob = new()
-                {
-                    triangleList = triangles
-                };
-                JobHandle retrieveHandle = retrieveJob.Schedule(_mapTileQuery, default);
-                retrieveHandle.Complete();
+                        // Extract map tile triangles.（萃取地圖區塊三角形。）
+                        // Can't apply parallel operation on this job since the length of `triangles` is unknown.（無法在這個工作上執行平行處理，因為 `triangle` 的長度未知。）
+                        RetrieveTrianglesJob retrieveJob = new()
+                        {
+                            triangleList = triangles
+                        };
+                        JobHandle retrieveHandle = retrieveJob.Schedule(_mapTileQuery, default);
+                        retrieveHandle.Complete();
 
-                BVHUtils.GetIntersectMap(ref triangles, ref locations, ref areaEntityMap);
+                        // Map each building to map tiles.（將各建築映射至地圖區塊。）
+                        BVHUtils.GetIntersectMap(ref triangles, ref locations, ref areaEntityMap);
+                    }
+                }
 
                 // Collect the statistics of each area.（收集各個區域的統計資料。）
                 CollectAreaStatsJob collectJob = new()
@@ -272,7 +286,14 @@ namespace Carto.Systems
                         }
                         if (hasResident)
                         {
-                            GeoJson.WriteProperty(writer, Property.Resident, stat.residentFemale + stat.residentMale);
+                            if (options.SeperateResident)
+                            {
+                                GeoJson.WriteProperty(writer, Property.Resident, new int[2] { stat.residentFemale, stat.residentMale }, options);
+                            }
+                            else
+                            {
+                                GeoJson.WriteProperty(writer, Property.Resident, stat.residentFemale + stat.residentMale);
+                            }
                         }
                         if (hasSexRatio)
                         {
@@ -410,6 +431,10 @@ namespace Carto.Systems
             }
         }
 
+        /// <summary>
+        /// The job to extract building centroid positions.
+        /// （萃取建築中點位置的工作。）
+        /// </summary>
         [BurstCompile]
         public partial struct GetBuildingLocationsJob : IJobParallelFor
         {
@@ -434,6 +459,7 @@ namespace Carto.Systems
                     }
                 }
 
+                // No match. Assign the max value so it won't be mapped.（沒有符合的項目。填入極大值以避免被錯誤的輸出。）
                 locations[index] = new(float.MaxValue);
             }
         }
@@ -467,6 +493,10 @@ namespace Carto.Systems
             }
         }
 
+        /// <summary>
+        /// The job to retrieve map tiles' triangles.
+        /// （獲得組成地圖區塊三角形的工作。）
+        /// </summary>
         [BurstCompile]
         public partial struct RetrieveTrianglesJob : IJobEntity
         {

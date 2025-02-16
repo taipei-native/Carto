@@ -70,6 +70,12 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// Whether to count homeless citizens in the household / resident field or not.<br/>
+        /// （是否要在家庭／居民欄位計入無家可歸的市民？）
+        /// </summary>
+        public bool Homeless { get; set; } = true;
+
+        /// <summary>
         /// Whether to export the minimized JSON file or not.
         /// （是否要輸出最小化的 JSON？）
         /// </summary>
@@ -86,6 +92,12 @@ namespace Carto.IO
         /// （即將輸出的網格。）
         /// </summary>
         public RasterKind RasterKinds { get; set; } = RasterKind.Unknown;
+
+        /// <summary>
+        /// Whether to export female and male residents separately or not.<br/>
+        /// （是否要將男性與女性市民分別輸出？）
+        /// </summary>
+        public bool SeparateResident { get; set; } = false;
 
         /// <summary>
         /// The map center's coordinates in Transverse Mercator.
@@ -111,6 +123,12 @@ namespace Carto.IO
             0.9996,
             new double[0]
         );
+
+        /// <summary>
+        /// Whether to export statistics (e.g. age, company, employee, household, ...) for map tiles?
+        /// （是否要輸出地圖區塊的統計資料？（例如年齡、公司、員工、家庭……）？）
+        /// </summary>
+        public bool StatisticsMapTile { get; set; } = false;
 
         /// <summary>
         /// The systems engaged in the export.

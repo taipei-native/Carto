@@ -42,6 +42,28 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Retrieve the byte array with flipped endianess.
+        /// （獲得端序翻轉的位元組陣列。）
+        /// </summary>
+        /// <param name="value">The input value.（輸入值。）</param>
+        /// <returns>The flipped byte array with length of 2.（長度為 2、已翻轉的位元組陣列。）</returns>
+        public static byte[] GetFlippedBytes(short value)
+        {
+            return BitConverter.GetBytes(value).Reverse().ToArray();
+        }
+
+        /// <summary>
+        /// Retrieve the byte array with flipped endianess.
+        /// （獲得端序翻轉的位元組陣列。）
+        /// </summary>
+        /// <param name="value">The input value.（輸入值。）</param>
+        /// <returns>The flipped byte array with length of 4.（長度為 4、已翻轉的位元組陣列。）</returns>
+        public static byte[] GetFlippedBytes(int value)
+        {
+            return BitConverter.GetBytes(value).Reverse().ToArray();
+        }
+
+        /// <summary>
         /// Retrieve the category of a feature.
         /// （獲得圖徵的分類。）
         /// </summary>

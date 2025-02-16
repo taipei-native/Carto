@@ -22,12 +22,6 @@
 	<!--Imports must be after PropertyGroup block-->
 	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props" />
 	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.targets" />
-	<ItemGroup>
-	  <Compile Remove="Geodata\Feature.cs" />
-	  <Compile Remove="Geodata\Geodata.cs" />
-	  <Compile Remove="Geodata\RasterData.cs" />
-	  <Compile Remove="Geodata\VectorData.cs" />
-	</ItemGroup>
 
 	<ItemGroup>
 		<Reference Include="Game">

@@ -25,6 +25,13 @@ namespace Carto.IO
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
         public static void Write(Options options, Action<JsonTextWriter, Options, Action<string, int>> writeFeaturesMethod, Action<string, int> onReportMethod)
         {
+            /*
+                # References: （資料來源：）
+
+                * Gillies, S., Butler, H. J., Daly, M., Doyle, A., & Schaub, T. (2016). The GeoJSON format
+                    https://doi.org/10.17487/rfc7946
+            */
+
             Stopwatch stopwatch = Stopwatch.StartNew();
             if ((options == null) || (writeFeaturesMethod == null)) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
             string filePath = options.FilePath;
@@ -54,10 +61,11 @@ namespace Carto.IO
             // Feature definition.（圖徵定義。）
             writer.WritePropertyName("features");
             writer.WriteStartArray();
-            writeFeaturesMethod(writer, options, onReportMethod);
+            writeFeaturesMethod.Invoke(writer, options, onReportMethod);
             writer.WriteEndArray();
 
             writer.WriteEndObject();
+            stopwatch.Stop();
             Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
         }
         
@@ -171,15 +179,16 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="property">The property's enumeration.（屬性的枚舉。）</param>
         /// <param name="value">The value of the property.（屬性的數值。）</param>
-        public static void WriteProperty(JsonTextWriter writer, Property property, object value)
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="KeyNotFoundException"></exception>
+        public static void WriteProperty(JsonTextWriter writer, Property property, object value, Options options = null)
         {
             string propertyName = Enum.GetName(typeof(Property), property);
 
             // Validate property registration.（檢驗屬性是否已被註冊。）
-            if (!IO.PropertyTypeTable.TryGetValue(property, out Type expectedType))
-            {
-                throw new ArgumentException($"Unknown property `{propertyName}`. 未知的屬性 `{propertyName}`。");
-            }
+            Type expectedType = IO.GetPropertyType(property, propertyName, options);
 
             // Validate value's type.（檢驗數值的型別。）
             Type actualType = value?.GetType() ?? throw new ArgumentNullException(nameof(value), "The value cannot be null. 數值不可為空值。");

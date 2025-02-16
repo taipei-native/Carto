@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Carto.IO
 {
@@ -43,6 +44,14 @@ namespace Carto.IO
                 {
                     { FileFormat.Unknown, new string[3] { "Address_District", "Address_Street", "Address_Number" } },
                     { FileFormat.Shapefile, new string[3] { "Addr_dist", "Addr_strt", "Addr_nmbr" } }
+                }
+            },
+            {
+                Property.Resident,
+                new Dictionary<FileFormat, string[]>
+                {
+                    { FileFormat.Unknown, new string[2] { "Resident_Female", "Resident_Male" } },
+                    { FileFormat.Shapefile, new string[2] { "Rsdt_fmle", "Rsdt_male" } }
                 }
             }
         };
@@ -161,16 +170,18 @@ namespace Carto.IO
                     { (Property.Zoning, System.Unknown), true }
                 },
                 Features = Feature.District | Feature.MapTile,
-                FileFormat = FileFormat.GeoJSON,
-                FileName = "Area",
+                FileFormat = FileFormat.GeoTIFF,
+                FileName = "Raster",
+                Homeless = true,
                 Minimized = true,
                 Properties = new Dictionary<System, HashSet<Property>>
                 {
                     //{ System.Area, new() { Property.Area, Property.Name, Property.Object, Property.Unlocked } },
-                    { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
-                    { System.Building, new() { Property.Age, Property.Brand, Property.Theme, Property.Zoning } }
+                    //{ System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
+                    //{ System.Building, new() { Property.Age, Property.Brand, Property.Theme, Property.Zoning } }
                 },
                 RasterKinds = RasterKind.Unknown,
+                SeparateResident = false,
                 SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
                 SourceProjection = CRS.TransverseMercator,
                 SourceProjectionDefinition = new ProjectionDefinition
@@ -178,7 +189,8 @@ namespace Carto.IO
                     new EllipsoidDefinition(Ellipsoid.GRS80),
                     (121, 0), (250000, 0), 0.9999, new double[0]
                 ),
-                Systems = System.Area,
+                StatisticsMapTile = false,
+                Systems = System.Raster,
                 Taxable = false,
                 VectorKinds = new Dictionary<System, VectorKind>
                 {
@@ -188,42 +200,42 @@ namespace Carto.IO
 
             try
             {
-                // Retrieve zoning types information.（獲取分區類別的資訊。）
-                //Instance.Shared.GetZoningTypes(option);
+                // Shorthanded variables to determine whther to run any system.（縮寫變數，用於決定是否執行任何系統。）
+                bool useArea = option.Systems.HasFlag(System.Area);
+                bool useBuilding = option.Systems.HasFlag(System.Building);
+                bool useNet = option.Systems.HasFlag(System.Net);
+                bool usePOI = option.Systems.HasFlag (System.POI);
+                bool useRaster = option.Systems.HasFlag(System.Raster);
+                bool useRoute = option.Systems.HasFlag(System.Route);
+                bool useZoning = option.Systems.HasFlag(System.Zoning);
 
-                // Retrieve building statistics.（獲取建築的統計資料。）
-                Instance.Shared.GetBuildingStats(option);
+                // Collect shared data.（收集共享資料。）
+                if (useArea || useBuilding)
+                {
+                    // Retrieve building statistics.（獲取建築的統計資料。）
+                    Instance.Shared.GetBuildingStats(option);
+                }
+                else if (useZoning)
+                {
+                    // Retrieve zoning types information.（獲取分區類別的資訊。）
+                    Instance.Shared.GetZoningTypes(option);
+                }
 
-                //if (Instance.Shared.BuildingStats.IsCreated)
-                //{
-                //    _log.Info("\n\n\nBuildingStats\n\n");
-                //    for (int i = 0; i < Instance.Shared.BuildingStats.Length; i++)
-                //    {
-                //        _log.Info($"{i} {Instance.Shared.BuildingStats[i]}");
-                //    }
-                //}
-                //if (Instance.Shared.AreaStatsEntityMap.IsCreated)
-                //{
-                //    _log.Info("\n\n\nAreaStatsEntityMap\n\n");
-                //    (NativeArray<Entity> array, int) unique = Instance.Shared.AreaStatsEntityMap.GetUniqueKeyArray(Allocator.Temp);
-                //    for (int i = 0; i < unique.array.Length; i++)
-                //    {
-                //        Entity entity = unique.array[i];
-                //        _log.Info($"{i} - {entity}");
-                //        if (Instance.Shared.AreaStatsEntityMap.TryGetFirstValue(entity, out int n, out var it))
-                //        {
-                //            do
-                //            {
-                //                _log.Info($"\t\t{n}, {Instance.Shared.BuildingStats[n]}");
-                //            }
-                //            while (Instance.Shared.AreaStatsEntityMap.TryGetNextValue(out n, ref it));
-                //        }
-                //    }
-                //}
+                if (useZoning)
+                {
 
-                if (option.Systems.HasFlag(System.Area))
+                }
+                if (useBuilding)
+                {
+
+                }
+                if (useArea)
                 {
                     GeoJson.Write(option, Instance.Area.WriteFeatures, OnReport);
+                }
+                if (useRaster)
+                {
+                    GeoTiff.Write(option, OnReport);
                 }
             }
             catch (Exception ex)
@@ -234,6 +246,33 @@ namespace Carto.IO
             {
                 Instance.Shared.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Retrieve the given <see cref="Property"/>'s type.
+        /// （獲得給定 <see cref="Property"/> 的型別。）
+        /// </summary>
+        /// <param name="property">The property enumeration.（欄位枚舉。）</param>
+        /// <param name="propertyName">The title of the field.（欄位的名稱。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <returns>The expected type of the <see cref="Property"/>.（<see cref="Property"/> 的預期型別。）</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static Type GetPropertyType(Property property, string propertyName, Options options = null)
+        {
+            if (options != null)
+            {
+                if ((property == Property.Resident) && options.SeparateResident)
+                {
+                    return typeof(int[]);
+                }
+            }
+
+            if (!PropertyTypeTable.TryGetValue(property, out Type expectedType))
+            {
+                throw new ArgumentException($"Unknown property `{propertyName}`. 未知的屬性 `{propertyName}`。");
+            }
+
+            return expectedType;
         }
     }
 }

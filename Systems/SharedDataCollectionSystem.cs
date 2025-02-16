@@ -424,8 +424,16 @@ namespace Carto.Systems
             ref NativeParallelHashMap<Entity, int> brandsEntityMap = ref _brandsEntityMap;
             ref NativeParallelHashMap<Entity, int> zoningsEntityMap = ref _zoningTypesEntityMap;
 
+            // Export options.（輸出設定。）
+            bool hasAge = option.Contains(Property.Age);
+            bool hasBrand = option.Contains(Property.Brand);
+            bool hasPopulation = option.ContainsAny(Property.Age, Property.Labor, Property.Resident, Property.SexRatio, Property.Wage);
+            bool hasWage = option.Contains(Property.Wage);
+            bool hasZoning = option.ContainsAny(Property.Theme, Property.Zoning) ||
+                             option.ContainsAny(IO.System.Zoning, Property.Category, Property.Color, Property.Density, Property.Name);
+
             // Collect brands.（收集品牌。）
-            if (option.Contains(Property.Brand))
+            if (hasBrand)
             {
                 GetBrands();
             }
@@ -436,11 +444,7 @@ namespace Carto.Systems
             }
 
             // Collect zoning types.（收集分區類型。）
-            if
-            (
-                option.ContainsAny(Property.Theme, Property.Zoning) ||
-                option.ContainsAny(IO.System.Zoning, Property.Category, Property.Color, Property.Density, Property.Name)
-            )
+            if (hasZoning)
             {
                 GetZoningTypes(option);
             }
@@ -474,38 +478,53 @@ namespace Carto.Systems
             try
             {
                 // Collect the dividend of each company.（收集各公司的員工分紅。）
-                CollectCompanyDividendsJob collectDividendJob = new()
+                if (hasWage)
                 {
-                    hashmap = dividendEntityMap.AsParallelWriter()
-                };
-                JobHandle collectDividendHandle = collectDividendJob.ScheduleParallel(_companyQuery, default);
-                collectDividendHandle.Complete();
+                    CollectCompanyDividendsJob collectDividendJob = new()
+                    {
+                        hashmap = dividendEntityMap.AsParallelWriter()
+                    };
+                    JobHandle collectDividendHandle = collectDividendJob.ScheduleParallel(_companyQuery, default);
+                    collectDividendHandle.Complete();
+                }
                 
                 // Collect the sex of each citizen prefab.（收集各種市民預製模板的生理性別。）
-                CollectCitizenSexJob collectSexJob = new()
+                if (hasPopulation)
                 {
-                    hashmap = sexEntityMap.AsParallelWriter()
-                };
-                JobHandle collectSexHandle = collectSexJob.ScheduleParallel(_citizenPrefabQuery, default);
-                collectSexHandle.Complete();
+                    CollectCitizenSexJob collectSexJob = new()
+                    {
+                        hashmap = sexEntityMap.AsParallelWriter()
+                    };
+                    JobHandle collectSexHandle = collectSexJob.ScheduleParallel(_citizenPrefabQuery, default);
+                    collectSexHandle.Complete();
+                }
 
                 // Retrieve the basic economy parameters.（獲得基本經濟參數。）
                 EconomyParameterData economyParameterData = default;
-                if (_economyParameterQuery.TryGetSingleton(out EconomyParameterData economyParameter))
+                if (hasWage)
                 {
-                    economyParameterData = economyParameter;
+                    if (_economyParameterQuery.TryGetSingleton(out EconomyParameterData economyParameter))
+                    {
+                        economyParameterData = economyParameter;
+                    }
                 }
 
                 // Retrieve the current time frame.（獲得目前的時間幀。）
                 TimeData timeData = default;
-                if (_timeDataQuery.TryGetSingleton(out TimeData singleton))
+                uint currentFrame = default;
+                if (hasAge)
                 {
-                    timeData = singleton;
+                    if (_timeDataQuery.TryGetSingleton(out TimeData singleton))
+                    {
+                        timeData = singleton;
+                    }
+                    currentFrame = Instance.Simulation.frameIndex;
                 }
 
                 // Collect the statistics of each building.（收集各個建築的統計資料。）
                 CollectBuildingStatsJob collectStatsJob = new()
                 {
+                    countHomeless = option.Homeless,
                     taxableIncomeOnly = option.Taxable,
                     citizenBufferLookup = GetBufferLookup<HouseholdCitizen>(true),
                     employeeBufferLookup = GetBufferLookup<Employee>(true),
@@ -513,6 +532,7 @@ namespace Carto.Systems
                     citizenLookup = GetComponentLookup<Citizen>(true),
                     companyDataLookup = GetComponentLookup<CompanyData>(true),
                     healthProblemLookup = GetComponentLookup<HealthProblem>(true),
+                    homelessHouseholdLookup = GetComponentLookup<HomelessHousehold>(true),
                     householdLookup = GetComponentLookup<Household>(true),
                     prefabRefLookup = GetComponentLookup<PrefabRef>(true),
                     processLookup = GetComponentLookup<IndustrialProcessData>(true),
@@ -522,7 +542,7 @@ namespace Carto.Systems
                     workerLookup = GetComponentLookup<Worker>(true),
                     economyParameter = economyParameterData,
                     emptyZoningTypeIndex = zonings.Length - 1,
-                    currentFrameIndex = Instance.Simulation.frameIndex,
+                    currentFrameIndex = currentFrame,
                     initialTime = timeData,
                     brandEntityMap = brandsEntityMap,
                     dividendEntityMap = dividendEntityMap,
@@ -553,6 +573,9 @@ namespace Carto.Systems
         public partial struct CollectBuildingStatsJob : IJobEntity
         {
             [ReadOnly]
+            public bool countHomeless;
+            
+            [ReadOnly]
             public bool taxableIncomeOnly;
             
             [ReadOnly]
@@ -572,6 +595,9 @@ namespace Carto.Systems
 
             [ReadOnly]
             public ComponentLookup<HealthProblem> healthProblemLookup;
+
+            [ReadOnly]
+            public ComponentLookup<HomelessHousehold> homelessHouseholdLookup;
 
             [ReadOnly]
             public ComponentLookup<Household> householdLookup;
@@ -653,6 +679,7 @@ namespace Carto.Systems
                     for (int i = 0; i < renterBuffer.Length; i++)
                     {
                         Entity renter = renterBuffer[i].m_Renter;
+                        bool recordable = countHomeless || !homelessHouseholdLookup.HasComponent(renter);
 
                         if (companyDataLookup.TryGetComponent(renter, out CompanyData companyData))
                         {
@@ -682,12 +709,12 @@ namespace Carto.Systems
                             stat.employee += employeeBufferPerRenter.Length;
                         }
 
-                        if (householdLookup.HasComponent(renter))
+                        if (householdLookup.HasComponent(renter) && recordable)
                         {
                             stat.household++;
                         }
 
-                        if (citizenBufferLookup.TryGetBuffer(renter, out DynamicBuffer<HouseholdCitizen> citizenBuffer))
+                        if (citizenBufferLookup.TryGetBuffer(renter, out DynamicBuffer<HouseholdCitizen> citizenBuffer) && recordable)
                         {
                             for (int j = 0; j < citizenBuffer.Length; j++)
                             {
