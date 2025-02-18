@@ -48,6 +48,17 @@ namespace Carto.Utils
         /// </summary>
         /// <param name="value">The input value.（輸入值。）</param>
         /// <returns>The flipped byte array with length of 4.（長度為 4、已翻轉的位元組陣列。）</returns>
+        public static byte[] GetFlippedBytes(float value)
+        {
+            return BitConverter.GetBytes(value).Reverse().ToArray();
+        }
+
+        /// <summary>
+        /// Retrieve the byte array with flipped endianess.
+        /// （獲得端序翻轉的位元組陣列。）
+        /// </summary>
+        /// <param name="value">The input value.（輸入值。）</param>
+        /// <returns>The flipped byte array with length of 4.（長度為 4、已翻轉的位元組陣列。）</returns>
         public static byte[] GetFlippedBytes(int value)
         {
             return BitConverter.GetBytes(value).Reverse().ToArray();
@@ -73,6 +84,17 @@ namespace Carto.Utils
         public static byte[] GetFlippedBytes(string value)
         {
             return Encoding.UTF8.GetBytes(value).Reverse().ToArray();
+        }
+
+        /// <summary>
+        /// Retrieve the byte array with flipped endianess.
+        /// （獲得端序翻轉的位元組陣列。）
+        /// </summary>
+        /// <param name="value">The input value.（輸入值。）</param>
+        /// <returns>The flipped byte array with length of 2.（長度為 2、已翻轉的位元組陣列。）</returns>
+        public static byte[] GetFlippedBytes(ushort value)
+        {
+            return BitConverter.GetBytes(value).Reverse().ToArray();
         }
 
         /// <summary>
@@ -270,6 +292,24 @@ namespace Carto.Utils
         /// （以小端序寫入資料。）
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="value">The input float.（輸入的 單精度浮點數。）</param>
+        public static void WriteLE(BinaryWriter writer, float value)
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(BitConverter.GetBytes(value));
+            }
+            else
+            {
+                writer.Write(GetFlippedBytes(value));
+            }
+        }
+
+        /// <summary>
+        /// Write data in little endian.
+        /// （以小端序寫入資料。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="value">The input integer.（輸入的 32 位元整數。）</param>
         public static void WriteLE(BinaryWriter writer, int value)
         {
@@ -316,6 +356,67 @@ namespace Carto.Utils
             else
             {
                 writer.Write(GetFlippedBytes(value));
+            }
+        }
+
+        /// <summary>
+        /// Write data in little endian.
+        /// （以小端序寫入資料。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="value">The input ushort.（輸入的 16 位元整數。）</param>
+        public static void WriteLE(BinaryWriter writer, ushort value)
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(BitConverter.GetBytes(value));
+            }
+            else
+            {
+                writer.Write(GetFlippedBytes(value));
+            }
+        }
+
+        /// <summary>
+        ///  Write data in little endian.
+        /// （以小端序寫入資料。）
+        /// </summary>
+        /// <typeparam name="T">The type of <paramref name="value"/>.（<paramref name="value"/> 的型別。）</typeparam>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="value">The input value.（輸入的數值。）</param>
+        /// <param name="stringify">Turn the value into the UTF-8 string, if no conversions available.（若沒有合適的轉換，將數值變成字串。）</param>
+        /// <exception cref="NotSupportedException"></exception>
+        public static void WriteLE<T>(BinaryWriter writer, T value, bool stringify = false)
+        {
+            switch (value)
+            {
+                case float @float:
+                    WriteLE(writer, @float);
+                    break;
+                
+                case int @int:
+                    WriteLE(writer, @int);
+                    break;
+
+                case short @short:
+                    WriteLE(writer, @short);
+                    break;
+
+                case string @string:
+                    WriteLE(writer, @string);
+                    break;
+
+                case ushort @ushort:
+                    WriteLE(writer, @ushort);
+                    break;
+
+                default:
+                    if (stringify)
+                    {
+                        WriteLE(writer, value.ToString());
+                        break;
+                    }
+                    throw new NotSupportedException($"The type `{typeof(T).Name}` is not supported. 不支援 `{typeof(T).Name}` 型別。");
             }
         }
     }

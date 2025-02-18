@@ -32,6 +32,12 @@ namespace Carto
         /// </summary>
         public static SimulationSystem Simulation => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SimulationSystem>();
 
+        /// <summary>
+        /// The system managing the terrain.
+        /// （管理地形的系統。）
+        /// </summary>
+        public static TerrainSystem Terrain => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<TerrainSystem>();
+
         // Carto instances（Carto 的實例）
         /// <summary>
         /// The system that searches areas.

@@ -1,9 +1,12 @@
 using Carto.Utils;
+using Colossal.Mathematics;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
+using Unity.Collections;
 
 namespace Carto.IO
 {
@@ -126,6 +129,24 @@ namespace Carto.IO
         public struct Parameter
         {
             /// <summary>
+            /// The bounds of the value.
+            /// （數值的界限。）
+            /// </summary>
+            public Bounds1 bounds;
+
+            /// <summary>
+            /// The datetime of the file creation.
+            /// （檔案創建時的日期與時間。）
+            /// </summary>
+            public string dateTime;
+
+            /// <summary>
+            /// The number of bits of each sample.
+            /// （每個樣本的位元數。）
+            /// </summary>
+            public int depth;
+
+            /// <summary>
             /// The format to export to.
             /// （輸出的格式。）
             /// </summary>
@@ -208,6 +229,24 @@ namespace Carto.IO
             /// （影像片段偏移（273／0x0111）標籤的位移量。）
             /// </summary>
             public int offsetStrips;
+
+            /// <summary>
+            /// The format of a sample.
+            /// （樣本的格式。）
+            /// </summary>
+            public int sampleFormat;
+
+            /// <summary>
+            /// The name of the software that produces the file.
+            /// （產出檔案的軟體名稱。）
+            /// </summary>
+            public string software;
+
+            /// <summary>
+            /// The number of bytes of each strip.
+            /// （每個片段的位元組數。）
+            /// </summary>
+            public readonly short BytesPerStrip() => (short)(imageWidth * depth / 8);
         }
 
         /// <summary>
@@ -246,16 +285,39 @@ namespace Carto.IO
 
             // Prepare the metadata.（準備元資料。）
             GeoTiffFormat format = options.GeoTiffFormat;
+            int depth = format == GeoTiffFormat.Float32 ? 32 : 16;
             float nodata = format == GeoTiffFormat.Float32 ? 1.70141E+38f : (format == GeoTiffFormat.Int16 ? -32768f : 0f);
-            Parameter param = new() { format = format, nodata = nodata };
+            int sample = format == GeoTiffFormat.Float32 ? 3 : (format == GeoTiffFormat.Int16 ? 2 : 1);
+            Parameter param = new() { depth = depth, format = format, nodata = nodata, sampleFormat = sample };
 
             // Write the grid data.（寫入網格資料。）
             writeGridMethod.Invoke(writer, ref param);
 
             // Write the metadata.（寫入元資料。）
-            IOUtils.WriteLE(writer, (short)18);
-            WriteTag(writer, 256, 1, param.imageWidth);
-            WriteTag(writer, 257, 1, param.imageHeight);
+            Task writerThread = Task.Run(() => {
+                // Write IFDs.（寫入影像檔案目錄。）
+                IOUtils.WriteLE(writer, (short)18);
+                WriteTag(writer, 256, 1, param.imageWidth);
+                WriteTag(writer, 257, 1, param.imageHeight);
+                WriteTag(writer, 258, 1, depth);
+                WriteTag(writer, 259, 1, 1);
+                WriteTag(writer, 262, 1, 1);
+                WriteTag(writer, 273, param.imageHeight, param.offsetStrips);
+                WriteTag(writer, 277, 1, 1);
+                WriteTag(writer, 278, 1, 1);
+                WriteTag(writer, 279, param.imageHeight, param.offsetBytesPerStrip);
+                WriteTag(writer, 284, 1, 1);
+                WriteTag(writer, 305, Encoding.UTF8.GetBytes(param.software).Length + 1, param.offsetSoftware);
+                WriteTag(writer, 306, 20, param.offsetDateTime);
+                WriteTag(writer, 339, 1, param.sampleFormat);
+                WriteTag(writer, 33550, 3, param.offsetModelPixelScaleTag);
+                WriteTag(writer, 33922, 6, param.offsetModelTiepointTag);
+                WriteTag(writer, 34735, 0 + 48, param.offsetGeoKeyDirectoryTag); // Needs rewrite
+                WriteTag(writer, 34737, 0 + 14, param.offsetGeoAsciiParamsTag); // Needs rewrite
+                WriteTag(writer, 42113, 0 + 0, param.offsetGdalNodata); // Needs rewrite
+
+                // Write additional data.（寫入額外資料。）
+            });
 
             stopwatch.Stop();
             Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
@@ -265,13 +327,126 @@ namespace Carto.IO
         /// Write the grid data to the file.
         /// （寫入網格資料至檔案中。）
         /// </summary>
-        /// <typeparam name="T">The type of the array elements.（陣列元素的型別。）</typeparam>
+        /// <typeparam name="T1">The type of the array elements.（陣列元素的型別。）</typeparam>
+        /// <typeparam name="T2">The type that actually writes into the file.（實際寫入檔案的型別。）</typeparam>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="grid">The data array.（資料陣列。）</param>
         /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
-        public static void WriteGridData<T>(BinaryWriter writer, ref IEnumerable<T> grid, ref Parameter param)
-        {
+        /// <param name="conversion">The function to convert a <typeparamref name="T1"/> object to <typeparamref name="T2"/>.</param>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static void WriteGridData<T1, T2>(BinaryWriter writer, ref IList<T1> grid, in Parameter param, Func<Parameter, T1, T2> conversion = null)
+        {   
+            // Validate the grid object.（檢驗網格物體。）
+            if (grid == null)
+            {
+                throw new ArgumentNullException("The input grid must not be empty. 輸入的網格不可為空值。");
+            }
 
+            // Validate the length of the input grid.（檢驗輸入網格的長度。）
+            int length = param.imageHeight * param.imageWidth;
+            if (grid.Count != length)
+            {
+                throw new ArgumentException($"Length mismatch: expect {length}, but got {grid.Count}. 長度錯誤：預期為 {length}，實際為 {grid.Count}。");
+            }
+
+            // Fill grid data.（填入網格資料。）
+            if (conversion == null)
+            {
+                for (int i = 0; i < grid.Count; i++)
+                {
+                    IOUtils.WriteLE(writer, grid[i]);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < grid.Count; i++)
+                {
+                    IOUtils.WriteLE(writer, conversion.Invoke(param, grid[i]));
+                }
+            }
+
+            WriteGridDataCommon(writer, param.BytesPerStrip(), param.imageHeight);
+        }
+
+        /// <summary>
+        /// Write the grid data to the file.
+        /// （寫入網格資料至檔案中。）
+        /// </summary>
+        /// <typeparam name="T1">The type of the array elements.（陣列元素的型別。）</typeparam>
+        /// <typeparam name="T2">The type that actually writes into the file.（實際寫入檔案的型別。）</typeparam>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="grid">The data array.（資料陣列。）</param>
+        /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
+        /// <param name="conversion">The function to convert a <typeparamref name="T1"/> object to <typeparamref name="T2"/>.</param>
+        public static void WriteGridData<T1, T2>(BinaryWriter writer, ref NativeArray<T1> grid, in Parameter param, Func<Parameter, T1, T2> conversion = null) where T1 : struct
+        {
+            // Ensure native container safety.（確保原生容器的安全性。）
+            if (!grid.IsCreated)
+            {
+                throw new ArgumentException("The input grid is not initiated. 輸入的網格尚未初始化。");
+            }
+            
+            // Validate the length of the input grid.（檢驗輸入網格的長度。）
+            int length = param.imageHeight * param.imageWidth;
+            if (grid.Length != length)
+            {
+                throw new ArgumentException($"Length mismatch: expect {length}, but got {grid.Length}. 長度錯誤：預期為 {length}，實際為 {grid.Length}。");
+            }
+
+            // Fill grid data.（填入網格資料。）
+            if (conversion == null)
+            {
+                for (int i = 0; i < grid.Length; i++)
+                {
+                    IOUtils.WriteLE(writer, grid[i]);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < grid.Length; i++)
+                {
+                    IOUtils.WriteLE(writer, conversion.Invoke(param, grid[i]));
+                }
+            }
+
+            WriteGridDataCommon(writer, param.BytesPerStrip(), param.imageHeight);
+        }
+
+        /// <summary>
+        /// Write the common grid-related data.
+        /// （寫入與網格相關的共同資料。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="bytesPerStrip">The number of bytes of each strip.（每個影像片段的位元組數。）</param>
+        /// <param name="imageHeight">The height of the image in pixel.（影像以像素計的高度。）</param>
+        private static void WriteGridDataCommon(BinaryWriter writer, int bytesPerStrip, int imageHeight)
+        {
+            byte[] bytesPerStripArray;
+            if (_littleEndian)
+            {
+                bytesPerStripArray = BitConverter.GetBytes((short)bytesPerStrip);
+                for (int i = 0; i < imageHeight; i++)
+                {
+                    writer.Write(BitConverter.GetBytes(12 + i * bytesPerStrip));
+                }
+                for (int i = 1; i <= imageHeight; i++)
+                {
+                    writer.Write(bytesPerStripArray);
+                }
+            }
+            else
+            {
+                bytesPerStripArray = IOUtils.GetFlippedBytes((short)bytesPerStrip);
+                for (int i = 0; i < imageHeight; i++)
+                {
+                    writer.Write(IOUtils.GetFlippedBytes(12 + i * bytesPerStrip));
+                }
+                for (int i = 1; i <= imageHeight; i++)
+                {
+                    writer.Write(bytesPerStripArray);
+                }
+            }
         }
 
         /// <summary>
@@ -280,8 +455,31 @@ namespace Carto.IO
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
-        public static void WriteHeader(BinaryWriter writer, in Parameter param)
+        /// <exception cref="ArgumentException"></exception>
+        public static void WriteHeader(BinaryWriter writer, ref Parameter param)
         {
+            if ((param.depth == 0) || (param.imageHeight == 0) || (param.imageWidth == 0))
+            {
+                throw new ArgumentException("At least one of the parameter is unset: depth, imageHeight, or imageWidth. 至少一個參數未設定：depth，imageHeight，或是 imageWidth。");
+            }
+
+            param.dateTime = DateTime.Now.ToString("yyyy:MM:dd HH:mm:ss");
+            param.software = "CartoMod";
+
+            // A row is a strip. There are H strips in an image with height of H pixels.（一排是一個片段。在高度為 H 像素的影像中，共有 H 個影像片段。）
+            // Note: b = bytes per sample, f = first strip's offset = 12, H = image height.（註：b = 每個樣本位元組數，f = 第一個片段偏移量，H = 影像高度。）
+            //
+            // Offset（偏移量） Item（項目）
+            // ----------------------------
+            // f                Start of the first strip.（第一個片段開始。）
+            // f + b * H        Start of StripOffsets tag's content.（StripOffsets 標籤內容開始。）
+            // f + (b + 4) * H  Start of StripByteCounts tag's content.（StripByteCounts 標籤內容開始。）
+            // f + (b + 6) * H  Start of the IFD.（影像檔案目錄開始。）
+            int bps = param.BytesPerStrip();
+            param.offsetBytesPerStrip = 12 + (bps + 4) * param.imageHeight;
+            param.offsetIFD = 12 + (bps + 6) * param.imageHeight;
+            param.offsetStrips = 12 + bps * param.imageHeight;
+
             if (_littleEndian)
             {
                 writer.Write(Encoding.UTF8.GetBytes("II"));
