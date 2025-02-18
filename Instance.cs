@@ -52,6 +52,12 @@ namespace Carto
         public static ILog Log { get; } = LogManager.GetLogger(nameof(Carto)).SetShowsErrorsInUI(false);
 
         /// <summary>
+        /// The system that handles grid data.
+        /// （處理網格資料的系統。）
+        /// </summary>
+        public static RasterSystem Raster => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<RasterSystem>();
+
+        /// <summary>
         /// The options to change mod behaviors.
         /// （改變模組執行方式的設定。）
         /// </summary>

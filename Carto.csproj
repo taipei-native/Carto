@@ -99,10 +99,6 @@
 	<ItemGroup>
 		<None Include="$(ModPropsFile)" Link="Properties\Mod.props" />
 		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
-		<None Include="Geodata\Feature.cs" />
-		<None Include="Geodata\Geodata.cs" />
-		<None Include="Geodata\RasterData.cs" />
-		<None Include="Geodata\VectorData.cs" />
 	</ItemGroup>
 
 </Project>

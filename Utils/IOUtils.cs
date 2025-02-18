@@ -10,6 +10,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using Unity.Entities;
 
 namespace Carto.Utils
@@ -46,6 +47,17 @@ namespace Carto.Utils
         /// （獲得端序翻轉的位元組陣列。）
         /// </summary>
         /// <param name="value">The input value.（輸入值。）</param>
+        /// <returns>The flipped byte array with length of 4.（長度為 4、已翻轉的位元組陣列。）</returns>
+        public static byte[] GetFlippedBytes(int value)
+        {
+            return BitConverter.GetBytes(value).Reverse().ToArray();
+        }
+
+        /// <summary>
+        /// Retrieve the byte array with flipped endianess.
+        /// （獲得端序翻轉的位元組陣列。）
+        /// </summary>
+        /// <param name="value">The input value.（輸入值。）</param>
         /// <returns>The flipped byte array with length of 2.（長度為 2、已翻轉的位元組陣列。）</returns>
         public static byte[] GetFlippedBytes(short value)
         {
@@ -57,10 +69,10 @@ namespace Carto.Utils
         /// （獲得端序翻轉的位元組陣列。）
         /// </summary>
         /// <param name="value">The input value.（輸入值。）</param>
-        /// <returns>The flipped byte array with length of 4.（長度為 4、已翻轉的位元組陣列。）</returns>
-        public static byte[] GetFlippedBytes(int value)
+        /// <returns>The flipped byte array.（已翻轉的位元組陣列。）</returns>
+        public static byte[] GetFlippedBytes(string value)
         {
-            return BitConverter.GetBytes(value).Reverse().ToArray();
+            return Encoding.UTF8.GetBytes(value).Reverse().ToArray();
         }
 
         /// <summary>
@@ -251,6 +263,60 @@ namespace Carto.Utils
         public static string RemoveInvalidChars(string input)
         {
             return new string(input.Where(ch => !Path.GetInvalidFileNameChars().Contains(ch)).ToArray());
+        }
+
+        /// <summary>
+        /// Write data in little endian.
+        /// （以小端序寫入資料。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="value">The input integer.（輸入的 32 位元整數。）</param>
+        public static void WriteLE(BinaryWriter writer, int value)
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(BitConverter.GetBytes(value));
+            }
+            else
+            {
+                writer.Write(GetFlippedBytes(value));
+            }
+        }
+
+        /// <summary>
+        /// Write data in little endian.
+        /// （以小端序寫入資料。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="value">The input short.（輸入的 16 位元整數。）</param>
+        public static void WriteLE(BinaryWriter writer, short value)
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(BitConverter.GetBytes(value));
+            }
+            else
+            {
+                writer.Write(GetFlippedBytes(value));
+            }
+        }
+
+        /// <summary>
+        /// Write data in little endian.
+        /// （以小端序寫入資料。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="value">The input string.（輸入的字串。）</param>
+        public static void WriteLE(BinaryWriter writer, string value)
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(Encoding.UTF8.GetBytes(value));
+            }
+            else
+            {
+                writer.Write(GetFlippedBytes(value));
+            }
         }
     }
 }

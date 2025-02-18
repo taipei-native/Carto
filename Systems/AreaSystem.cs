@@ -286,7 +286,7 @@ namespace Carto.Systems
                         }
                         if (hasResident)
                         {
-                            if (options.SeperateResident)
+                            if (options.SeparateResident)
                             {
                                 GeoJson.WriteProperty(writer, Property.Resident, new int[2] { stat.residentFemale, stat.residentMale }, options);
                             }

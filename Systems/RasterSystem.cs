@@ -1,5 +1,7 @@
+using Carto.IO;
 using Colossal.Logging;
 using Game;
+using System.IO;
 
 namespace Carto.Systems
 {
@@ -36,5 +38,13 @@ namespace Carto.Systems
         /// （當系統實例被更新時觸發的事件。）
         /// </summary>
         protected override void OnUpdate() { }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void WriteElevation(BinaryWriter writer, ref GeoTiff.Parameter param)
+        {
+
+        }
     }
 }

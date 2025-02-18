@@ -172,6 +172,7 @@ namespace Carto.IO
                 Features = Feature.District | Feature.MapTile,
                 FileFormat = FileFormat.GeoTIFF,
                 FileName = "Raster",
+                GeoTiffFormat = GeoTiffFormat.Int16,
                 Homeless = true,
                 Minimized = true,
                 Properties = new Dictionary<System, HashSet<Property>>
@@ -235,7 +236,7 @@ namespace Carto.IO
                 }
                 if (useRaster)
                 {
-                    GeoTiff.Write(option, OnReport);
+                    GeoTiff.Write(option, Instance.Raster.WriteElevation, OnReport);
                 }
             }
             catch (Exception ex)

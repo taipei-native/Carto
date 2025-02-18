@@ -21,7 +21,7 @@ namespace Carto.IO
         /// （寫出 GeoJSON 檔案。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
-        /// <param name="writeFeaturesMethod">The static WriteFeatures() method implemented in each system.（各系統實作的靜態 WriteFeatures() 方法。）</param>
+        /// <param name="writeFeaturesMethod">The WriteFeatures() method implemented in each system.（各系統實作的 WriteFeatures() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
         public static void Write(Options options, Action<JsonTextWriter, Options, Action<string, int>> writeFeaturesMethod, Action<string, int> onReportMethod)
         {

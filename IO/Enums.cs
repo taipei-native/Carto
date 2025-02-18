@@ -166,7 +166,32 @@ namespace Carto.IO
         /// </summary>
         WebMap
     }
-    
+
+    /// <summary>
+    /// The GeoTIFF formats Carto supports.
+    /// （Carto 支援的 GeoTIFF 格式。）
+    /// </summary>
+    public enum GeoTiffFormat
+    {
+        /// <summary>
+        /// Single-precision floating-point numbers. Range from -3.4E+38 to 3.4E+38.<br/>
+        /// （單精度浮點數，範圍由 -3.4E+38 至 3.4E+38。）
+        /// </summary>
+        Float32,
+
+        /// <summary>
+        /// 16-bit signed integers. Range from -32768 to 32767.<br/>
+        /// （16 位元帶正負號整數，範圍由 -32768 至 32767。）
+        /// </summary>
+        Int16,
+
+        /// <summary>
+        /// 16-bit unsigned integers. Range from 0 to 65535.<br/>
+        /// （16 位元不帶正負號整數，範圍由 0 至 65535。）
+        /// </summary>
+        Norm16
+    }
+
     /// <summary>
     /// The OS platform.
     /// （作業系統平臺。）

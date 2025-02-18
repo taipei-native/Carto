@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 
 namespace Carto.IO
 {
@@ -119,12 +120,112 @@ namespace Carto.IO
         };
         
         /// <summary>
+        /// The metadata of the GeoTIFF.
+        /// （GeoTIFF 的元資料。）
+        /// </summary>
+        public struct Parameter
+        {
+            /// <summary>
+            /// The format to export to.
+            /// （輸出的格式。）
+            /// </summary>
+            public GeoTiffFormat format;
+            
+            /// <summary>
+            /// The height of the image in pixel.
+            /// （影像以像素計算的高度。）
+            /// </summary>
+            public int imageHeight;
+
+            /// <summary>
+            /// The width of the image in pixel.
+            /// （影像以像素計算的寬度。）
+            /// </summary>
+            public int imageWidth;
+
+            /// <summary>
+            /// The nodata value used in the GeoTIFF.
+            /// （GeoTIFF 中代表無資料的數值。）
+            /// </summary>
+            public float nodata;
+
+            /// <summary>
+            /// The offset of StripByteCounts (279 / 0x0117) tag.<br/>
+            /// （每片段位元組數（279／0x0117）標籤的位移量。）
+            /// </summary>
+            public int offsetBytesPerStrip;
+
+            /// <summary>
+            /// The offset of DateTime (306 / 0x0132) tag.<br/>
+            /// （日期與時間（306／0x0132）標籤的位移量。）
+            /// </summary>
+            public int offsetDateTime;
+
+            /// <summary>
+            /// The offset of GDAL_NODATA (42113 / 0xA481) tag.<br/>
+            /// （GDAL 無資料值（42113／0xA481）標籤的位移量。）
+            /// </summary>
+            public int offsetGdalNodata;
+
+            /// <summary>
+            /// The offset of GeoAsciiParamsTag (34737 / 0x87B1) tag.<br/>
+            /// （地理 ASCII 參數（34737／0x87B1）標籤的位移量。）
+            /// </summary>
+            public int offsetGeoAsciiParamsTag;
+
+            /// <summary>
+            /// The offset of GeoKeyDirectoryTag (34735 / 0x87AF) tag.<br/>
+            /// （地理鍵目錄（34735 ／0x87AF）標籤的位移量。）
+            /// </summary>
+            public int offsetGeoKeyDirectoryTag;
+
+            /// <summary>
+            /// The offset of the image file directory (IFD).<br/>
+            /// （影像檔案目錄（IFD）的位移量。）
+            /// </summary>
+            public int offsetIFD;
+
+            /// <summary>
+            /// The offset of ModelPixelScaleTag (33550 / 0x830E) tag.<br/>
+            /// （空間－像素縮放比例（33550／0x830E）標籤的位移量。）
+            /// </summary>
+            public int offsetModelPixelScaleTag;
+
+            /// <summary>
+            /// The offset of ModelTiepointTag (33922 / 0x8482) tag.<br/>
+            /// （模型連接點（33922／0x8482）標籤的位移量。）
+            /// </summary>
+            public int offsetModelTiepointTag;
+
+            /// <summary>
+            /// The offset of Software (305 / 0x0131) tag.<br/>
+            /// （軟體（305／0x0131）標籤的位移量。）
+            /// </summary>
+            public int offsetSoftware;
+
+            /// <summary>
+            /// The offset of StripOffsets (273 / 0x0111) tag.<br/>
+            /// （影像片段偏移（273／0x0111）標籤的位移量。）
+            /// </summary>
+            public int offsetStrips;
+        }
+
+        /// <summary>
+        /// The delegate of the WriteGrid() methods implemented in each system.
+        /// （在各個系統實作的 WriteGrid() 方法的委派。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
+        public delegate void WriteGridMethod(BinaryWriter writer, ref Parameter param);
+
+        /// <summary>
         /// Write the GeoTIFF file.
         /// （寫出 GeoTIFF 檔案。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="writeGridMethod">The WriteGrid() method implemented in each system.（各系統實作的 WriteGrid() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public static void Write(Options options, Action<string, int> onReportMethod)
+        public static void Write(Options options, WriteGridMethod writeGridMethod, Action<string, int> onReportMethod)
         {
             /*
                 # References: （資料來源：）
@@ -143,10 +244,56 @@ namespace Carto.IO
             using FileStream fs = new(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None, 81920);
             using BinaryWriter writer = new(fs);
 
-            WriteTag(writer, 256, 1, 4096);
+            // Prepare the metadata.（準備元資料。）
+            GeoTiffFormat format = options.GeoTiffFormat;
+            float nodata = format == GeoTiffFormat.Float32 ? 1.70141E+38f : (format == GeoTiffFormat.Int16 ? -32768f : 0f);
+            Parameter param = new() { format = format, nodata = nodata };
+
+            // Write the grid data.（寫入網格資料。）
+            writeGridMethod.Invoke(writer, ref param);
+
+            // Write the metadata.（寫入元資料。）
+            IOUtils.WriteLE(writer, (short)18);
+            WriteTag(writer, 256, 1, param.imageWidth);
+            WriteTag(writer, 257, 1, param.imageHeight);
 
             stopwatch.Stop();
             Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
+        }
+
+        /// <summary>
+        /// Write the grid data to the file.
+        /// （寫入網格資料至檔案中。）
+        /// </summary>
+        /// <typeparam name="T">The type of the array elements.（陣列元素的型別。）</typeparam>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="grid">The data array.（資料陣列。）</param>
+        /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
+        public static void WriteGridData<T>(BinaryWriter writer, ref IEnumerable<T> grid, ref Parameter param)
+        {
+
+        }
+
+        /// <summary>
+        /// Write the header of a TIFF file.
+        /// （寫入 TIFF 檔案的標頭。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
+        public static void WriteHeader(BinaryWriter writer, in Parameter param)
+        {
+            if (_littleEndian)
+            {
+                writer.Write(Encoding.UTF8.GetBytes("II"));
+                writer.Write(BitConverter.GetBytes((short)42));
+                writer.Write(BitConverter.GetBytes(param.offsetIFD));
+            }
+            else
+            {
+                writer.Write(IOUtils.GetFlippedBytes("II"));
+                writer.Write(IOUtils.GetFlippedBytes((short)42));
+                writer.Write(IOUtils.GetFlippedBytes(param.offsetIFD));
+            }
         }
 
         /// <summary>

@@ -69,6 +69,8 @@ namespace Carto.IO
             }
         }
 
+        public GeoTiffFormat GeoTiffFormat { get; set; } = GeoTiffFormat.Int16;
+
         /// <summary>
         /// Whether to count homeless citizens in the household / resident field or not.<br/>
         /// （是否要在家庭／居民欄位計入無家可歸的市民？）
