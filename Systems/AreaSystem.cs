@@ -222,6 +222,10 @@ namespace Carto.Systems
                 // Initialize the writer thread.（初始化負責寫出的執行緒。）
                 Task writerThread = Task.Run(() =>
                 {
+                    Coord referenceCoord = options.GetTMCoord();
+                    CRS referenceProjection = options.GetTMProjection();
+                    ProjectionDefinition referenceProjectionDefinition = options.GetTMProjectionDefinition();
+                    
                     for (int i = 0; i < areaStats.Length; i++)
                     {
                         AreaStat stat = areaStats[i];
@@ -231,13 +235,13 @@ namespace Carto.Systems
                         // Write feature header.（寫出圖徵檔頭。）
                         writer.WriteStartObject();
                         GeoJson.WritePropertyPair(writer, "type", "Feature");
-
+                        
                         // Write feature geometry.（寫出圖徵幾何圖形。）
                         writer.WritePropertyName("geometry");
                         for (int j = 0; j < areaNodes.Length; j++)
                         {
-                            Coord coord = new(options.SourceCoordinates.Double3 + areaNodes[j], options.SourceCoordinates);
-                            transformedAreaNodes[j] = Transform.Apply(coord, options.SourceProjection, CRS.WGS84, options.SourceProjectionDefinition, new ProjectionDefinition()).Float3;
+                            Coord coord = new(referenceCoord.Double3 + areaNodes[j], referenceCoord);
+                            transformedAreaNodes[j] = Transform.Apply(coord, referenceProjection, CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3;
                         }
 
                         GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { transformedAreaNodes }), Shape.Polygon, options.Elevation);

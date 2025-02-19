@@ -11,8 +11,16 @@
       "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:systems\\rastersystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\io\\io.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:io\\io.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\geodata\\transform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:geodata\\transform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\systems\\areasystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:systems\\areasystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\io\\options.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:io\\options.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -22,7 +30,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Bookmark",
@@ -31,14 +39,40 @@
             {
               "$type": "Document",
               "DocumentIndex": 2,
-              "Title": "IO.cs",
-              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\IO.cs",
-              "RelativeDocumentMoniker": "IO\\IO.cs",
-              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\IO.cs",
-              "RelativeToolTip": "IO\\IO.cs",
-              "ViewState": "AgIAAN4AAAAAAAAAAAAlwOsAAAARAAAAAAAAAA==",
+              "Title": "Transform.cs",
+              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Geodata\\Transform.cs",
+              "RelativeDocumentMoniker": "Geodata\\Transform.cs",
+              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Geodata\\Transform.cs",
+              "RelativeToolTip": "Geodata\\Transform.cs",
+              "ViewState": "AgIAAPMAAAAAAAAAAADgv+oAAAA4AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-02-17T22:25:03.641Z",
+              "WhenOpened": "2025-02-19T13:57:01.578Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Options.cs",
+              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\Options.cs",
+              "RelativeDocumentMoniker": "IO\\Options.cs",
+              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\Options.cs",
+              "RelativeToolTip": "IO\\Options.cs",
+              "ViewState": "AgIAAEkBAAAAAAAAAADwv1cBAABgAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-02-19T04:17:48.987Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "AreaSystem.cs",
+              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\AreaSystem.cs",
+              "RelativeDocumentMoniker": "Systems\\AreaSystem.cs",
+              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\AreaSystem.cs",
+              "RelativeToolTip": "Systems\\AreaSystem.cs",
+              "ViewState": "AgIAANkAAAAAAAAAAADgv+IAAABtAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-02-18T17:40:02.167Z",
               "EditorCaption": ""
             },
             {
@@ -49,9 +83,9 @@
               "RelativeDocumentMoniker": "Systems\\RasterSystem.cs",
               "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\RasterSystem.cs",
               "RelativeToolTip": "Systems\\RasterSystem.cs",
-              "ViewState": "AgIAABsAAAAAAAAAAAAAAC4AAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAEEAAAAAAAAAAAAAwDcAAABKAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-02-18T00:05:08.786Z",
+              "WhenOpened": "2025-02-18T14:38:46.745Z",
               "EditorCaption": ""
             },
             {
@@ -62,9 +96,9 @@
               "RelativeDocumentMoniker": "IO\\GeoTiff.cs",
               "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\GeoTiff.cs",
               "RelativeToolTip": "IO\\GeoTiff.cs",
-              "ViewState": "AgIAAPAAAAAAAAAAAAAlwAMBAAAdAAAAAAAAAA==",
+              "ViewState": "AgIAAFsBAAAAAAAAAADwv34BAACtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-02-16T11:00:57.717Z",
+              "WhenOpened": "2025-02-18T14:00:36.375Z",
               "EditorCaption": ""
             }
           ]

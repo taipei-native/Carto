@@ -304,6 +304,57 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// Retrieve the Transverse Mercator coordinate of the map origin.
+        /// （獲得地圖原點的橫麥卡托投影坐標。）
+        /// </summary>
+        /// <returns>The coordinate in Transverse Mercator.（橫麥卡托的坐標。）</returns>
+        public Coord GetTMCoord()
+        {
+            if ((SourceProjection != CRS.TransverseMercator) || (SourceProjection != CRS.UTM))
+            {
+                return Transform.Apply(SourceCoordinates, SourceProjection, CRS.UTM, SourceProjectionDefinition, new());
+            }
+            else
+            {
+                return SourceCoordinates;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve the Transverse Mercator projection.
+        /// （獲得橫麥卡托投影。）
+        /// </summary>
+        /// <returns>The Transverse Mercator projection.（橫麥卡托投影。）</returns>
+        public CRS GetTMProjection()
+        {
+            if ((SourceProjection != CRS.TransverseMercator) || (SourceProjection != CRS.UTM))
+            {
+                return CRS.UTM;
+            }
+            else
+            {
+                return SourceProjection;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve the definition of the Transverse Mercator projection.
+        /// （獲得橫麥卡托投影的定義。）
+        /// </summary>
+        /// <returns>The definition of the Transverse Mercator projection.（橫麥卡托投影的定義。）</returns>
+        public ProjectionDefinition GetTMProjectionDefinition()
+        {
+            if ((SourceProjection != CRS.TransverseMercator) || (SourceProjection != CRS.UTM))
+            {
+                return new();
+            }
+            else
+            {
+                return SourceProjectionDefinition;
+            }
+        }
+
+        /// <summary>
         /// Check <see cref="Properties"/>' integrity.
         /// （確認 <see cref="Properties"/> 的完整性。）
         /// </summary>
