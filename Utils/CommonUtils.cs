@@ -421,5 +421,13 @@ namespace Carto.Utils
             Dispose(ref hashmap);
             hashmap = new(capacity, allocator);
         }
+
+        public static bool TryGetLast<T>(IList<T> collection, out T lastItem)
+        {
+            lastItem = default;
+            if ((collection == null) || collection.Count == 0) return false;
+            lastItem = collection[collection.Count - 1];
+            return true;
+        }
     }
 }

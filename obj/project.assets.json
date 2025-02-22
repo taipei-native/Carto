@@ -1,35 +1,11 @@
 {
   "version": 3,
   "targets": {
-    ".NETFramework,Version=v4.7.2": {
-      "CS2-ModdingTools/1.0.2": {
-        "type": "package",
-        "build": {
-          "build/CS2-ModdingTools.targets": {}
-        }
-      }
-    }
+    ".NETFramework,Version=v4.7.2": {}
   },
-  "libraries": {
-    "CS2-ModdingTools/1.0.2": {
-      "sha512": "lATxM6PDX8HnIDiEaC3M4KmAPYU8FoZeXLxj0bvDCgACp7e1QbpalX+7zUpIr9H1bSJlardDaXpn79YKSFwmbA==",
-      "type": "package",
-      "path": "cs2-moddingtools/1.0.2",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "README.md",
-        "build/CS2-ModdingTools.targets",
-        "cs2-moddingtools.1.0.2.nupkg.sha512",
-        "cs2-moddingtools.nuspec",
-        "licenses/LICENSE"
-      ]
-    }
-  },
+  "libraries": {},
   "projectFileDependencyGroups": {
-    ".NETFramework,Version=v4.7.2": [
-      "CS2-ModdingTools >= 1.0.2"
-    ]
+    ".NETFramework,Version=v4.7.2": []
   },
   "packageFolders": {
     "C:\\Users\\Daniel\\.nuget\\packages\\": {},
@@ -80,12 +56,6 @@
     "frameworks": {
       "net472": {
         "targetAlias": "net472",
-        "dependencies": {
-          "CS2-ModdingTools": {
-            "target": "Package",
-            "version": "[1.0.2, )"
-          }
-        },
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.101\\RuntimeIdentifierGraph.json"
       }
     }

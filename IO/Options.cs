@@ -119,7 +119,7 @@ namespace Carto.IO
         /// </summary>
         public ProjectionDefinition SourceProjectionDefinition { get; set; } = new
         (
-            new EllipsoidDefinition(Ellipsoid.WGS84),
+            new EllipsoidDefinition(Geodata.Ellipsoid.WGS84),
             (0, 0),
             (5E6, 0),
             0.9996,
@@ -138,6 +138,8 @@ namespace Carto.IO
         /// </summary>
         public System Systems { get; set; } = System.Unknown;
 
+        public Ellipsoid TargetEllipsoid { get; set; } = Ellipsoid.WGS84;
+
         /// <summary>
         /// The coordinate reference system (CRS) of target coordinates.<br/>
         /// （目標的坐標參考系統。）
@@ -150,7 +152,7 @@ namespace Carto.IO
         /// </summary>
         public ProjectionDefinition TargetProjectionDefinition { get; set; } = new
         (
-            new EllipsoidDefinition(Ellipsoid.WGS84),
+            new EllipsoidDefinition(Geodata.Ellipsoid.WGS84),
             (0, 0),
             (5E6, 0),
             0.9996,

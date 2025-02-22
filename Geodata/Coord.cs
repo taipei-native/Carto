@@ -106,5 +106,10 @@ namespace Carto.Geodata
         /// （UTM 坐標的元組表示法。）
         /// </summary>
         public readonly (double easting, double northing, int zone, Hemisphere hemisphere) UTMTuple => (x, y, zone, hemisphere);
+
+        public override readonly string ToString()
+        {
+            return $"Coord({x}, {y}, {z}) - Hemisphere [{hemisphere}], Zone [{zone}]";
+        }
     }
 }

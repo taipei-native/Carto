@@ -1,3 +1,4 @@
+using Carto.Geodata;
 using Carto.Utils;
 using Colossal.Mathematics;
 using System;
@@ -139,7 +140,7 @@ namespace Carto.IO
             { 34737, fieldTypeAscii },
             { 42113, fieldTypeAscii }
         };
-        
+
         /// <summary>
         /// The metadata of the GeoTIFF.
         /// （GeoTIFF 的元資料。）
@@ -153,23 +154,41 @@ namespace Carto.IO
             public Bounds1 bounds;
 
             /// <summary>
-            /// The datetime of the file creation.
-            /// （檔案創建時的日期與時間。）
-            /// </summary>
-            public string dateTime;
-
-            /// <summary>
             /// The number of bits of each sample.
             /// （每個樣本的位元數。）
             /// </summary>
             public int depth;
 
             /// <summary>
+            /// The EPSG code for the target ellipsoid.
+            /// （目標橢球體的 EPSG 代號。）
+            /// </summary>
+            public int ellipsoidCode;
+
+            /// <summary>
             /// The format to export to.
             /// （輸出的格式。）
             /// </summary>
             public GeoTiffFormat format;
-            
+
+            /// <summary>
+            /// Whether the target projection uses a custom ellipsoid or not.
+            /// （目標投影法是否使用自訂橢球體？）
+            /// </summary>
+            public bool hasCustomEllipsoid;
+
+            /// <summary>
+            /// Whether the target projection has Helmert Transform parameters or not.
+            /// （目標投影法是否具有赫爾默特轉換參數？）
+            /// </summary>
+            public bool hasTransform;
+
+            /// <summary>
+            /// Whether the target projection is UTM or not.
+            /// （目標投影法是否為 UTM？）
+            /// </summary>
+            public bool isUTM;
+
             /// <summary>
             /// The height of the image in pixel.
             /// （影像以像素計算的高度。）
@@ -195,58 +214,10 @@ namespace Carto.IO
             public int offsetBytesPerStrip;
 
             /// <summary>
-            /// The offset of DateTime (306 / 0x0132) tag.<br/>
-            /// （日期與時間（306／0x0132）標籤的位移量。）
-            /// </summary>
-            public int offsetDateTime;
-
-            /// <summary>
-            /// The offset of GDAL_NODATA (42113 / 0xA481) tag.<br/>
-            /// （GDAL 無資料值（42113／0xA481）標籤的位移量。）
-            /// </summary>
-            public int offsetGdalNodata;
-
-            /// <summary>
-            /// The offset of GeoAsciiParamsTag (34737 / 0x87B1) tag.<br/>
-            /// （地理 ASCII 參數（34737／0x87B1）標籤的位移量。）
-            /// </summary>
-            public int offsetGeoAsciiParamsTag;
-
-            /// <summary>
-            /// The offset of GeoDoubleParamsTag (34736 / 0x87B0) tag.<br/>
-            /// （地理雙精度浮點數參數（34736／0x87B0）標籤的位移量。）
-            /// </summary>
-            public int offsetGeoDoubleParamsTag;
-
-            /// <summary>
-            /// The offset of GeoKeyDirectoryTag (34735 / 0x87AF) tag.<br/>
-            /// （地理鍵目錄（34735 ／0x87AF）標籤的位移量。）
-            /// </summary>
-            public int offsetGeoKeyDirectoryTag;
-
-            /// <summary>
             /// The offset of the image file directory (IFD).<br/>
             /// （影像檔案目錄（IFD）的位移量。）
             /// </summary>
             public int offsetIFD;
-
-            /// <summary>
-            /// The offset of ModelPixelScaleTag (33550 / 0x830E) tag.<br/>
-            /// （空間－像素縮放比例（33550／0x830E）標籤的位移量。）
-            /// </summary>
-            public int offsetModelPixelScaleTag;
-
-            /// <summary>
-            /// The offset of ModelTiepointTag (33922 / 0x8482) tag.<br/>
-            /// （模型連接點（33922／0x8482）標籤的位移量。）
-            /// </summary>
-            public int offsetModelTiepointTag;
-
-            /// <summary>
-            /// The offset of Software (305 / 0x0131) tag.<br/>
-            /// （軟體（305／0x0131）標籤的位移量。）
-            /// </summary>
-            public int offsetSoftware;
 
             /// <summary>
             /// The offset of StripOffsets (273 / 0x0111) tag.<br/>
@@ -255,22 +226,28 @@ namespace Carto.IO
             public int offsetStrips;
 
             /// <summary>
+            /// The EPSG code for the target projection.
+            /// （目標投影法的 EPSG 代號。）
+            /// </summary>
+            public int projectionCode;
+            
+            /// <summary>
             /// The format of a sample.
             /// （樣本的格式。）
             /// </summary>
             public int sampleFormat;
 
             /// <summary>
-            /// The name of the software that produces the file.
-            /// （產出檔案的軟體名稱。）
+            /// The scale factor between the pixel and the target projection's length unit along the x-axis.
+            /// （X 軸方向上像素與目標投影法之間的尺度係數。）
             /// </summary>
-            public string software;
+            public double scaleX;
 
             /// <summary>
-            /// The number of tags in IFD.
-            /// （影像檔案目錄中的標籤數量。）
+            /// The scale factor between the pixel and the target projection's length unit along the y-axis.
+            /// （Y 軸方向上像素與目標投影法之間的尺度係數。）
             /// </summary>
-            public short tagCount;
+            public double scaleY;
 
             /// <summary>
             /// The number of bytes of each strip.
@@ -319,12 +296,15 @@ namespace Carto.IO
             float nodata = format == GeoTiffFormat.Float32 ? 1.70141E+38f : (format == GeoTiffFormat.Int16 ? -32768f : 0f);
             int sample = format == GeoTiffFormat.Float32 ? 3 : (format == GeoTiffFormat.Int16 ? 2 : 1);
             Parameter param = new() {
-                dateTime = DateTime.Now.ToString("yyyy:MM:dd HH:mm:ss"),
                 depth = depth,
+                ellipsoidCode = Epsg.Ellipsoid.GetCode(options.TargetEllipsoid),
                 format = format,
+                hasCustomEllipsoid = options.TargetEllipsoid == Ellipsoid.Custom,
+                hasTransform = options.TargetProjectionDefinition.HasTransform(),
+                isUTM = options.TargetProjection == CRS.UTM,
                 nodata = nodata,
+                projectionCode = Epsg.UserDefined,
                 sampleFormat = sample,
-                software = "CartoMod",
             };
 
             // Write the grid data.（寫入網格資料。）
@@ -332,92 +312,13 @@ namespace Carto.IO
 
             // Write the metadata.（寫入元資料。）
             Task writerThread = Task.Run(() => {
-                // Write IFDs.（寫入影像檔案目錄。）
-                IOUtils.WriteLE(writer, param.tagCount); // Needs rewrite
-                WriteTag(writer, 256, 1, param.imageWidth);                                                     // Tag   256 [0x0100] ImageWidth（影像寬度）
-                WriteTag(writer, 257, 1, param.imageHeight);                                                    // Tag   257 [0x0101] ImageLength（影像高度）
-                WriteTag(writer, 258, 1, depth);                                                                // Tag   258 [0x0102] BitsPerSample（每波段位元數）
-                WriteTag(writer, 259, 1, 1);                                                                    // Tag   259 [0x0103] Compression（壓縮）
-                WriteTag(writer, 262, 1, 1);                                                                    // Tag   262 [0x0106] PhotometricInterpretation（光度解讀）
-                WriteTag(writer, 273, param.imageHeight, param.offsetStrips);                                   // Tag   273 [0x0111] StripOffsets（影像片段偏移） 
-                WriteTag(writer, 277, 1, 1);                                                                    // Tag   277 [0x0115] SamplesPerPixel（每像素波段數）
-                WriteTag(writer, 278, 1, 1);                                                                    // Tag   278 [0x0116] RowsPerStrip（每片段垂直列數）
-                WriteTag(writer, 279, param.imageHeight, param.offsetBytesPerStrip);                            // Tag   279 [0x0117] StripByteCounts（每片段位元組數）
-                WriteTag(writer, 284, 1, 1);                                                                    // Tag   284 [0x011C] PlanarConfiguration（像素儲存方式）
-                WriteTag(writer, 305, Encoding.UTF8.GetBytes(param.software).Length + 1, param.offsetSoftware); // Tag   305 [0x0131] Software（軟體）
-                WriteTag(writer, 306, 20, param.offsetDateTime);                                                // Tag   306 [0x0132] DateTime （日期與時間）
-                WriteTag(writer, 339, 1, param.sampleFormat);                                                   // Tag   339 [0x0153] SampleFormat （波段值類型）
-                WriteTag(writer, 33550, 3, param.offsetModelPixelScaleTag);                                     // Tag 33550 [0x830E] ModelPixelScaleTag （空間－像素縮放比例）
-                WriteTag(writer, 33922, 6, param.offsetModelTiepointTag);                                       // Tag 33922 [0x8482] ModelTiepointTag （空間對位）
-                WriteTag(writer, 34735, 0 + 48, param.offsetGeoKeyDirectoryTag);                                // Tag 34735 [0x87AF] GeoKeyDirectoryTag （座標／投影系統）
-                WriteTag(writer, 34737, 0 + 14, param.offsetGeoAsciiParamsTag);                                 // Tag 34737 [0x87B1] GeoAsciiParamsTag （ASCII參數）
-                WriteTag(writer, 42113, 0 + 0, param.offsetGdalNodata);                                         // Tag 42113 [0xA481] GDAL_NODATA （GDAL無資料值）
-
-                // Write additional data.（寫入額外資料。）
-
-                // Transverse Mercator (not UTM) dependency:
-                // 1025 [0x0401] GTRasterType = 1 (PixelIsArea)
-                // 1026 [0x0402] GTCitation
-                // -------------
-                // 1024 [0x0400] GTModelTypeGeoKey = 1 (2D projected) -> Requires ProjectedCRSGeoKey (3072)
-                // 3072 [0x0C00] ProjectedCRSGeoKey = 32767 (user defined) -> Requires ProjectedCitationGeoKey (3073), GeodeticCRSGeoKey (2048) & ProjectionGeoKey (3074)
-                // 3073 [0x0C01] ProjectedCitationGeoKey = "User Defined|User Defined|"
-                // 2048 [0x0800] GeodeticCRSGeoKey = if 'WGS84' = 4326; else = 32767 (user defined) -> Requires GeodeticCitationGeoKey (2049), GeodeticDatumGeoKey (2050) & GeogAngularUnitsGeoKey (2054)
-                // 3074 [0x0C02] ProjectionGeoKey = 32767 (user defined) -> Requires ProjectedCitationGeoKey (3073), ProjMethodGeoKey (3075), & ProjLinearUnitsGeoKey (3076)
-                // * 2049 [0x0801] GeodeticCitationGeoKey = if 'WGS84' = "WGS84"; else = "User Defined"
-                // * 2050 [0x0802] GeodeticDatumGeoKey = 32767 (user defined) -> Requires GeodeticCitationGeoKey (2049), PrimeMeridianGeoKey (2051), & EllipsoidGeoKey (2056)
-                // * 2054 [0x0806] GeogAngularUnitsGeoKey = 9102 (Degree)
-                // * 3075 [0x0C03] ProjMethodGeoKey = 1 (TransverseMercator; GaussBoaga; GaussKruger) -> Requires ProjFalseEastingGeoKey (3082), ProjFalseNorthingGeoKey (3083), ProjCenterLongGeoKey (3088),
-                //                                                                                       ProjCenterLatGeoKey (3089) & ProjScaleAtCenterGeoKey (3093)
-                // * 3076 [0x0C04] ProjLinearUnitsGeoKey = 9001 (Metre)
-                // ** 2051 [0x0803] PrimeMeridianGeoKey = 8901 (Greenwich)
-                // ** 2056 [0x0808] EllipsoidGeoKey = if 'WGS84' = 7030, "GRS80" = 7019, else = 32767 (user defined) -> Requires GTCitationGeoKey (1026), EllipsoidSemiMajorAxisGeoKey (2057), EllipsoidSemiMinorAxisGeoKey (2058)
-                // ** 3082 [0x0C0A] ProjFalseEastingGeoKey -> Requires ProjLinearUnitsGeoKey (3076)
-                // ** 3083 [0x0C0B] ProjFalseNorthingGeoKey -> Requires ProjLinearUnitsGeoKey (3076)
-                // ** 3088 [0x0C10] ProjCenterLongGeoKey -> Requires GeogAngularUnitsGeoKey (2054)
-                // ** 3089 [0x0C11] ProjCenterLatGeoKey -> Requires GeogAngularUnitsGeoKey (2054)
-                // ** 3093 [0x0C14] ProjScaleAtCenterGeoKey
-                // *** 2057 [0x0809] EllipsoidSemiMajorAxisGeoKey -> Requires GeogLinearUnitsGeoKey (2052)
-                // *** 2058 [0x080A] EllipsoidSemiMinorAxisGeoKey -> Requires GeogLinearUnitsGeoKey (2052)
-                // **** 2052 [0x0804] GeogLinearUnitsGeoKey = 9001 (Metre)
-                // In order: 1024, 1025, 1026, 2048, 2049, 2050, 2051, 2052, 2054, 2056, 2057, 2058, 3072, 3073, 3074, 3075, 3076, 3082, 3083, 3088, 3089 & 3093 {22 in total}
+                TagManager manager = new(writer, options, param);
+                manager.Write();
             });
+            writerThread.Wait();
 
             stopwatch.Stop();
             Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
-        }
-
-        /// <summary>
-        /// Write a OGC GeoKey to the file.
-        /// （寫入一個 OGC 規範的 GeoKey 至檔案中。）
-        /// </summary>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="number">The unique code of the tag.（標籤的獨特代碼。）</param>
-        /// <param name="length">The length of the data in bytes.（以位元組計的資料長度。）</param>
-        /// <param name="value">The value waiting to be written. In most of the time, it represents the value offset in bytes.<br/>
-        /// （等待被寫入的數值，通常代表數值位移量，以位元組計。）</param>
-        /// <exception cref="KeyNotFoundException"></exception>
-        public static void WriteGeoKey(BinaryWriter writer, int number, short length, ushort value)
-        {
-            if (!GeoKeyReferenceTable.TryGetValue(number, out ushort reference))
-            {
-                throw new KeyNotFoundException($"The tag number `{number}` is not in GeoKeyReferenceTable. 標籤代號 {number} 未紀錄於 GeoKeyReferenceTable。");
-            }
-
-            if (_littleEndian)
-            {
-                writer.Write(BitConverter.GetBytes((ushort)number));
-                writer.Write(BitConverter.GetBytes(reference));
-                writer.Write(BitConverter.GetBytes(length));
-                writer.Write(BitConverter.GetBytes(value));
-            }
-            else
-            {
-                writer.Write(IOUtils.GetFlippedBytes((ushort)number));
-                writer.Write(IOUtils.GetFlippedBytes(reference));
-                writer.Write(IOUtils.GetFlippedBytes(length));
-                writer.Write(IOUtils.GetFlippedBytes(value));
-            }
         }
 
         /// <summary>
@@ -494,16 +395,36 @@ namespace Carto.IO
             // Fill grid data.（填入網格資料。）
             if (conversion == null)
             {
-                for (int i = 0; i < grid.Length; i++)
+                if (_littleEndian)
                 {
-                    IOUtils.WriteLE(writer, grid[i]);
+                    for (int i = 0; i < length; i++)
+                    {
+                        writer.Write(IOUtils.GetBytes(grid[i]));
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < length; i++)
+                    {
+                        writer.Write(IOUtils.GetFlippedBytes(grid[i]));
+                    }
                 }
             }
             else
             {
-                for (int i = 0; i < grid.Length; i++)
+                if (_littleEndian)
                 {
-                    IOUtils.WriteLE(writer, conversion.Invoke(param, grid[i]));
+                    for (int i = 0; i < length; i++)
+                    {
+                        writer.Write(IOUtils.GetBytes(conversion.Invoke(param, grid[i])));
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < length; i++)
+                    {
+                        writer.Write(IOUtils.GetFlippedBytes(conversion.Invoke(param, grid[i])));
+                    }
                 }
             }
 
@@ -517,15 +438,15 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="bytesPerStrip">The number of bytes of each strip.（每個影像片段的位元組數。）</param>
         /// <param name="imageHeight">The height of the image in pixel.（影像以像素計的高度。）</param>
-        private static void WriteGridDataCommon(BinaryWriter writer, int bytesPerStrip, int imageHeight)
+        private static void WriteGridDataCommon(BinaryWriter writer, short bytesPerStrip, int imageHeight)
         {
             byte[] bytesPerStripArray;
             if (_littleEndian)
             {
-                bytesPerStripArray = BitConverter.GetBytes((short)bytesPerStrip);
+                bytesPerStripArray = BitConverter.GetBytes(bytesPerStrip);
                 for (int i = 0; i < imageHeight; i++)
                 {
-                    writer.Write(BitConverter.GetBytes(12 + i * bytesPerStrip));
+                    writer.Write(BitConverter.GetBytes(8 + i * bytesPerStrip));
                 }
                 for (int i = 1; i <= imageHeight; i++)
                 {
@@ -534,10 +455,10 @@ namespace Carto.IO
             }
             else
             {
-                bytesPerStripArray = IOUtils.GetFlippedBytes((short)bytesPerStrip);
+                bytesPerStripArray = IOUtils.GetFlippedBytes(bytesPerStrip);
                 for (int i = 0; i < imageHeight; i++)
                 {
-                    writer.Write(IOUtils.GetFlippedBytes(12 + i * bytesPerStrip));
+                    writer.Write(IOUtils.GetFlippedBytes(8 + i * bytesPerStrip));
                 }
                 for (int i = 1; i <= imageHeight; i++)
                 {
@@ -561,7 +482,7 @@ namespace Carto.IO
             }
 
             // A row is a strip. There are H strips in an image with height of H pixels.（一排是一個片段。在高度為 H 像素的影像中，共有 H 個影像片段。）
-            // Note: b = bytes per sample, f = first strip's offset = 12, H = image height.（註：b = 每個樣本位元組數，f = 第一個片段偏移量，H = 影像高度。）
+            // Note: b = bytes per sample, f = first strip's offset = 8, H = image height.（註：b = 每個樣本位元組數，f = 第一個片段偏移量，H = 影像高度。）
             //
             // Offset（偏移量） Item（項目）
             // ----------------------------
@@ -570,9 +491,9 @@ namespace Carto.IO
             // f + (b + 4) * H  Start of StripByteCounts tag's content.（StripByteCounts 標籤內容開始。）
             // f + (b + 6) * H  Start of the IFD.（影像檔案目錄開始。）
             int bps = param.BytesPerStrip();
-            param.offsetBytesPerStrip = 12 + (bps + 4) * param.imageHeight;
-            param.offsetIFD = 12 + (bps + 6) * param.imageHeight;
-            param.offsetStrips = 12 + bps * param.imageHeight;
+            param.offsetBytesPerStrip = 8 + (bps + 4) * param.imageHeight;
+            param.offsetIFD = 8 + (bps + 6) * param.imageHeight;
+            param.offsetStrips = 8 + bps * param.imageHeight;
 
             if (_littleEndian)
             {
@@ -585,38 +506,6 @@ namespace Carto.IO
                 writer.Write(IOUtils.GetFlippedBytes("II"));
                 writer.Write(IOUtils.GetFlippedBytes((short)42));
                 writer.Write(IOUtils.GetFlippedBytes(param.offsetIFD));
-            }
-        }
-
-        /// <summary>
-        /// Write a TIFF / EXIF tag to the file.
-        /// （寫入一個 TIFF／EXIF 標籤至檔案中。）
-        /// </summary>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="number">The unique code of the tag.（標籤的獨特代碼。）</param>
-        /// <param name="count">The number of values.（數值的數量。）</param>
-        /// <param name="value">The value waiting to be written. In most of the time, it represents the value offset in bytes.<br/>
-        /// （等待被寫入的數值，通常代表數值位移量，以位元組計。）</param>
-        public static void WriteTag(BinaryWriter writer, int number, int count, int value)
-        {
-            if (!TagTypeTable.TryGetValue(number, out short type))
-            {
-                throw new KeyNotFoundException($"The tag number `{number}` is not in TagTypeTable. 標籤代號 {number} 未紀錄於 TagTypeTable。");
-            }
-
-            if (_littleEndian)
-            {
-                writer.Write(BitConverter.GetBytes((short)number));
-                writer.Write(BitConverter.GetBytes(type));
-                writer.Write(BitConverter.GetBytes(count));
-                writer.Write(BitConverter.GetBytes(value));
-            }
-            else
-            {
-                writer.Write(IOUtils.GetFlippedBytes((short)number));
-                writer.Write(IOUtils.GetFlippedBytes(type));
-                writer.Write(IOUtils.GetFlippedBytes(count));
-                writer.Write(IOUtils.GetFlippedBytes(value));
             }
         }
     }

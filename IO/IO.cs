@@ -85,6 +85,15 @@ namespace Carto.IO
             Feature.None
         };
 
+        public static readonly Dictionary<Ellipsoid, EllipsoidDefinition> EllipsoidTable = new()
+        {
+            { Ellipsoid.Clrk66, new(6378206.4, 294.978698213898) },
+            { Ellipsoid.Evrst37, new(6377276.345, 300.8017) },
+            { Ellipsoid.GRS80, new(Geodata.Ellipsoid.GRS80) },
+            { Ellipsoid.WGS84, new(Geodata.Ellipsoid.WGS84) },
+            { Ellipsoid.Custom, new() }
+        };
+
         /// <summary>
         /// The look-up table of each file format's extension.
         /// （每個檔案格式副檔名的對照表。）
@@ -172,7 +181,7 @@ namespace Carto.IO
                 Features = Feature.District | Feature.MapTile,
                 FileFormat = FileFormat.GeoTIFF,
                 FileName = "Raster",
-                GeoTiffFormat = GeoTiffFormat.Int16,
+                GeoTiffFormat = GeoTiffFormat.Float32,
                 Homeless = true,
                 Minimized = true,
                 Properties = new Dictionary<System, HashSet<Property>>
@@ -183,15 +192,22 @@ namespace Carto.IO
                 },
                 RasterKinds = RasterKind.Unknown,
                 SeparateResident = false,
-                SourceCoordinates = new Coord(new double3(302717, 2770282, 0)),
+                SourceCoordinates = new Coord(new double3(327700, 2736000, 0)),
                 SourceProjection = CRS.TransverseMercator,
                 SourceProjectionDefinition = new ProjectionDefinition
                 (
-                    new EllipsoidDefinition(Ellipsoid.GRS80),
+                    EllipsoidTable[Ellipsoid.GRS80],
                     (121, 0), (250000, 0), 0.9999, new double[0]
                 ),
                 StatisticsMapTile = false,
                 Systems = System.Raster,
+                TargetEllipsoid = Ellipsoid.WGS84,
+                TargetProjection = CRS.TransverseMercator,
+                TargetProjectionDefinition = new ProjectionDefinition
+                (
+                    EllipsoidTable[Ellipsoid.GRS80],
+                    (121, 0), (250000, 0), 0.9999, new double[0]
+                ),
                 Taxable = false,
                 VectorKinds = new Dictionary<System, VectorKind>
                 {

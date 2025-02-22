@@ -2,6 +2,15 @@ using System;
 
 namespace Carto.IO
 {
+    public enum Ellipsoid
+    {
+        Clrk66,
+        Evrst37,
+        GRS80,
+        WGS84,
+        Custom
+    }
+    
     /// <summary>
     /// Carto's classification of exportable objects.
     /// （Carto 對可輸出物體的分類。）

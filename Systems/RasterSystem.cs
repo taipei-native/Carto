@@ -72,6 +72,8 @@ namespace Carto.Systems
             param.bounds = TerrainUtils.GetBounds(ref data).y;
             param.imageHeight = data.resolution.z;
             param.imageWidth = data.resolution.x;
+            param.scaleX = Math.Abs(Math.Round(1d / data.scale.x, 4));
+            param.scaleY = Math.Abs(Math.Round(1d / data.scale.z, 4));
             GeoTiff.WriteHeader(writer, ref param);
             GeoTiff.Parameter _param = param;
 

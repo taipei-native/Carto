@@ -1,3 +1,4 @@
+using Carto.Geodata;
 using Carto.IO;
 using Colossal.Logging;
 using Game.Areas;
@@ -7,6 +8,7 @@ using Game.Prefabs;
 using Game.Routes;
 using Game.Zones;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -40,6 +42,43 @@ namespace Carto.Utils
                 Platform.Windows => Path.Combine(paths).Replace("/", "\\"),
                 _ => Path.Combine(paths).Replace("\\", "/"),
             };
+        }
+
+        public static byte[] GetBytes<T>(T value, bool stringify = false)
+        {
+            switch (value)
+            {
+                case byte @byte:
+                    return new byte[1] { @byte };
+
+                case byte[] bytes:
+                    return bytes;
+
+                case double @double:
+                    return BitConverter.GetBytes(@double);
+
+                case float @float:
+                    return BitConverter.GetBytes(@float);
+
+                case int @int:
+                    return BitConverter.GetBytes(@int);
+
+                case short @short:
+                    return BitConverter.GetBytes(@short);
+
+                case string @string:
+                    return Encoding.UTF8.GetBytes(@string);
+
+                case ushort @ushort:
+                    return BitConverter.GetBytes(@ushort);
+
+                default:
+                    if (stringify)
+                    {
+                        return Encoding.UTF8.GetBytes(value.ToString());
+                    }
+                    throw new NotSupportedException($"The type `{typeof(T).Name}` is not supported. 不支援 `{typeof(T).Name}` 型別。");
+            }
         }
 
         /// <summary>
@@ -95,6 +134,11 @@ namespace Carto.Utils
         public static byte[] GetFlippedBytes(ushort value)
         {
             return BitConverter.GetBytes(value).Reverse().ToArray();
+        }
+
+        public static byte[] GetFlippedBytes<T>(T value, bool stringify = false)
+        {
+            return GetBytes(value, stringify).Reverse().ToArray();
         }
 
         /// <summary>
@@ -388,35 +432,17 @@ namespace Carto.Utils
         /// <exception cref="NotSupportedException"></exception>
         public static void WriteLE<T>(BinaryWriter writer, T value, bool stringify = false)
         {
-            switch (value)
+            byte[] bytes = GetBytes(value, stringify);
+            if (bytes != null)
             {
-                case float @float:
-                    WriteLE(writer, @float);
-                    break;
-                
-                case int @int:
-                    WriteLE(writer, @int);
-                    break;
-
-                case short @short:
-                    WriteLE(writer, @short);
-                    break;
-
-                case string @string:
-                    WriteLE(writer, @string);
-                    break;
-
-                case ushort @ushort:
-                    WriteLE(writer, @ushort);
-                    break;
-
-                default:
-                    if (stringify)
-                    {
-                        WriteLE(writer, value.ToString());
-                        break;
-                    }
-                    throw new NotSupportedException($"The type `{typeof(T).Name}` is not supported. 不支援 `{typeof(T).Name}` 型別。");
+                if (BitConverter.IsLittleEndian)
+                {
+                    writer.Write(bytes);
+                }
+                else
+                {
+                    writer.Write(bytes.Reverse().ToArray());
+                }
             }
         }
     }

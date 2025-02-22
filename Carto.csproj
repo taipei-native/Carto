@@ -93,10 +93,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="CS2-ModdingTools" Version="1.0.2" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<None Include="$(ModPropsFile)" Link="Properties\Mod.props" />
 		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
 	</ItemGroup>

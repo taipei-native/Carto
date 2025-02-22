@@ -33,13 +33,13 @@ namespace Carto.Geodata
         /// EPSG: 326xx. The WGS84 / UTM projection in the northern hemisphere.
         /// （北半球的 WGS84 / UTM 投影。）
         /// </summary>
-        static readonly ProjectionDefinition _projUTMNorth = new(_ellipWGS84, (0, 0), (5E6, 0), 0.9996, new double[0]);
+        static readonly ProjectionDefinition _projUTMNorth = new(_ellipWGS84, (0, 0), (5E5, 0), 0.9996, new double[0]);
 
         /// <summary>
         /// EPSG: 327xx. The WGS84 / UTM projection in the southern hemisphere.
         /// （南半球的 WGS84 / UTM 投影。）
         /// </summary>
-        static readonly ProjectionDefinition _projUTMSouth = new(_ellipWGS84, (0, 0), (5E6, 1E7), 0.9996, new double[0]);
+        static readonly ProjectionDefinition _projUTMSouth = new(_ellipWGS84, (0, 0), (5E5, 1E7), 0.9996, new double[0]);
 
         /// <summary>
         /// A helper function to apply CRS transformation easily.

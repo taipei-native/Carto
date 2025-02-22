@@ -1,10 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "OdE3wiLpJJ0=",
+  "dgSpecHash": "LD0WOQ5Quyg=",
   "success": true,
   "projectFilePath": "D:\\Documents\\[by-type]\\github\\Carto\\Carto.csproj",
-  "expectedPackageFiles": [
-    "C:\\Users\\Daniel\\.nuget\\packages\\cs2-moddingtools\\1.0.2\\cs2-moddingtools.1.0.2.nupkg.sha512"
-  ],
+  "expectedPackageFiles": [],
   "logs": []
 }
