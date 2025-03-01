@@ -2,12 +2,46 @@ using System;
 
 namespace Carto.IO
 {
+    /// <summary>
+    /// The reference ellipsoids of popular datums.
+    /// （受歡迎的大地基準的參考橢球體。）
+    /// </summary>
     public enum Ellipsoid
     {
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.Clarke66"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Clarke66"/>。）
+        /// </summary>
         Clrk66,
+
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.Everest37"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Everest37"/>。）
+        /// </summary>
         Evrst37,
+
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.GRS80"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.GRS80"/>。）
+        /// </summary>
         GRS80,
+
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.Intl24"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Intl24"/>。）
+        /// </summary>
+        Intl24,
+
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.WGS84"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.WGS84"/>。）
+        /// </summary>
         WGS84,
+
+        /// <summary>
+        /// The custom ellipsoid.
+        /// （自訂橢球體。）
+        /// </summary>
         Custom
     }
     

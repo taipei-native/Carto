@@ -1,14 +1,22 @@
 using Carto.Geodata;
-using Carto.Utils;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 
 namespace Carto.IO
 {
+    /// <summary>
+    /// The helper class to write GeoTIFF tags.
+    /// （用於協助寫入 GeoTIFF 標籤的類別。）
+    /// </summary>
     public class TagManager
     {
+        /// <summary>
+        /// The lookup table between geokeys and their reference tags.
+        /// （地理鍵與其參照標籤的對照表。）
+        /// </summary>
         private static readonly Dictionary<int, int> _keyReferenceTable = new()
         {
             { 1, 1 },
@@ -37,6 +45,10 @@ namespace Carto.IO
             { 3092, 34736 }
         };
 
+        /// <summary>
+        /// The lookup table between tags and their field types.
+        /// （標籤與其型別的對照表。）
+        /// </summary>
         private static readonly Dictionary<int, short> _tagTypeTable = new()
         {
             { 256, GeoTiff.fieldTypeShort },
@@ -60,26 +72,69 @@ namespace Carto.IO
             { 42113, GeoTiff.fieldTypeAscii }
         };
 
+        /// <summary>
+        /// The buffer for the tag 34737 (GeoAsciiParamsTag).<br/>
+        /// （用於標籤編號 34737（ASCII 參數）的緩衝區。）
+        /// </summary>
         private readonly BufferManager<string> _asciiBuffer;
 
+        /// <summary>
+        /// The current offset in bytes.
+        /// （目前以位元組計的偏移量。）
+        /// </summary>
         private int _currentBlockOffset;
 
+        /// <summary>
+        /// The buffer for the tag 34736 (GeoDoubleParamsTag).<br/>
+        /// （用於標籤編號 34736（雙精度浮點數參數）的緩衝區。）
+        /// </summary>
         private readonly BufferManager<double> _doubleBuffer;
 
+        /// <summary>
+        /// The lookup table between geokeys and their value counts.
+        /// （地理鍵與其數值計數的對照表。）
+        /// </summary>
         private readonly Dictionary<int, int> _geoKeyLengthTable;
 
+        /// <summary>
+        /// The lookup table between geokeys and their offset.
+        /// （地理鍵與其偏移量的對照表。）
+        /// </summary>
         private readonly Dictionary<int, int> _geoKeyOffsetTable;
 
+        /// <summary>
+        /// The lookup table between tags and their offset.
+        /// （標籤與其偏移量的對照表。）
+        /// </summary>
         private readonly Dictionary<int, int> _tagOffsetTable;
 
+        /// <summary>
+        /// The binary stream writer.（二進位資料流寫入者。）
+        /// </summary>
         private readonly BinaryWriter _writer;
 
+        /// <summary>
+        /// The number of geokeys.
+        /// （地理鍵的數量。）
+        /// </summary>
         public int geoKeyCount;
 
+        /// <summary>
+        /// The GeoTIFF's export options.
+        /// （GeoTIFF 的輸出設定。）
+        /// </summary>
         public GeoTiff.Parameter param;
 
+        /// <summary>
+        /// The number of tags.
+        /// （標籤的數量。）
+        /// </summary>
         public int tagCount;
 
+        /// <summary>
+        /// The buffer for the tag 33550 (ModelPixelScaleTag) and 33922 (ModelTiepointTag).<br/>
+        /// （用於標籤編號 33550（空間－像素縮放比例）和 33922（模型連接點）的緩衝區。）
+        /// </summary>
         private readonly BufferManager<double> _transformBuffer;
 
         public TagManager(BinaryWriter writer, Options options, GeoTiff.Parameter param)
@@ -98,10 +153,15 @@ namespace Carto.IO
             geoKeyCount = 9; // Minimum GeoKeys: 1024, 1025, 1026, 2048, 2049, 2054, 3072, 3073 & 3076.
             this.param = param;
             tagCount = 18;
-            PopulateGeoKeys(options);
+            Register(options);
         }
 
-        private void PopulateGeoKeys(Options options)
+        /// <summary>
+        /// Register tag and geokeys.
+        /// （登記標籤與地理鍵。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        private void Register(Options options)
         {
             // Tag 33550 / 0x830E | ModelPixelScaleTag（空間－像素縮放比例）
             RegisterTag(33550);
@@ -207,24 +267,31 @@ namespace Carto.IO
             }
             else
             {
-                projectedCitation = $"User Defined Transverse Mercator [Linear Unit = Metre (EPSG:{Epsg.Uom.Metre})]|";
+                projectedCitation = $"User Defined Transverse Mercator|";
             }
             RegisterGeoKey(3073, projectedCitation, _asciiBuffer, true);
             _currentBlockOffset += _asciiBuffer.GetFullLength();
         }
 
+        /// <summary>
+        /// Register a tag.
+        /// （登記一個標籤。）
+        /// </summary>
+        /// <param name="id">The id for the tag.（標籤的代號。）</param>
         private void RegisterTag(int id)
         {
             _tagOffsetTable.Add(id, _currentBlockOffset);
         }
 
-        private void RegisterGeoKey<T>(int id, T item, BufferManager<T> buffer, bool isLastInBuffer = false)
-        {
-            buffer.Add(item, isLastInBuffer, out int offset, out int length);
-            _geoKeyOffsetTable.Add(id, offset);
-            _geoKeyLengthTable.Add(id, length);
-        }
-
+        /// <summary>
+        /// Register a geokey.
+        /// （登記一個地理鍵。）
+        /// </summary>
+        /// <typeparam name="T">The type of the geokey.（地理鍵的型別。）</typeparam>
+        /// <param name="id">The id for the geokey.（地理鍵的代號。）</param>
+        /// <param name="item">The content of the geokey.（地理鍵的內容。）</param>
+        /// <param name="count">The number of values.（數值的數量。）</param>
+        /// <param name="buffer">The buffer which the geokey belongs to.（地理鍵所屬的緩衝區。）</param>
         private void RegisterGeoKey<T>(int id, T item, int count, BufferManager<T> buffer)
         {
             buffer.Add(item);
@@ -232,6 +299,30 @@ namespace Carto.IO
             _geoKeyLengthTable.Add(id, count);
         }
 
+        /// <summary>
+        /// Register a geokey.
+        /// （登記一個地理鍵。）
+        /// </summary>
+        /// <typeparam name="T">The type of the geokey.（地理鍵的型別。）</typeparam>
+        /// <param name="id">The id for the geokey.（地理鍵的代號。）</param>
+        /// <param name="item">The content of the geokey.（地理鍵的內容。）</param>
+        /// <param name="buffer">The buffer which the geokey belongs to.（地理鍵所屬的緩衝區。）</param>
+        /// <param name="isLastInBuffer">Whether the item is the last to be appended in the buffer or not.（是否為緩衝區的最後一個物件？）</param>
+        private void RegisterGeoKey<T>(int id, T item, BufferManager<T> buffer, bool isLastInBuffer = false)
+        {
+            buffer.Add(item, isLastInBuffer, out int offset, out int length);
+            _geoKeyOffsetTable.Add(id, offset);
+            _geoKeyLengthTable.Add(id, length);
+        }
+
+        /// <summary>
+        /// Register a geokey.
+        /// （登記一個地理鍵。）
+        /// </summary>
+        /// <typeparam name="T">The type of the geokey.（地理鍵的型別。）</typeparam>
+        /// <param name="id">The id for the geokey.（地理鍵的代號。）</param>
+        /// <param name="items">The content of the geokey.（地理鍵的內容。）</param>
+        /// <param name="buffer">The buffer which the geokey belongs to.（地理鍵所屬的緩衝區。）</param>
         private void RegisterGeoKey<T>(int id, IList<T> items, BufferManager<T> buffer)
         {
             buffer.Add(items, out int offset, out int length);
@@ -239,6 +330,10 @@ namespace Carto.IO
             _geoKeyLengthTable.Add(id, length);
         }
 
+        /// <summary>
+        /// Write the GeoTIFF tags.
+        /// （寫入 GeoTIFF 標籤。）
+        /// </summary>
         public void Write()
         {
             string nodata = $"{param.nodata: 0.00000e+000; -0.00000e+000}";
@@ -247,7 +342,7 @@ namespace Carto.IO
             int gdalNodataOffset = geoKeyDirectoryOffset + (geoKeyCount + 1) * 8;
 
             // Write the IFDs.（寫入影像檔案目錄。）
-            IOUtils.WriteLE(_writer, (ushort)tagCount);
+            _writer.Write(BitConverter.GetBytes((ushort)tagCount));
             WriteTag(256, 1, param.imageWidth);                                                         // Tag   256 [0x0100] ImageWidth（影像寬度）
             WriteTag(257, 1, param.imageHeight);                                                        // Tag   257 [0x0101] ImageLength（影像高度）
             WriteTag(258, 1, param.depth);                                                              // Tag   258 [0x0102] BitsPerSample（每波段位元數）
@@ -331,9 +426,14 @@ namespace Carto.IO
             WriteAscii(nodata);                                                                         // Complete tag 42113.（完成標籤 42113。）
         }
 
+        /// <summary>
+        /// Write an ASCII string in TIFF specification's style.
+        /// （寫入以 TIFF 規格書寫的 ASCII 字串。）
+        /// </summary>
+        /// <param name="text">The input string.（輸入的字串。）</param>
         public void WriteAscii(string text)
         {
-            IOUtils.WriteLE(_writer, text);
+            _writer.Write(Encoding.UTF8.GetBytes(text));
             _writer.Write((byte) 0);
         }
 
@@ -353,20 +453,10 @@ namespace Carto.IO
                 throw new KeyNotFoundException($"The tag number `{id}` is not in _keyReferenceTable. 標籤代號 {id} 未紀錄於 _keyReferenceTable。");
             }
 
-            if (BitConverter.IsLittleEndian)
-            {
-                _writer.Write(BitConverter.GetBytes((ushort)id));
-                _writer.Write(BitConverter.GetBytes((ushort)reference));
-                _writer.Write(BitConverter.GetBytes((short)count));
-                _writer.Write(BitConverter.GetBytes((short)value));
-            }
-            else
-            {
-                _writer.Write(IOUtils.GetFlippedBytes((ushort)id));
-                _writer.Write(IOUtils.GetFlippedBytes((ushort)reference));
-                _writer.Write(IOUtils.GetFlippedBytes((short)count));
-                _writer.Write(IOUtils.GetFlippedBytes((short)value));
-            }
+            _writer.Write(BitConverter.GetBytes((ushort)id));
+            _writer.Write(BitConverter.GetBytes((ushort)reference));
+            _writer.Write(BitConverter.GetBytes((short)count));
+            _writer.Write(BitConverter.GetBytes((short)value));
         }
 
         /// <summary>
@@ -384,20 +474,10 @@ namespace Carto.IO
                 throw new KeyNotFoundException($"The tag number `{id}` is not in _tagTypeTable. 標籤代號 {id} 未紀錄於 _tagTypeTable。");
             }
 
-            if (BitConverter.IsLittleEndian)
-            {
-                _writer.Write(BitConverter.GetBytes((ushort)id));
-                _writer.Write(BitConverter.GetBytes(type));
-                _writer.Write(BitConverter.GetBytes(count));
-                _writer.Write(BitConverter.GetBytes(value));
-            }
-            else
-            {
-                _writer.Write(IOUtils.GetFlippedBytes((ushort)id));
-                _writer.Write(IOUtils.GetFlippedBytes(type));
-                _writer.Write(IOUtils.GetFlippedBytes(count));
-                _writer.Write(IOUtils.GetFlippedBytes(value));
-            }
+            _writer.Write(BitConverter.GetBytes((ushort)id));
+            _writer.Write(BitConverter.GetBytes(type));
+            _writer.Write(BitConverter.GetBytes(count));
+            _writer.Write(BitConverter.GetBytes(value));
         }
     }
 }

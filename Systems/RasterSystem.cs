@@ -82,21 +82,42 @@ namespace Carto.Systems
                 Task writerThread = Task.Run(() =>
                 {
                     NativeArray<ushort> elevation = data.heights;
+                    GeoTiff.ValidateGrid(ref elevation, _param);
                     
                     switch (_param.format)
                     {
                         case GeoTiffFormat.Float32:
-                            GeoTiff.WriteGridData(writer, ref elevation, _param, GetFloatElevation);
+                            for (int i = _param.imageHeight - 1; i > -1; i--)
+                            {
+                                for (int j = 0; j < _param.imageWidth; j++)
+                                {
+                                    writer.Write(BitConverter.GetBytes(GetFloatElevation(_param, elevation[i * _param.imageWidth + j])));
+                                }
+                            }
                             break;
 
                         case GeoTiffFormat.Int16:
-                            GeoTiff.WriteGridData(writer, ref elevation, _param, GetShortElevation);
+                            for (int i = _param.imageHeight - 1; i > -1; i--)
+                            {
+                                for (int j = 0; j < _param.imageWidth; j++)
+                                {
+                                    writer.Write(BitConverter.GetBytes(GetShortElevation(_param, elevation[i * _param.imageWidth + j])));
+                                }
+                            }
                             break;
 
                         case GeoTiffFormat.Norm16:
-                            GeoTiff.WriteGridData<ushort, ushort>(writer, ref elevation, _param); 
+                            for (int i = _param.imageHeight - 1; i > -1; i--)
+                            {
+                                for (int j = 0; j < _param.imageWidth; j++)
+                                {
+                                    writer.Write(BitConverter.GetBytes(elevation[i * _param.imageWidth + j]));
+                                }
+                            }
                             break;
                     }
+
+                    GeoTiff.WriteGridDataCommon(writer, _param.BytesPerStrip(), _param.imageHeight);
                 });
                 writerThread.Wait();
             }

@@ -90,6 +90,7 @@ namespace Carto.IO
             { Ellipsoid.Clrk66, new(6378206.4, 294.978698213898) },
             { Ellipsoid.Evrst37, new(6377276.345, 300.8017) },
             { Ellipsoid.GRS80, new(Geodata.Ellipsoid.GRS80) },
+            { Ellipsoid.Intl24, new(6378388, 297) },
             { Ellipsoid.WGS84, new(Geodata.Ellipsoid.WGS84) },
             { Ellipsoid.Custom, new() }
         };
@@ -181,7 +182,7 @@ namespace Carto.IO
                 Features = Feature.District | Feature.MapTile,
                 FileFormat = FileFormat.GeoTIFF,
                 FileName = "Raster",
-                GeoTiffFormat = GeoTiffFormat.Float32,
+                GeoTiffFormat = GeoTiffFormat.Norm16,
                 Homeless = true,
                 Minimized = true,
                 Properties = new Dictionary<System, HashSet<Property>>

@@ -17,11 +17,15 @@ namespace Carto.IO
     /// </summary>
     public static class GeoTiff
     {
-        /// <summary>
-        /// Check whether the endianess is little endian.
-        /// （確認端序是否為由小至大。）
-        /// </summary>
-        private static readonly bool _littleEndian = BitConverter.IsLittleEndian;
+        /*
+            # References: （資料來源：）
+
+            * Aldus Developers Desk. (1992). TIFF™ Revision 6.0
+                https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf
+
+            * Open Geospatial Consortium. (2019). OGC GeoTIFF Standard
+                https://docs.ogc.org/is/19-008r4/19-008r4.html
+        */
 
         /// <summary>
         /// The type indicating a 8-bit unsigned integer. It is equivalent to <see cref="byte"/> in C#.<br/>
@@ -265,6 +269,30 @@ namespace Carto.IO
         public delegate void WriteGridMethod(BinaryWriter writer, ref Parameter param);
 
         /// <summary>
+        /// Validate whether the grid length is correct or not.
+        /// （檢驗網格的長度是否正確？）
+        /// </summary>
+        /// <typeparam name="T">The type of the array elements.（陣列元素的型別。）</typeparam>
+        /// <param name="grid">The data array.（資料陣列。）</param>
+        /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
+        /// <exception cref="ArgumentException"></exception>
+        public static void ValidateGrid<T>(ref NativeArray<T> grid, in Parameter param) where T : struct
+        {
+            // Ensure native container safety.（確保原生容器的安全性。）
+            if (!grid.IsCreated)
+            {
+                throw new ArgumentException("The input grid is not initiated. 輸入的網格尚未初始化。");
+            }
+
+            // Validate the length of the input grid.（檢驗輸入網格的長度。）
+            int length = param.imageHeight * param.imageWidth;
+            if (grid.Length != length)
+            {
+                throw new ArgumentException($"Length mismatch: expect {length}, but got {grid.Length}. 長度錯誤：預期為 {length}，實際為 {grid.Length}。");
+            }
+        }
+
+        /// <summary>
         /// Write the GeoTIFF file.
         /// （寫出 GeoTIFF 檔案。）
         /// </summary>
@@ -273,16 +301,6 @@ namespace Carto.IO
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
         public static void Write(Options options, WriteGridMethod writeGridMethod, Action<string, int> onReportMethod)
         {
-            /*
-                # References: （資料來源：）
-
-                * Aldus Developers Desk. (1992). TIFF™ Revision 6.0
-                    https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf
-
-                * Open Geospatial Consortium. (2019). OGC GeoTIFF Standard
-                    https://docs.ogc.org/is/19-008r4/19-008r4.html
-            */
-
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (options == null) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
             string filePath = options.FilePath;
@@ -322,148 +340,23 @@ namespace Carto.IO
         }
 
         /// <summary>
-        /// Write the grid data to the file.
-        /// （寫入網格資料至檔案中。）
-        /// </summary>
-        /// <typeparam name="T1">The type of the array elements.（陣列元素的型別。）</typeparam>
-        /// <typeparam name="T2">The type that actually writes into the file.（實際寫入檔案的型別。）</typeparam>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="grid">The data array.（資料陣列。）</param>
-        /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
-        /// <param name="conversion">The function to convert a <typeparamref name="T1"/> object to <typeparamref name="T2"/>.</param>
-        /// <exception cref="ArgumentException"></exception>
-        /// <exception cref="ArgumentNullException"></exception>
-        public static void WriteGridData<T1, T2>(BinaryWriter writer, ref IList<T1> grid, in Parameter param, Func<Parameter, T1, T2> conversion = null)
-        {   
-            // Validate the grid object.（檢驗網格物體。）
-            if (grid == null)
-            {
-                throw new ArgumentNullException("The input grid must not be empty. 輸入的網格不可為空值。");
-            }
-
-            // Validate the length of the input grid.（檢驗輸入網格的長度。）
-            int length = param.imageHeight * param.imageWidth;
-            if (grid.Count != length)
-            {
-                throw new ArgumentException($"Length mismatch: expect {length}, but got {grid.Count}. 長度錯誤：預期為 {length}，實際為 {grid.Count}。");
-            }
-
-            // Fill grid data.（填入網格資料。）
-            if (conversion == null)
-            {
-                for (int i = 0; i < grid.Count; i++)
-                {
-                    IOUtils.WriteLE(writer, grid[i]);
-                }
-            }
-            else
-            {
-                for (int i = 0; i < grid.Count; i++)
-                {
-                    IOUtils.WriteLE(writer, conversion.Invoke(param, grid[i]));
-                }
-            }
-
-            WriteGridDataCommon(writer, param.BytesPerStrip(), param.imageHeight);
-        }
-
-        /// <summary>
-        /// Write the grid data to the file.
-        /// （寫入網格資料至檔案中。）
-        /// </summary>
-        /// <typeparam name="T1">The type of the array elements.（陣列元素的型別。）</typeparam>
-        /// <typeparam name="T2">The type that actually writes into the file.（實際寫入檔案的型別。）</typeparam>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="grid">The data array.（資料陣列。）</param>
-        /// <param name="param">GeoTIFF's meta data.（GeoTIFF 的元資料。）</param>
-        /// <param name="conversion">The function to convert a <typeparamref name="T1"/> object to <typeparamref name="T2"/>.</param>
-        public static void WriteGridData<T1, T2>(BinaryWriter writer, ref NativeArray<T1> grid, in Parameter param, Func<Parameter, T1, T2> conversion = null) where T1 : struct
-        {
-            // Ensure native container safety.（確保原生容器的安全性。）
-            if (!grid.IsCreated)
-            {
-                throw new ArgumentException("The input grid is not initiated. 輸入的網格尚未初始化。");
-            }
-            
-            // Validate the length of the input grid.（檢驗輸入網格的長度。）
-            int length = param.imageHeight * param.imageWidth;
-            if (grid.Length != length)
-            {
-                throw new ArgumentException($"Length mismatch: expect {length}, but got {grid.Length}. 長度錯誤：預期為 {length}，實際為 {grid.Length}。");
-            }
-
-            // Fill grid data.（填入網格資料。）
-            if (conversion == null)
-            {
-                if (_littleEndian)
-                {
-                    for (int i = 0; i < length; i++)
-                    {
-                        writer.Write(IOUtils.GetBytes(grid[i]));
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < length; i++)
-                    {
-                        writer.Write(IOUtils.GetFlippedBytes(grid[i]));
-                    }
-                }
-            }
-            else
-            {
-                if (_littleEndian)
-                {
-                    for (int i = 0; i < length; i++)
-                    {
-                        writer.Write(IOUtils.GetBytes(conversion.Invoke(param, grid[i])));
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < length; i++)
-                    {
-                        writer.Write(IOUtils.GetFlippedBytes(conversion.Invoke(param, grid[i])));
-                    }
-                }
-            }
-
-            WriteGridDataCommon(writer, param.BytesPerStrip(), param.imageHeight);
-        }
-
-        /// <summary>
         /// Write the common grid-related data.
         /// （寫入與網格相關的共同資料。）
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="bytesPerStrip">The number of bytes of each strip.（每個影像片段的位元組數。）</param>
         /// <param name="imageHeight">The height of the image in pixel.（影像以像素計的高度。）</param>
-        private static void WriteGridDataCommon(BinaryWriter writer, short bytesPerStrip, int imageHeight)
+        public static void WriteGridDataCommon(BinaryWriter writer, short bytesPerStrip, int imageHeight)
         {
             byte[] bytesPerStripArray;
-            if (_littleEndian)
+            bytesPerStripArray = BitConverter.GetBytes(bytesPerStrip);
+            for (int i = 0; i < imageHeight; i++)
             {
-                bytesPerStripArray = BitConverter.GetBytes(bytesPerStrip);
-                for (int i = 0; i < imageHeight; i++)
-                {
-                    writer.Write(BitConverter.GetBytes(8 + i * bytesPerStrip));
-                }
-                for (int i = 1; i <= imageHeight; i++)
-                {
-                    writer.Write(bytesPerStripArray);
-                }
+                writer.Write(BitConverter.GetBytes(8 + i * bytesPerStrip));
             }
-            else
+            for (int i = 1; i <= imageHeight; i++)
             {
-                bytesPerStripArray = IOUtils.GetFlippedBytes(bytesPerStrip);
-                for (int i = 0; i < imageHeight; i++)
-                {
-                    writer.Write(IOUtils.GetFlippedBytes(8 + i * bytesPerStrip));
-                }
-                for (int i = 1; i <= imageHeight; i++)
-                {
-                    writer.Write(bytesPerStripArray);
-                }
+                writer.Write(bytesPerStripArray);
             }
         }
 
@@ -495,18 +388,17 @@ namespace Carto.IO
             param.offsetIFD = 8 + (bps + 6) * param.imageHeight;
             param.offsetStrips = 8 + bps * param.imageHeight;
 
-            if (_littleEndian)
+            if (BitConverter.IsLittleEndian)
             {
                 writer.Write(Encoding.UTF8.GetBytes("II"));
-                writer.Write(BitConverter.GetBytes((short)42));
-                writer.Write(BitConverter.GetBytes(param.offsetIFD));
             }
             else
             {
-                writer.Write(IOUtils.GetFlippedBytes("II"));
-                writer.Write(IOUtils.GetFlippedBytes((short)42));
-                writer.Write(IOUtils.GetFlippedBytes(param.offsetIFD));
+                writer.Write(Encoding.UTF8.GetBytes("MM"));
             }
+
+            writer.Write(BitConverter.GetBytes((short)42));
+            writer.Write(BitConverter.GetBytes(param.offsetIFD));
         }
     }
 }

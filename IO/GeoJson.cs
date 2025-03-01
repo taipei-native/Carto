@@ -16,6 +16,13 @@ namespace Carto.IO
     /// </summary>
     public static class GeoJson
     {
+        /*
+            # References: （資料來源：）
+
+            * Gillies, S., Butler, H. J., Daly, M., Doyle, A., & Schaub, T. (2016). The GeoJSON format
+                https://doi.org/10.17487/rfc7946
+        */
+
         /// <summary>
         /// Write the GeoJSON file.
         /// （寫出 GeoJSON 檔案。）
@@ -25,13 +32,6 @@ namespace Carto.IO
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
         public static void Write(Options options, Action<JsonTextWriter, Options, Action<string, int>> writeFeaturesMethod, Action<string, int> onReportMethod)
         {
-            /*
-                # References: （資料來源：）
-
-                * Gillies, S., Butler, H. J., Daly, M., Doyle, A., & Schaub, T. (2016). The GeoJSON format
-                    https://doi.org/10.17487/rfc7946
-            */
-
             Stopwatch stopwatch = Stopwatch.StartNew();
             if ((options == null) || (writeFeaturesMethod == null)) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
             string filePath = options.FilePath;
