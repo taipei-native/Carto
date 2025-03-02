@@ -297,13 +297,14 @@ namespace Carto.IO
         /// （寫出 GeoTIFF 檔案。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="rasterKind">The classification of exported raster objects.（對輸出網格物體的分類。）</param>
         /// <param name="writeGridMethod">The WriteGrid() method implemented in each system.（各系統實作的 WriteGrid() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public static void Write(Options options, WriteGridMethod writeGridMethod, Action<string, int> onReportMethod)
+        public static void Write(Options options, RasterKind rasterKind, WriteGridMethod writeGridMethod, Action<string, int> onReportMethod)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (options == null) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
-            string filePath = options.FilePath;
+            string filePath = options.GetFilePath(rasterKind);
 
             using FileStream fs = new(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None, 81920);
             using BinaryWriter writer = new(fs);

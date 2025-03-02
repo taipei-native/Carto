@@ -1,6 +1,9 @@
 using Carto.Systems;
 using Colossal.Logging;
+using Game;
+using Game.City;
 using Game.Prefabs;
+using Game.SceneFlow;
 using Game.Simulation;
 using Game.UI;
 using Unity.Entities;
@@ -14,6 +17,24 @@ namespace Carto
     public static class Instance
     {
         // Game instances（遊戲的實例）
+        /// <summary>
+        /// The system managing the initializing options.
+        /// （管理程式初始化選項的系統。）
+        /// </summary>
+        public static CityConfigurationSystem City => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<CityConfigurationSystem>();
+
+        /// <summary>
+        /// The current game mode.
+        /// （目前的遊戲模式。）
+        /// </summary>
+        public static GameMode GameMode => GameManager.instance.gameMode;
+
+        /// <summary>
+        /// The system querying map data.
+        /// （查詢地圖資料的系統。）
+        /// </summary>
+        public static MapMetadataSystem Map => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<MapMetadataSystem>();
+
         /// <summary>
         /// The system managing the names of each entity.
         /// （管理各實體名稱的系統。）
@@ -38,18 +59,24 @@ namespace Carto
         /// </summary>
         public static TerrainSystem Terrain => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<TerrainSystem>();
 
+        /// <summary>
+        /// The system managing simulation time synchronization.
+        /// （管理遊戲模擬時間同步的系統。）
+        /// </summary>
+        public static TimeSystem Time => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<TimeSystem>();
+
+        /// <summary>
+        /// The system managing the water.
+        /// （管理水體的系統。）
+        /// </summary>
+        public static WaterSystem Water => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<WaterSystem>();
+
         // Carto instances（Carto 的實例）
         /// <summary>
         /// The system that searches areas.
         /// （搜尋區域的系統。）
         /// </summary>
         public static AreaSystem Area => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<AreaSystem>();
-
-        /// <summary>
-        /// The dummy system that is only used for development purposes.
-        /// （用於開發用途的虛假系統。）
-        /// </summary>
-        public static DummySystem Dummy => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<DummySystem>();
 
         /// <summary>
         /// The dedicated logger documenting the information, warnings, and errors.

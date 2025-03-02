@@ -28,13 +28,15 @@ namespace Carto.IO
         /// （寫出 GeoJSON 檔案。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="systemName">The exporting system's name.（輸出系統的名稱。）</param>
+        /// <param name="vectorKind">The classification of exported vector objects.（對輸出向量物體的分類。）</param>
         /// <param name="writeFeaturesMethod">The WriteFeatures() method implemented in each system.（各系統實作的 WriteFeatures() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public static void Write(Options options, Action<JsonTextWriter, Options, Action<string, int>> writeFeaturesMethod, Action<string, int> onReportMethod)
+        public static void Write(Options options, System systemName, VectorKind vectorKind, Action<JsonTextWriter, Options, Action<string, int>> writeFeaturesMethod, Action<string, int> onReportMethod)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if ((options == null) || (writeFeaturesMethod == null)) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
-            string filePath = options.FilePath;
+            string filePath = options.GetFilePath(systemName, vectorKind);
 
             using StreamWriter sw = new(filePath, false, Encoding.UTF8);
             using JsonTextWriter writer = new(sw);

@@ -2,6 +2,7 @@ using Colossal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -253,6 +254,23 @@ namespace Carto.Utils
             IEnumerable<T> values = Enum.GetValues(typeof(T)).Cast<T>();
             if (values.Contains(input)) return new T[] { input };
             return values.Where(v => input.HasFlag(v) && !v.Equals(default(T))).ToArray();
+        }
+
+        /// <summary>
+        /// Replace the tokens into pre-defined texts.
+        /// （將代號轉換為預先定義的文字。）
+        /// </summary>
+        /// <param name="text">The input string.（輸入的字串。）</param>
+        /// <param name="regex">The matching pattern.（比對的模式。）</param>
+        /// <param name="tokens">The dictionary containing the replacements.（包含替代物的字典。）</param>
+        /// <returns>Replaced string.（已被替換的字串。）</returns>
+        public static string ReplaceTokens(string text, string regex, Dictionary<string, string> tokens)
+        {
+            return Regex.Replace(text, regex, matched =>
+            {
+                string key = matched.Groups[1].Value;
+                return tokens.TryGetValue(key, out string val) ? val : matched.Value;
+            });
         }
 
         /// <summary>

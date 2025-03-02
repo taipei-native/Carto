@@ -35,7 +35,6 @@ namespace Carto
             // Register system instances into the game.
             // （將系統實例註冊在遊戲中。）
             updateSystem.UpdateBefore<AreaSystem>(SystemUpdatePhase.GameSimulation);
-            //updateSystem.UpdateBefore<DummySystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<RasterSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<SharedDataCollectionSystem>(SystemUpdatePhase.GameSimulation);
 

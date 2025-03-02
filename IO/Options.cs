@@ -3,6 +3,7 @@ using Carto.Utils;
 using Colossal.PSI.Environment;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 
 namespace Carto.IO
@@ -14,10 +15,21 @@ namespace Carto.IO
     public class Options
     {
         /// <summary>
+        /// The file's base name.（檔案的基本名稱。）
+        /// </summary>
+        private string _fileBaseName;
+        
+        /// <summary>
         /// Whether to regard asset packs as themes?
         /// （是否要將資產包視為建築風格？）
         /// </summary>
         public bool AssetPack { get; set; } = true;
+
+        /// <summary>
+        /// The datetime when the option was created.
+        /// （設定建立時的時間。）
+        /// </summary>
+        public DateTime Created { get; set; }
 
         /// <summary>
         /// The path to the target directory.
@@ -44,30 +56,10 @@ namespace Carto.IO
         public Feature Features { get; set; } = Feature.None;
 
         /// <summary>
-        /// The format of the target file.
-        /// （目標檔案的格式。）
-        /// </summary>
-        public FileFormat FileFormat { get; set; } = FileFormat.Unknown;
-
-        /// <summary>
         /// The target file's name.
         /// （目標檔案的名稱。）
         /// </summary>
         public string FileName { get; set; } = "output";
-
-        /// <summary>
-        /// The path to the target file.
-        /// （目標檔案的路徑。）
-        /// </summary>
-        public string FilePath
-        {
-            get
-            {
-                string formatDirectory = Enum.GetName(typeof(FileFormat), FileFormat);
-                string extension = IO.FileExtensionTable.TryGetValue(FileFormat, out string _extension) ? _extension : null;
-                return Path.ChangeExtension(IOUtils.CombinePath(Directory, formatDirectory, FileName), extension);
-            }
-        }
 
         public GeoTiffFormat GeoTiffFormat { get; set; } = GeoTiffFormat.Int16;
 
@@ -88,6 +80,12 @@ namespace Carto.IO
         /// （即將輸出的屬性。）
         /// </summary>
         public Dictionary<System, HashSet<Property>> Properties { get; set; }
+
+        /// <summary>
+        /// The format of the target raster file.
+        /// （目標網格檔案的格式。）
+        /// </summary>
+        public FileFormat RasterFormat { get; set; } = FileFormat.Unknown;
 
         /// <summary>
         /// The raster grids about to export.
@@ -164,6 +162,12 @@ namespace Carto.IO
         /// （是否要輸出應納稅所得。若為否，則輸出總所得。）
         /// </summary>
         public bool Taxable { get; set; } = false;
+
+        /// <summary>
+        /// The format of the target vector file.
+        /// （目標向量檔案的格式。）
+        /// </summary>
+        public FileFormat VectorFormat { get; set; } = FileFormat.Unknown;
 
         /// <summary>
         /// The vector geometries about to export.
@@ -306,6 +310,76 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// Retrieve the base name for the file.
+        /// （獲得檔案的基本名稱。）
+        /// </summary>
+        /// <param name="text">The input string with or without tokens.（可能含有代號的字串。）</param>
+        /// <returns>The base name of the file.（檔案的基本名稱。）</returns>
+        private string GetFileBaseName(string text)
+        {
+            DateTime gameTime = Instance.Time.GetCurrentDateTime();
+            string cityName = (Instance.GameMode == Game.GameMode.Game) ? IOUtils.RemoveInvalidChars(Instance.City.cityName) : "Unknown City"; // TODO : Replace string into LocaleUtils.Translate() strings
+            string mapName = (Instance.GameMode == Game.GameMode.Game) ? IOUtils.RemoveInvalidChars(Instance.Map.mapName) : "Unknwon Map"; // TODO : Replace string into LocaleUtils.Translate() strings
+            string name = CommonUtils.ReplaceTokens(text, @"\{(\w+)\}", new()
+            {
+                { "City", cityName },
+                { "Date", gameTime.ToString("yyyy-MM", CultureInfo.InvariantCulture) },
+                { "Map", mapName },
+                { "Now", Created.ToString("yyyy-MM-dd-HH-mm", CultureInfo.InvariantCulture) },
+                { "Time", gameTime.ToString("hh-mm", CultureInfo.InvariantCulture) },
+                { "UTCNow", Created.ToUniversalTime().ToString("yyyy-MM-dd-HH-mm", CultureInfo.InvariantCulture) }
+            });
+            return name;
+        }
+
+        /// <summary>
+        /// Retrieve the directory of the given file format.
+        /// （獲得指定檔案格式的目錄。）
+        /// </summary>
+        /// <param name="format">The file format.（檔案格式。）</param>
+        /// <returns>The file's directory.（檔案的目錄。）</returns>
+        private string GetFileDirectory(FileFormat format)
+        {
+            return IOUtils.CombinePath(Directory, Enum.GetName(typeof(FileFormat), format));
+        }
+
+        /// <summary>
+        /// Retrieve the extension of the given file format.
+        /// （獲得指定檔案格式的附檔名。）
+        /// </summary>
+        /// <param name="format">The file format.（檔案格式。）</param>
+        /// <returns>The file's extension.（檔案的副檔名。）</returns>
+        private string GetFileExtension(FileFormat format)
+        {
+            return IO.FileExtensionTable.TryGetValue(format, out string _extension) ? _extension : null;
+        }
+
+        /// <summary>
+        /// Retrieve the exported file's path.
+        /// （獲得輸出檔案的路徑。）
+        /// </summary>
+        /// <param name="systemName">The system's name.（系統的名稱。）</param>
+        /// <param name="vectorKind">The classification of exported vector objects.（對輸出向量物體的分類。）</param>
+        /// <returns>The file path.（檔案路徑。）</returns>
+        public string GetFilePath(System systemName, VectorKind vectorKind)
+        {
+            string file = IOUtils.RemoveInvalidChars(_fileBaseName.Replace("{Feature}", $"{systemName}_{vectorKind}"));
+            return Path.ChangeExtension(IOUtils.CombinePath(GetFileDirectory(VectorFormat), file), GetFileExtension(VectorFormat));
+        }
+
+        /// <summary>
+        /// Retrieve the exported file's path.
+        /// （獲得輸出檔案的路徑。）
+        /// </summary>
+        /// <param name="rasterKind">The classification of exported raster objects.（對輸出網格物體的分類。）</param>
+        /// <returns>The file path.（檔案路徑。）</returns>
+        public string GetFilePath(RasterKind rasterKind)
+        {
+            string file = IOUtils.RemoveInvalidChars(_fileBaseName.Replace("{Feature}", $"{rasterKind}"));
+            return Path.ChangeExtension(IOUtils.CombinePath(GetFileDirectory(RasterFormat), file), GetFileExtension(RasterFormat));
+        }
+
+        /// <summary>
         /// Retrieve the Transverse Mercator coordinate of the map origin.
         /// （獲得地圖原點的橫麥卡托投影坐標。）
         /// </summary>
@@ -354,6 +428,15 @@ namespace Carto.IO
             {
                 return SourceProjectionDefinition;
             }
+        }
+
+        /// <summary>
+        /// Initialize the options.
+        /// （初始化設定。）
+        /// </summary>
+        public void Initialize()
+        {
+            _fileBaseName = GetFileBaseName(FileName);
         }
 
         /// <summary>

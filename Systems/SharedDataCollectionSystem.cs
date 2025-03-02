@@ -18,6 +18,8 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Carto.Systems
 {
@@ -32,6 +34,12 @@ namespace Carto.Systems
         /// See <see cref="Instance.Log"/> for more information.
         /// </summary>
         static readonly ILog _log = Instance.Log;
+
+        /// <summary>
+        /// The system managing the terrain.（管理地形的系統。）<br/>
+        /// See <see cref="Instance.Terrain"/> for more information.
+        /// </summary>
+        static readonly TerrainSystem _terrain = Instance.Terrain;
 
         /// <summary>
         /// The query to collect all asset pack prefabs.
@@ -149,6 +157,17 @@ namespace Carto.Systems
         private Dictionary<PrefabBase, int> _themesPrefabMap;
 
         /// <summary>
+        /// The elevation grid of the world heightmap.<br/>
+        /// （世界高度圖的網格。）
+        /// </summary>
+        public ref NativeArray<ushort> WorldElevation => ref _worldElevation;
+
+        /// <summary>
+        /// See <see cref="WorldElevation"/>.
+        /// </summary>
+        private NativeArray<ushort> _worldElevation;
+
+        /// <summary>
         /// The list of in-game zoning types' information.
         /// （遊戲內分區類型資訊的列表。）
         /// </summary>
@@ -244,7 +263,7 @@ namespace Carto.Systems
                 {
                     ComponentType.ReadOnly<CompanyData>(),
                     ComponentType.ReadOnly<Employee>(),
-                    ComponentType.ReadOnly<Resources>()
+                    ComponentType.ReadOnly<Game.Economy.Resources>()
                 },
                 None = new ComponentType[]
                 {
@@ -324,6 +343,7 @@ namespace Carto.Systems
         {
             Utils.CommonUtils.Dispose(ref _brandsEntityMap);
             Utils.CommonUtils.Dispose(ref _buildingStats);
+            Utils.CommonUtils.Dispose(ref _worldElevation);
             Utils.CommonUtils.Dispose(ref _zoningTypes);
             Utils.CommonUtils.Dispose(ref _zoningTypesEntityMap);
             Utils.CommonUtils.Dispose(ref _zoningTypesIdMap);
@@ -362,6 +382,10 @@ namespace Carto.Systems
                     // Manually call the dispose for AfterZoningSystem, in case of the situation that the system is not used.
                     // （手動呼叫 AfterZoningSystem 的拋棄指令，以避免該系統並未被使用。）
                     Dispose(DisposePhase.AfterZoningSystem);
+                    break;
+
+                case DisposePhase.AfterTerrainRelated:
+                    Utils.CommonUtils.Dispose(ref _worldElevation);
                     break;
 
                 case DisposePhase.AfterZoningSystem:
@@ -412,8 +436,8 @@ namespace Carto.Systems
         /// Retrieve building entities' statistical data.
         /// （獲取建築實體的統計資料。）
         /// </summary>
-        /// <param name="option">The export options.（檔案輸出選項。）</param>
-        public void GetBuildingStats(Options option)
+        /// <param name="options">The export options.（檔案輸出選項。）</param>
+        public void GetBuildingStats(Options options)
         {
             // Create alias for fields.（創造欄位的別名。）
             ref List<Brand> brands = ref _brands;
@@ -425,12 +449,12 @@ namespace Carto.Systems
             ref NativeParallelHashMap<Entity, int> zoningsEntityMap = ref _zoningTypesEntityMap;
 
             // Export options.（輸出設定。）
-            bool hasAge = option.Contains(Property.Age);
-            bool hasBrand = option.Contains(Property.Brand);
-            bool hasPopulation = option.ContainsAny(Property.Age, Property.Labor, Property.Resident, Property.SexRatio, Property.Wage);
-            bool hasWage = option.Contains(Property.Wage);
-            bool hasZoning = option.ContainsAny(Property.Theme, Property.Zoning) ||
-                             option.ContainsAny(IO.System.Zoning, Property.Category, Property.Color, Property.Density, Property.Name);
+            bool hasAge = options.Contains(Property.Age);
+            bool hasBrand = options.Contains(Property.Brand);
+            bool hasPopulation = options.ContainsAny(Property.Age, Property.Labor, Property.Resident, Property.SexRatio, Property.Wage);
+            bool hasWage = options.Contains(Property.Wage);
+            bool hasZoning = options.ContainsAny(Property.Theme, Property.Zoning) ||
+                             options.ContainsAny(IO.System.Zoning, Property.Category, Property.Color, Property.Density, Property.Name);
 
             // Collect brands.（收集品牌。）
             if (hasBrand)
@@ -446,7 +470,7 @@ namespace Carto.Systems
             // Collect zoning types.（收集分區類型。）
             if (hasZoning)
             {
-                GetZoningTypes(option);
+                GetZoningTypes(options);
             }
             else
             {
@@ -524,8 +548,8 @@ namespace Carto.Systems
                 // Collect the statistics of each building.（收集各個建築的統計資料。）
                 CollectBuildingStatsJob collectStatsJob = new()
                 {
-                    countHomeless = option.Homeless,
-                    taxableIncomeOnly = option.Taxable,
+                    countHomeless = options.Homeless,
+                    taxableIncomeOnly = options.Taxable,
                     citizenBufferLookup = GetBufferLookup<HouseholdCitizen>(true),
                     employeeBufferLookup = GetBufferLookup<Employee>(true),
                     renterBufferLookup = GetBufferLookup<Renter>(true),
@@ -849,7 +873,7 @@ namespace Carto.Systems
             [WriteOnly]
             public NativeParallelHashMap<Entity, int>.ParallelWriter hashmap;
 
-            public void Execute(in DynamicBuffer<Employee> employee, in DynamicBuffer<Resources> resources, Entity company)
+            public void Execute(in DynamicBuffer<Employee> employee, in DynamicBuffer<Game.Economy.Resources> resources, Entity company)
             {
                 // According to `Game.Simulation.CompanyDividendSystem`, the company sets aside 12.5% (or 1/8) of its cash for employee dividends,
                 // which are then distributed equally among all employees.
@@ -861,11 +885,29 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Retrieve the world heightmap.
+        /// （獲取世界高度圖。）
+        /// </summary>
+        /// <param name="options">The export options.（檔案輸出設定。）</param>
+        public void GetWorldElevation(Options options)
+        {
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeArray<ushort> worldElevation = ref _worldElevation;
+            Texture map = _terrain.worldHeightmap;
+
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset(ref worldElevation, map.width * map.height);
+
+            // Convert the texture into array.（將材質貼圖轉為陣列。）
+            AsyncGPUReadback.RequestIntoNativeArray(ref worldElevation, map).WaitForCompletion();
+        }
+
+        /// <summary>
         /// Retrieve theme / asset pack's information.
         /// （獲取建築風格／資產包的資訊。）
         /// </summary>
-        /// <param name="option">The export options.（檔案輸出選項。）</param>
-        private void GetThemes(Options option)
+        /// <param name="options">The export options.（檔案輸出設定。）</param>
+        private void GetThemes(Options options)
         {
             // Create alias for fields.（創造欄位的別名。）
             ref List<Theme> themes = ref _themes;
@@ -895,7 +937,7 @@ namespace Carto.Systems
             }
 
             // Collect asset packs.（收集資產包。）
-            if (option.AssetPack)
+            if (options.AssetPack)
             {
                 NativeArray<Entity> assetPacks = _assetPackPrefabQuery.ToEntityArray(Allocator.Temp);
                 NativeArray<PrefabData> assetPackPrefabs = _assetPackPrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
@@ -918,8 +960,8 @@ namespace Carto.Systems
         /// Retrieve zoning types' information.
         /// （獲取分區類別的資訊。）
         /// </summary>
-        /// <param name="option">The export options.（檔案輸出選項。）</param>
-        public void GetZoningTypes(Options option)
+        /// <param name="options">The export options.（檔案輸出設定。）</param>
+        public void GetZoningTypes(Options options)
         {
             // Create alias for fields.（創造欄位的別名。）
             ref NativeParallelHashMap<Entity, int> entityMap = ref _zoningTypesEntityMap;
@@ -964,7 +1006,7 @@ namespace Carto.Systems
                 verifyHandle.Complete();
 
                 // Prepare themes / asset packs information.（準備建築風格／資產包資訊。）
-                GetThemes(option);
+                GetThemes(options);
 
                 // Add the data that can only be retrieved in the main thread.（添加只能在主執行緒取得的資料。）
                 for (int index = 0; index < zoningTypeCount; index++)

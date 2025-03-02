@@ -1,3 +1,4 @@
+using Carto.Domain;
 using Carto.Geodata;
 using Colossal.Logging;
 using System;
@@ -168,9 +169,10 @@ namespace Carto.IO
         public static void Export()
         {
             // Export options.（輸出設定。）
-            Options option = new()
+            Options options = new()
             {
                 AssetPack = true,
+                Created = DateTime.Now,
                 Display = new Dictionary<(Property, System), bool>
                 {
                     { (Property.Category, System.Building), true },
@@ -180,9 +182,8 @@ namespace Carto.IO
                     { (Property.Zoning, System.Unknown), true }
                 },
                 Features = Feature.District | Feature.MapTile,
-                FileFormat = FileFormat.GeoTIFF,
-                FileName = "Raster",
-                GeoTiffFormat = GeoTiffFormat.Norm16,
+                FileName = "Raster_{Feature}",
+                GeoTiffFormat = GeoTiffFormat.Float32,
                 Homeless = true,
                 Minimized = true,
                 Properties = new Dictionary<System, HashSet<Property>>
@@ -191,7 +192,8 @@ namespace Carto.IO
                     //{ System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
                     //{ System.Building, new() { Property.Age, Property.Brand, Property.Theme, Property.Zoning } }
                 },
-                RasterKinds = RasterKind.Unknown,
+                RasterFormat = FileFormat.GeoTIFF,
+                RasterKinds = RasterKind.WorldDepth | RasterKind.WorldElevation | RasterKind.Depth | RasterKind.Elevation,
                 SeparateResident = false,
                 SourceCoordinates = new Coord(new double3(327700, 2736000, 0)),
                 SourceProjection = CRS.TransverseMercator,
@@ -210,50 +212,98 @@ namespace Carto.IO
                     (121, 0), (250000, 0), 0.9999, new double[0]
                 ),
                 Taxable = false,
+                VectorFormat = FileFormat.GeoJSON,
                 VectorKinds = new Dictionary<System, VectorKind>
                 {
                     { System.Area, VectorKind.Boundary }
                 }
             };
+            options.Initialize();
 
             try
             {
                 // Shorthanded variables to determine whther to run any system.（縮寫變數，用於決定是否執行任何系統。）
-                bool useArea = option.Systems.HasFlag(System.Area);
-                bool useBuilding = option.Systems.HasFlag(System.Building);
-                bool useNet = option.Systems.HasFlag(System.Net);
-                bool usePOI = option.Systems.HasFlag (System.POI);
-                bool useRaster = option.Systems.HasFlag(System.Raster);
-                bool useRoute = option.Systems.HasFlag(System.Route);
-                bool useZoning = option.Systems.HasFlag(System.Zoning);
+                bool useArea = options.Systems.HasFlag(System.Area);
+                bool useBuilding = options.Systems.HasFlag(System.Building);
+                bool useNet = options.Systems.HasFlag(System.Net);
+                bool usePOI = options.Systems.HasFlag (System.POI);
+                bool useRaster = options.Systems.HasFlag(System.Raster);
+                bool useRoute = options.Systems.HasFlag(System.Route);
+                bool useZoning = options.Systems.HasFlag(System.Zoning);
+                bool useVector = useArea || useBuilding || useNet || usePOI || useRoute || useZoning;
 
-                // Collect shared data.（收集共享資料。）
-                if (useArea || useBuilding)
+                if (useVector)
                 {
-                    // Retrieve building statistics.（獲取建築的統計資料。）
-                    Instance.Shared.GetBuildingStats(option);
-                }
-                else if (useZoning)
-                {
-                    // Retrieve zoning types information.（獲取分區類別的資訊。）
-                    Instance.Shared.GetZoningTypes(option);
+                    // Collect vector shared data.（收集向量共享資料。）
+                    if (useArea || useBuilding)
+                    {
+                        // Retrieve building statistics.（獲取建築的統計資料。）
+                        Instance.Shared.GetBuildingStats(options);
+                    }
+                    else if (useZoning)
+                    {
+                        // Retrieve zoning types information.（獲取分區類別的資訊。）
+                        Instance.Shared.GetZoningTypes(options);
+                    }
+
+                    // Write vector data.（寫入向量資料。）
+                    switch (options.VectorFormat)
+                    {
+                        case FileFormat.GeoJSON:
+                            if (useZoning)
+                            {
+
+                            }
+                            if (useBuilding)
+                            {
+
+                            }
+                            if (useArea)
+                            {
+                                GeoJson.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteFeatures, OnReport);
+                            }
+                            break;
+                    }
                 }
 
-                if (useZoning)
-                {
-
-                }
-                if (useBuilding)
-                {
-
-                }
-                if (useArea)
-                {
-                    GeoJson.Write(option, Instance.Area.WriteFeatures, OnReport);
-                }
                 if (useRaster)
                 {
-                    GeoTiff.Write(option, Instance.Raster.WriteElevation, OnReport);
+                    bool hasWorldDepth = options.RasterKinds.HasFlag(RasterKind.WorldDepth);
+                    bool hasWorldElevation = options.RasterKinds.HasFlag(RasterKind.WorldElevation);
+                    bool hasWorldTerrain = hasWorldDepth || hasWorldElevation;
+
+                    // Write raster data.（寫入網格資料。）
+                    switch (options.RasterFormat)
+                    {
+                        case FileFormat.GeoTIFF:
+                            // Handle the grids using shared data first.（首先處理使用共享資料的網格。）
+                            if (hasWorldTerrain)
+                            {
+                                Instance.Shared.GetWorldElevation(options);
+
+                                if (hasWorldDepth)
+                                {
+                                    GeoTiff.Write(options, RasterKind.WorldDepth, Instance.Raster.WriteWorldDepth, OnReport);
+                                }
+                                if (hasWorldElevation)
+                                {
+                                    GeoTiff.Write(options, RasterKind.WorldElevation, Instance.Raster.WriteWorldElevation, OnReport);
+                                }
+
+                                Instance.Shared.Dispose(DisposePhase.AfterTerrainRelated);
+                            }
+
+                            // ... then handle the grids using data independent from others later.（接著處理獨立的網格。）
+                            if (options.RasterKinds.HasFlag(RasterKind.Depth))
+                            {
+                                GeoTiff.Write(options, RasterKind.Depth, Instance.Raster.WriteDepth, OnReport);
+                            }
+                            if (options.RasterKinds.HasFlag(RasterKind.Elevation))
+                            {
+                                GeoTiff.Write(options, RasterKind.Elevation, Instance.Raster.WriteElevation, OnReport);
+                            }
+                            break;
+                    }
                 }
             }
             catch (Exception ex)
