@@ -1,4 +1,3 @@
-using Carto.Domain;
 using Carto.IO;
 using Colossal.Logging;
 using Colossal.Mathematics;
@@ -10,7 +9,6 @@ using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Carto.Systems
 {
@@ -287,7 +285,7 @@ namespace Carto.Systems
                 return (ushort) nodata;
             }
 
-            // Note: The lifecycle of `elevation` is managed by SharedDataCollectionSystem, disposing of `elevation` directly would result in double disposal.
+            // Note: The lifecycle of `elevation` is managed by SharedDataCollectionSystem, and disposing of `elevation` directly would result in double disposal.
             // （註：`elevation` 的生命週期由 SharedDataCollectionSystem 管理，直接丟棄將導致重複丟棄的情況。）
             NativeArray<ushort> elevation = _shared.WorldElevation;
 
@@ -359,7 +357,7 @@ namespace Carto.Systems
             GeoTiff.WriteHeader(writer, ref param);
             GeoTiff.Parameter _param = param;
 
-            // Note: The lifecycle of `elevation` is managed by SharedDataCollectionSystem, disposing of `elevation` directly would result in double disposal.
+            // Note: The lifecycle of `elevation` is managed by SharedDataCollectionSystem, and disposing of `elevation` directly would result in double disposal.
             // （註：`elevation` 的生命週期由 SharedDataCollectionSystem 管理，直接丟棄將導致重複丟棄的情況。）
             NativeArray<ushort> elevation = _shared.WorldElevation;
 

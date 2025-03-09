@@ -86,6 +86,17 @@ namespace Carto.Utils
         /// （獲得端序翻轉的位元組陣列。）
         /// </summary>
         /// <param name="value">The input value.（輸入值。）</param>
+        /// <returns>The flipped byte array with length of 8.（長度為 8、已翻轉的位元組陣列。）</returns>
+        public static byte[] GetFlippedBytes(double value)
+        {
+            return BitConverter.GetBytes(value).Reverse().ToArray();
+        }
+
+        /// <summary>
+        /// Retrieve the byte array with flipped endianess.
+        /// （獲得端序翻轉的位元組陣列。）
+        /// </summary>
+        /// <param name="value">The input value.（輸入值。）</param>
         /// <returns>The flipped byte array with length of 4.（長度為 4、已翻轉的位元組陣列。）</returns>
         public static byte[] GetFlippedBytes(float value)
         {
@@ -321,6 +332,19 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Retrieve current stream's position.
+        /// （獲得目前資料流的位置。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <returns>The position.（目前位置。）</returns>
+        public static int GetPosition(BinaryWriter writer)
+        {
+            long position = writer.BaseStream.Position;
+            if (position > int.MaxValue) return int.MaxValue;
+            return Convert.ToInt32(position);
+        }
+
+        /// <summary>
         /// Remove invalid characters for file naming from the input string.
         /// （移除字串中的檔案命名非法字元。）
         /// </summary>
@@ -329,6 +353,19 @@ namespace Carto.Utils
         public static string RemoveInvalidChars(string input)
         {
             return new string(input.Where(ch => !Path.GetInvalidFileNameChars().Contains(ch)).ToArray());
+        }
+
+        /// <summary>
+        /// Skip any number of byte in the file.
+        /// （跳過檔案中任意數量的位元組。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="count">The number of skipped bytes.（跳過的位元組數量。）</param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public static void SkipBytes(BinaryWriter writer, int count)
+        {
+            if (count < 0) throw new ArgumentOutOfRangeException("count", "The count should be larger or equal to 0. 數量應大於等於 0。");
+            writer.Write(new byte[count]);
         }
 
         /// <summary>

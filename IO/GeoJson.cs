@@ -11,8 +11,8 @@ using Unity.Mathematics;
 namespace Carto.IO
 {
     /// <summary>
-    /// The class that provides utility functions to write GeoJSON.
-    /// （提供寫出 GeoJSON 功能的類別。）<br/>
+    /// The class that provides utility functions to write GeoJSON.<br/>
+    /// （提供寫出 GeoJSON 功能的類別。）
     /// </summary>
     public static class GeoJson
     {

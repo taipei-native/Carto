@@ -181,6 +181,7 @@ namespace Carto.IO
                     { (Property.Object, System.Unknown), false },
                     { (Property.Zoning, System.Unknown), true }
                 },
+                Elevation = true,
                 Features = Feature.District | Feature.MapTile,
                 FileName = "Raster_{Feature}",
                 GeoTiffFormat = GeoTiffFormat.Float32,
@@ -203,7 +204,7 @@ namespace Carto.IO
                     (121, 0), (250000, 0), 0.9999, new double[0]
                 ),
                 StatisticsMapTile = false,
-                Systems = System.Raster,
+                Systems = System.Area,
                 TargetEllipsoid = Ellipsoid.WGS84,
                 TargetProjection = CRS.TransverseMercator,
                 TargetProjectionDefinition = new ProjectionDefinition
@@ -212,7 +213,7 @@ namespace Carto.IO
                     (121, 0), (250000, 0), 0.9999, new double[0]
                 ),
                 Taxable = false,
-                VectorFormat = FileFormat.GeoJSON,
+                VectorFormat = FileFormat.Shapefile,
                 VectorKinds = new Dictionary<System, VectorKind>
                 {
                     { System.Area, VectorKind.Boundary }

@@ -1,3 +1,4 @@
+using Colossal.Mathematics;
 using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -54,6 +55,44 @@ namespace Carto.Geodata
         /// （這個幾何圖形是否代表一個複數多邊形？）
         /// </summary>
         public bool IsMultiPolygon => Inclusions.Length > 1;
+
+        /// <summary>
+        /// The number of parts in the geometry.
+        /// （幾何圖形的部件數。）
+        /// </summary>
+        /// <param name="pointCount">The number of points in the geometry.（幾何圖形的點數。）</param>
+        /// <param name="pointCounts">The number of points in each part.（每個部件包含的點數。）</param>
+        /// <param name="bounds">The bounding box of the geometry.（幾何圖形的定界框。）</param>
+        public int GetParts(out int pointCount, out List<int> pointCounts, out Bounds3 bounds)
+        {
+            bounds = new();
+            int partCount = Inclusions.Length;
+            pointCount = 0;
+            pointCounts = new();
+            for (int i = 0; i < Inclusions.Length; i++)
+            {
+                pointCount += Inclusions[i].Length;
+                pointCounts.Add(Inclusions[i].Length);
+                for (int j = 0;  j < Inclusions[i].Length; j++)
+                {
+                    bounds |= Inclusions[i][j];
+                }
+            }
+            for (int i = 0; i < Exclusions.Length; i++)
+            {
+                partCount += Exclusions[i].Length;
+                for (int j = 0; j < Exclusions[i].Length; j++)
+                {
+                    pointCount += Exclusions[i][j].Length;
+                    pointCounts.Add(Exclusions[i][j].Length);
+                    for (int k = 0;  k < Exclusions[i][j].Length; k++)
+                    {
+                        bounds |= Exclusions[i][j][k];
+                    }
+                }
+            }
+            return partCount;
+        }
 
         /// <summary>
         /// Validate the <see cref="ExclusionIndexTable"/>'s correctness.<br/>

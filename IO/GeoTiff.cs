@@ -12,8 +12,8 @@ using Unity.Collections;
 namespace Carto.IO
 {
     /// <summary>
-    /// The class that provides utility functions to write GeoTIFF.
-    /// （提供寫出 GeoTIFF 功能的類別。）<br/>
+    /// The class that provides utility functions to write GeoTIFF.<br/>
+    /// （提供寫出 GeoTIFF 功能的類別。）
     /// </summary>
     public static class GeoTiff
     {
@@ -306,7 +306,7 @@ namespace Carto.IO
             if (options == null) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
             string filePath = options.GetFilePath(rasterKind);
 
-            using FileStream fs = new(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None, 81920);
+            using FileStream fs = new(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920);
             using BinaryWriter writer = new(fs);
 
             // Prepare the metadata.（準備元資料。）
