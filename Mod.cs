@@ -47,6 +47,7 @@
             // Register system instances into the game.
             // （將系統實例註冊在遊戲中。）
             updateSystem.UpdateBefore<AreaSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.UpdateBefore<AudioSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<BuildingSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<NetSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<POISystem>(SystemUpdatePhase.GameSimulation);

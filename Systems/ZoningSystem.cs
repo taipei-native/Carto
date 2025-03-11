@@ -357,8 +357,14 @@ namespace Carto.Systems
                     try
                     {
                         PrefabData themePrefabData = EntityManager.GetComponentData<PrefabData>(_theme);
-                        ThemePrefab themePrefab = m_Prefab.GetPrefab<ThemePrefab>(themePrefabData);
-                        themePrefix[themePrefab] = LocaleUtils.Translate($"Assets.THEME[{m_Prefab.GetPrefabName(_theme)}]");
+                        if (m_Prefab.TryGetPrefab(themePrefabData, out ThemePrefab themePrefab))
+                        {
+                            themePrefix[themePrefab] = LocaleUtils.Translate($"Assets.THEME[{m_Prefab.GetPrefabName(_theme)}]");
+                        }
+                        else
+                        {
+                            m_Log.Info($"    A theme prefab ({themePrefabData.m_Index}) is missing. 一個主題預製件 ({themePrefabData.m_Index}) 遺失了。");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -374,8 +380,15 @@ namespace Carto.Systems
                     ZoningType zoningTypeInfo = new ZoningType();
                     ZoneData zoningTypeData = EntityManager.GetComponentData<ZoneData>(_zoningType);
                     PrefabData zoningTypePrefabData = EntityManager.GetComponentData<PrefabData>(_zoningType);
-                    ZonePrefab zoningTypePrefab = m_Prefab.GetPrefab<ZonePrefab>(zoningTypePrefabData);
                     zoningTypeInfo.Entity = _zoningType;
+
+                    // Gracefully handling missing prefabs.
+                    // （優雅地處理遺失的預製資料。）
+                    bool zoningPrefabRetrievable = m_Prefab.TryGetPrefab(zoningTypePrefabData, out ZonePrefab zoningTypePrefab);
+                    if (!zoningPrefabRetrievable && (useColor || useTheme))
+                    {
+                        m_Log.Info($"    A zone prefab ({zoningTypePrefabData.m_Index}) is missing. 一個分區預製件 ({zoningTypePrefabData.m_Index}) 遺失了。");
+                    }
 
                     // Retrieve the category of the zoning type. Expected output: ZoningCategory.Residential
                     // （獲取分區的分類。預期輸出：ZoningCategory.Residential）
@@ -423,8 +436,21 @@ namespace Carto.Systems
 
                     // Retrieve the color of the zoning type. Expected output: "#FFAA00"
                     // （獲取分區的顏色。預期輸出："#FFAA00"）
-                    if (useColor) zoningTypeInfo.Color = "#" + ColorUtility.ToHtmlStringRGB(zoningTypePrefab.m_Color);
-                    if (useColor && !Instance.Settings.UseZCC && zccReady && zccIntegrity) zoningTypeInfo.Color = "#" + ColorUtility.ToHtmlStringRGB(vanillaColors[m_Prefab.GetPrefabName(_zoningType)]);
+                    if (useColor)
+                    {
+                        if (zoningPrefabRetrievable)
+                        {
+                            zoningTypeInfo.Color = "#" + ColorUtility.ToHtmlStringRGB(zoningTypePrefab.m_Color);
+                            if (!Instance.Settings.UseZCC && zccReady && zccIntegrity)
+                            {
+                                zoningTypeInfo.Color = "#" + ColorUtility.ToHtmlStringRGB(vanillaColors[m_Prefab.GetPrefabName(_zoningType)]);
+                            }
+                        }
+                        else
+                        {
+                            zoningTypeInfo.Color = "#FFFFFF"; // The fallback value.（後備值。）
+                        }
+                    }
 
                     // Retrieve the UID of the zoning type.
                     // （獲取分區類型的唯一代碼。）
@@ -439,15 +465,21 @@ namespace Carto.Systems
                     // （獲取分區類型的主題風格。預期輸出："歐式"）
                     if (useTheme)
                     {
-                        if (zoningTypePrefab.Has<ThemeObject>())
+                        bool themePrefabRetrievable = false;
+                        if (zoningPrefabRetrievable)
                         {
-                            ThemePrefab zoningTypeThemePrefab = zoningTypePrefab.GetComponent<ThemeObject>().m_Theme;
-                            zoningTypeInfo.Theme = themePrefix[zoningTypeThemePrefab];
+                            if (zoningTypePrefab.Has<ThemeObject>())
+                            {
+                                ThemePrefab zoningTypeThemePrefab = zoningTypePrefab.GetComponent<ThemeObject>().m_Theme;
+                                if (themePrefix.TryGetValue(zoningTypeThemePrefab, out string themeName))
+                                {
+                                    themePrefabRetrievable = true;
+                                    zoningTypeInfo.Theme = themeName;
+                                }
+                            }
                         }
-                        else
-                        {
-                            zoningTypeInfo.Theme = LocaleUtils.Translate("Assets.THEME[Carto Generic]");
-                        }
+
+                        if (!themePrefabRetrievable) zoningTypeInfo.Theme = LocaleUtils.Translate("Assets.THEME[Carto Generic]"); // The fallback value.（後備值。）
                     }
 
                     zoningTypes[zoningTypeIndex] = zoningTypeInfo;

@@ -5,6 +5,7 @@ namespace Carto
     using Colossal.Localization;
     using Colossal.Logging;
     using Game;
+    using Game.Audio;
     using Game.City;
     using Game.Modding;
     using Game.Prefabs;
@@ -22,6 +23,18 @@ namespace Carto
         /// （Carto模組的AreaSystem個體。）
         /// </summary>
         public static AreaSystem Area => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<AreaSystem>();
+
+        /// <summary>
+        /// The Carto mod's AudioSystem instance.
+        /// （Carto模組的AudioSystem個體。）
+        /// </summary>
+        public static AudioSystem Audio => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<AudioSystem>();
+
+        /// <summary>
+        /// The manager controlling sound effects.
+        /// （音效的管理者。）
+        /// </summary>
+        public static AudioManager AudioManager => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<AudioManager>();
 
         /// <summary>
         /// The Carto mod's BuildingSystem instance.

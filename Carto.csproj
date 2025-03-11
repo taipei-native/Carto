@@ -5,9 +5,9 @@
 		<TargetFramework>net472</TargetFramework>
 		<Configurations>Debug;Release</Configurations>
 		<Authors>Taipei Native</Authors>
-		<AssemblyVersion>0.3.1.0</AssemblyVersion> <!--4 digit -->
-		<FileVersion>0.3.1</FileVersion> <!--3 digit -->
-		<Version>0.3.1</Version> <!--3 digit -->
+		<AssemblyVersion>0.3.2.0</AssemblyVersion> <!--4 digit -->
+		<FileVersion>0.3.2</FileVersion> <!--3 digit -->
+		<Version>0.3.2</Version> <!--3 digit -->
 		
 		<!--The folder where Game.dll is located. Set it only if the game is not installed in the default location, otherwise keep it empty-->
 		<CustomManagedPath></CustomManagedPath>
@@ -59,6 +59,9 @@
 			<Private>false</Private>
 		</Reference>
 		<Reference Include="Colossal.UI.Binding">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="UnityEngine.AudioModule">
 			<Private>false</Private>
 		</Reference>
 		<Reference Include="UnityEngine.CoreModule">

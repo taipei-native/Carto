@@ -280,20 +280,27 @@ namespace Carto.Systems
         /// <param name="entityManager">The system's entity manager.（系統的實體管理器。）</param>
         public static List<float3> GetBuildingEdge(Entity buildingEntity, EntityManager entityManager)
         {
-            Entity buildingPrefab = entityManager.GetComponentData<PrefabRef>(buildingEntity);
-            bool circular = m_Prefab.GetPrefab<BuildingPrefab>(buildingPrefab).m_Circular;
-            int2 lotSize = entityManager.GetComponentData<BuildingData>(buildingPrefab).m_LotSize;
+            Entity buildingRef = entityManager.GetComponentData<PrefabRef>(buildingEntity);
+            int2 lotSize = entityManager.GetComponentData<BuildingData>(buildingRef).m_LotSize;
             Transform transform = entityManager.GetComponentData<Transform>(buildingEntity);
 
-            if (circular)
+            // Gracefully handling missing prefabs.
+            // （優雅地處理遺失的預製資料。）
+            if (m_Prefab.TryGetPrefab(buildingRef, out BuildingPrefab buildingPrefab))
             {
-                return GeometryUtils.Interpolate(new Circle3(math.min(lotSize.x, lotSize.y) * 4, transform.m_Position, new quaternion(0, 0, 0, 0)));
+                if (buildingPrefab.m_Circular)
+                {
+                    return GeometryUtils.Interpolate(new Circle3(math.min(lotSize.x, lotSize.y) * 4, transform.m_Position, new quaternion(0, 0, 0, 0)));
+                }
             }
             else
             {
-                Quad3 corners = BuildingUtils.CalculateCorners(transform, lotSize);
-                return new List<float3> { corners.a, corners.b, corners.c, corners.d };
+                int index = entityManager.GetComponentData<PrefabData>(buildingRef).m_Index;
+                m_Log.Info($"    A building prefab ({index}) is missing. 一個建築預製件 ({index}) 遺失了。");
             }
+
+            Quad3 corners = BuildingUtils.CalculateCorners(transform, lotSize);
+            return new List<float3> { corners.a, corners.b, corners.c, corners.d };
         }
 
         /// <summary>

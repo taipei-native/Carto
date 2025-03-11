@@ -650,6 +650,7 @@ namespace Carto.Utils
                 exportCompleteString = LocaleUtils.Translate("Carto.export.SUCCESSTEXT").Replace("{NUMBER}", $"{fileCountTotal}");
             }
 
+            Instance.Audio.PlaySound(AudioSystem.Sound.Completion);
             MessageDialog exportSuccessDialog = new MessageDialog("Options.SECTION[Carto.Carto.Mod]", exportCompleteString, "Common.OK");
             Instance.UI.appBindings.ShowMessageDialog(exportSuccessDialog, null);
         }

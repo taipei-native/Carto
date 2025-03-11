@@ -445,11 +445,10 @@ namespace Carto.Systems
         /// Retrieve the category of the POI.
         /// （獲取興趣點的分類。）
         /// </summary>
-        public static List<POICategory> GetPOICategoryFromBuilding(Entity entity, EntityManager entityManager, out string brand)
+        public static List<POICategory> GetPOICategoryFromBuilding(Entity entity, EntityManager entityManager, Dictionary<Entity, ZoningCategory?> zoningCategoryMap, out string brand)
         {
             Entity prefab = entityManager.GetComponentData<PrefabRef>(entity).m_Prefab;
             List<POICategory> categories = new List<POICategory>();
-            Dictionary<Entity, ZoningCategory?> zoningCategory = Instance.Zoning.GetZoningTypes(false, false, false, true).ToDictionary(kvp => kvp.Value.Entity, kvp => kvp.Value.Category);
 
             bool useUpgrade = Instance.Settings.UseUpgrade;
             bool hasPowerClassification = false;
@@ -753,7 +752,7 @@ namespace Carto.Systems
 
             if (entityManager.HasComponent<SpawnableBuildingData>(prefab) && (entityManager.HasComponent<CommercialProperty>(entity) || entityManager.HasComponent<IndustrialProperty>(entity)) && !entityManager.HasComponent<ExtractorProperty>(entity) && !entityManager.HasComponent<StorageProperty>(entity))
             {
-                ZoningCategory zone = zoningCategory.TryGetValue(entityManager.GetComponentData<SpawnableBuildingData>(prefab).m_ZonePrefab, out ZoningCategory? zoneType) ? (ZoningCategory) zoneType : ZoningCategory.None;
+                ZoningCategory zone = zoningCategoryMap.TryGetValue(entityManager.GetComponentData<SpawnableBuildingData>(prefab).m_ZonePrefab, out ZoningCategory? zoneType) ? (ZoningCategory) zoneType : ZoningCategory.None;
                 bool hasProduct = false;
                 bool isCommercial = zone.HasFlag(ZoningCategory.Commercial);
                 bool isIndustrial = zone.HasFlag(ZoningCategory.Industrial);
@@ -1034,6 +1033,7 @@ namespace Carto.Systems
         {
             Dictionary<Entity, POICategory> pylonPrefabs = new Dictionary<Entity, POICategory>();
             Dictionary<Entity, List<POICategory>> transportStopPrefabs = new Dictionary<Entity, List<POICategory>>();
+            Dictionary<Entity, ZoningCategory?> _zoningCategoryMap = Instance.Zoning.GetZoningTypes(false, false, false, true).ToDictionary(kvp => kvp.Value.Entity, kvp => kvp.Value.Category);
             List<CartoObject> poiList = new List<CartoObject>();
             fieldLength = new Dictionary<string, int>();
             bool considerServiceUpgrades = !Instance.Settings.UseUpgrade;
@@ -1066,7 +1066,7 @@ namespace Carto.Systems
                 {
                     try
                     {
-                        List<POICategory> _buildPOI = GetPOICategoryFromBuilding(_build, EntityManager, out string brandName);
+                        List<POICategory> _buildPOI = GetPOICategoryFromBuilding(_build, EntityManager, _zoningCategoryMap, out string brandName);
 
                         if (_buildPOI[0] != POICategory.None)
                         {
