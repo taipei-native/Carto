@@ -181,16 +181,15 @@ namespace Carto.IO
                     { (Property.Object, System.Unknown), false },
                     { (Property.Zoning, System.Unknown), true }
                 },
-                Elevation = true,
+                Elevation = false,
                 Features = Feature.District | Feature.MapTile,
-                FileName = "Raster_{Feature}",
+                FileName = "OPZ_{Feature}",
                 GeoTiffFormat = GeoTiffFormat.Float32,
                 Homeless = true,
                 Minimized = true,
                 Properties = new Dictionary<System, HashSet<Property>>
                 {
-                    //{ System.Area, new() { Property.Area, Property.Name, Property.Object, Property.Unlocked } },
-                    //{ System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
+                    { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
                     //{ System.Building, new() { Property.Age, Property.Brand, Property.Theme, Property.Zoning } }
                 },
                 RasterFormat = FileFormat.GeoTIFF,
@@ -203,7 +202,7 @@ namespace Carto.IO
                     EllipsoidTable[Ellipsoid.GRS80],
                     (121, 0), (250000, 0), 0.9999, new double[0]
                 ),
-                StatisticsMapTile = false,
+                StatisticsMapTile = true,
                 Systems = System.Area,
                 TargetEllipsoid = Ellipsoid.WGS84,
                 TargetProjection = CRS.TransverseMercator,
@@ -247,6 +246,8 @@ namespace Carto.IO
                         Instance.Shared.GetZoningTypes(options);
                     }
 
+                    bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
+
                     // Write vector data.（寫入向量資料。）
                     switch (options.VectorFormat)
                     {
@@ -261,7 +262,28 @@ namespace Carto.IO
                             }
                             if (useArea)
                             {
-                                GeoJson.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteFeatures, OnReport);
+                                if (areaHasBoundary)
+                                {
+                                    GeoJson.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundaryFeatures, OnReport);
+                                }
+                            }
+                            break;
+
+                        case FileFormat.Shapefile:
+                            if (useZoning)
+                            {
+
+                            }
+                            if (useBuilding)
+                            {
+
+                            }
+                            if (useArea)
+                            {
+                                if (areaHasBoundary)
+                                {
+                                    Shapefile.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, OnReport);
+                                }
                             }
                             break;
                     }

@@ -447,5 +447,71 @@ namespace Carto.Utils
             lastItem = collection[collection.Count - 1];
             return true;
         }
+
+        /// <summary>
+        /// Validate the integrity of a native array.
+        /// （驗證原生陣列的完整性。）
+        /// </summary>
+        /// <typeparam name="T">The type of the array items.（陣列內物件的型別。）</typeparam>
+        /// <param name="array">The input array.（輸入的陣列。）</param>
+        /// <param name="omitLength">Omit the length check.（省略長度檢查。）</param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static void ValidateIntegrity<T>(ref NativeArray<T> array, bool omitLength = false) where T : struct
+        {
+            if (array == null || !array.IsCreated)
+            {
+                throw new InvalidOperationException("The array is not initialized. 陣列未初始化。");
+            }
+            
+            if (!omitLength && array.Length == 0)
+            {
+                throw new InvalidOperationException("The array is empty. 陣列為空。");
+            }
+        }
+
+        /// <summary>
+        /// Validate the integrity of a native list.
+        /// （驗證原生列表的完整性。）
+        /// </summary>
+        /// <typeparam name="T">The type of the list's items.（列表內物件的型別。）</typeparam>
+        /// <param name="list">The input list.（輸入的列表。）</param>
+        /// <param name="omitLength">Omit the length check.（省略長度檢查。）</param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static void ValidateIntegrity<T>(ref NativeList<T> list, bool omitLength = false) where T : unmanaged
+        {
+            if (list.Equals(null) || !list.IsCreated)
+            {
+                throw new InvalidOperationException("The list is not initialized. 列表未初始化。");
+            }
+
+            if (!omitLength && list.Length == 0)
+            {
+                throw new InvalidOperationException("The list is empty. 列表為空。");
+            }
+        }
+
+        /// <summary>
+        /// Validate the integrity of a native hashmap (parallel variant).
+        /// （驗證原生映射表（平行運算變種）的完整性。）
+        /// </summary>
+        /// <typeparam name="TKey">The type of the hashmap's keys.（映射表鍵的型別。）</typeparam>
+        /// <typeparam name="TValue">The type of the hashmap's values.（映射表值的型別。）</typeparam>
+        /// <param name="hashmap">The input hashmap.（輸入的映射表。）</param>
+        /// <param name="omitLength">Omit the length check.（省略長度檢查。）</param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static void ValidateIntegrity<TKey, TValue>(ref NativeParallelHashMap<TKey, TValue> hashmap, bool omitLength = false)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            if (hashmap.Equals(null) || !hashmap.IsCreated)
+            {
+                throw new InvalidOperationException("The hashmap is not initialized. 映射表未初始化。");
+            }
+
+            if (!omitLength && hashmap.Count() == 0)
+            {
+                throw new InvalidOperationException("The hashmap is empty. 映射表為空。");
+            }
+        }
     }
 }

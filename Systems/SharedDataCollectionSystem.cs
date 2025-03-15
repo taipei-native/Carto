@@ -925,15 +925,17 @@ namespace Carto.Systems
             NativeArray<PrefabData> themePrefabs = _themePrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
             for (int i = 0; i < themeEntities.Length; i++)
             {
-                Entity theme = themeEntities[i];
-                PrefabBase themePrefab = Instance.Prefab.GetPrefab<PrefabBase>(themePrefabs[i]);
-                Theme data = new()
+                if (Instance.Prefab.TryGetPrefab(themePrefabs[i], out PrefabBase themePrefab))
                 {
-                    entity = theme,
-                    name = Instance.Prefab.GetPrefabName(theme),
-                };
-                themes.Add(data);
-                prefabMap.Add(themePrefab, themes.Count - 1);
+                    Entity theme = themeEntities[i];
+                    Theme data = new()
+                    {
+                        entity = theme,
+                        name = Instance.Prefab.GetPrefabName(theme),
+                    };
+                    themes.Add(data);
+                    prefabMap.Add(themePrefab, themes.Count - 1);
+                }
             }
 
             // Collect asset packs.（收集資產包。）
@@ -943,15 +945,17 @@ namespace Carto.Systems
                 NativeArray<PrefabData> assetPackPrefabs = _assetPackPrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
                 for (int i = 0; i < assetPacks.Length; i++)
                 {
-                    Entity assetPack = assetPacks[i];
-                    PrefabBase assetPackPrefab = Instance.Prefab.GetPrefab<PrefabBase>(assetPackPrefabs[i]);
-                    Theme data = new()
+                    if (Instance.Prefab.TryGetPrefab(assetPackPrefabs[i], out PrefabBase assetPackPrefab))
                     {
-                        entity = assetPack,
-                        name = Instance.Prefab.GetPrefabName(assetPack)
-                    };
-                    themes.Add(data);
-                    prefabMap.Add(assetPackPrefab, themes.Count - 1);
+                        Entity assetPack = assetPacks[i];
+                        Theme data = new()
+                        {
+                            entity = assetPack,
+                            name = Instance.Prefab.GetPrefabName(assetPack)
+                        };
+                        themes.Add(data);
+                        prefabMap.Add(assetPackPrefab, themes.Count - 1);
+                    }
                 }
             }
         }

@@ -66,6 +66,7 @@ namespace Carto.Geodata
         public int GetParts(out int pointCount, out List<int> pointCounts, out Bounds3 bounds)
         {
             bounds = new();
+            bounds.Reset();
             int partCount = Inclusions.Length;
             pointCount = 0;
             pointCounts = new();
@@ -74,7 +75,7 @@ namespace Carto.Geodata
                 pointCount += Inclusions[i].Length;
                 pointCounts.Add(Inclusions[i].Length);
                 for (int j = 0;  j < Inclusions[i].Length; j++)
-                {
+                {                    
                     bounds |= Inclusions[i][j];
                 }
             }

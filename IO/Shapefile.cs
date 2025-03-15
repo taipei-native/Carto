@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using Unity.Mathematics;
 
 namespace Carto.IO
@@ -27,6 +28,24 @@ namespace Carto.IO
             * MapTiler. (2024). WGS / UTM zone xxX - EPSG:32xxx
                 https://epsg.io/
         */
+
+        /// <summary>
+        /// The character string.
+        /// （字串。）
+        /// </summary>
+        public const char fieldTypeCharacter = 'C';
+        
+        /// <summary>
+        /// The floating-point number.
+        /// （浮點數。）
+        /// </summary>
+        public const char fieldTypeFloat = 'F';
+
+        /// <summary>
+        /// The integer number.
+        /// （整數。）
+        /// </summary>
+        public const char fieldTypeNumber = 'N';
 
         /// <summary>
         /// Points on the X-Y plane.
@@ -65,16 +84,50 @@ namespace Carto.IO
         public const int shapeTypePolygonZ = 15;
 
         /// <summary>
-        /// The metadata of the Shapefile.
-        /// （Shapefile 的元資料。）
+        /// The look-up table for each composite field's type.
+        /// （每個複合欄位代表型別的對照表。）
         /// </summary>
-        public struct Parameter
+        public static readonly Dictionary<Property, char[]> CompositeFieldTypeTable = new()
+        {
+            { Property.Address, new char[3] { fieldTypeCharacter, fieldTypeCharacter, fieldTypeNumber } },
+            { Property.Resident, new char[2] { fieldTypeNumber, fieldTypeNumber } }
+        };
+
+        /// <summary>
+        /// The look-up table for each field's type.
+        /// （每個欄位代表型別的對照表。）
+        /// </summary>
+        public static readonly Dictionary<Type, char> FieldTypeTable = new()
+        {
+            { typeof(bool), fieldTypeNumber },
+            { typeof(int), fieldTypeNumber },
+            { typeof(float), fieldTypeFloat },
+            { typeof(string), fieldTypeCharacter }
+        };
+
+        /// <summary>
+        /// The index pair in the .shx file.
+        /// （.shx 檔案的索引對。）
+        /// </summary>
+        public struct IndexPair
         {
             /// <summary>
-            /// The geometry type.
-            /// （幾何種類。）
+            /// The length of the feature record in 16-bit.
+            /// （圖徵紀錄以 16 位元計的長度。）
             /// </summary>
-            public int shape;
+            public int length;
+            
+            /// <summary>
+            /// The offset of the feature in 16-bit.
+            /// （圖徵以 16 位元計的偏移量。）
+            /// </summary>
+            public int offset;
+
+            public IndexPair(int offset, int length)
+            {
+                this.offset = offset;
+                this.length = length;
+            }
         }
 
         /// <summary>
@@ -84,7 +137,7 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
         /// <param name="bounds">The bounding box.（定界框。）</param>
-        public delegate void WriteSHPMethod(BinaryWriter writer, out List<(int, int)> indexPairs, out Bounds3 bounds);
+        public delegate void WriteSHPMethod(BinaryWriter writer, Options options, out List<IndexPair> indexPairs, out Bounds3 bounds);
 
         /// <summary>
         /// Retrieve the shape type code from vector kinds.
@@ -115,7 +168,7 @@ namespace Carto.IO
         /// <param name="bounds">The bounding box of the features.（圖徵的定界框。）</param>
         /// <param name="length">The length of the file.（檔案的長度。）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        public static void UpdateSHPHeader(FileStream fs, BinaryWriter writer, Bounds3 bounds, int length, bool writeElevation)
+        private static void UpdateSHPHeader(FileStream fs, BinaryWriter writer, Bounds3 bounds, int length, bool writeElevation)
         {
             if (BitConverter.IsLittleEndian)
             {
@@ -163,10 +216,11 @@ namespace Carto.IO
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (options == null) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
             string filePath = options.GetFilePath(systemName, vectorKind);
+            string dbfPath = Path.ChangeExtension(filePath, "dbf");
             string shxPath = Path.ChangeExtension(filePath, "shx");
             Bounds3 bounds;
             int shape = GetShapeType(vectorKind, options.Elevation);
-            List<(int offset, int count)> indexPairs;
+            List<IndexPair> indexPairs;
 
             // The shapefile is a format composed by at least three sidecar files - which means multiple files have to be generated.
             // （Shapefile 是一個由至少三個檔案組成的檔案格式－這表示需要產生出複數個檔案。）
@@ -178,15 +232,21 @@ namespace Carto.IO
             {
                 using BinaryWriter writer = new(fs);
                 WriteSHPHeader(writer, shape);
-                writeSHPMethod.Invoke(writer, out indexPairs, out bounds);
-                (int offset, int length) = indexPairs[indexPairs.Count - 1];
-                UpdateSHPHeader(fs, writer, bounds, offset + length, options.Elevation);
+                writeSHPMethod.Invoke(writer, options, out indexPairs, out bounds);
+                IndexPair lastIndexPair = indexPairs[indexPairs.Count - 1];
+                UpdateSHPHeader(fs, writer, bounds, lastIndexPair.offset + lastIndexPair.length, options.Elevation);
             }
 
             using (FileStream fs = new(shxPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
             {
                 using BinaryWriter writer = new(fs);
                 WriteSHX(writer, shape, bounds, indexPairs);
+            }
+
+            using (FileStream fs = new(dbfPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
+            {
+                using BinaryWriter writer = new(fs);
+                WriteDBFHeader(fs, writer, options, systemName, indexPairs.Count, out HashSet<Property> validatedFields);
             }
 
             stopwatch.Stop();
@@ -199,7 +259,7 @@ namespace Carto.IO
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="bounds">The bounding box.（定界框。）</param>
-        public static void WriteBoxBE(BinaryWriter writer, Bounds3 bounds)
+        private static void WriteBoxBE(BinaryWriter writer, Bounds3 bounds)
         {
             writer.Write(IOUtils.GetFlippedBytes((double)bounds.x.min));
             writer.Write(IOUtils.GetFlippedBytes((double)bounds.y.min));
@@ -213,12 +273,160 @@ namespace Carto.IO
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="bounds">The bounding box.（定界框。）</param>
-        public static void WriteBoxLE(BinaryWriter writer, Bounds3 bounds)
+        private static void WriteBoxLE(BinaryWriter writer, Bounds3 bounds)
         {
             writer.Write(BitConverter.GetBytes((double)bounds.x.min));
             writer.Write(BitConverter.GetBytes((double)bounds.y.min));
             writer.Write(BitConverter.GetBytes((double)bounds.x.max));
             writer.Write(BitConverter.GetBytes((double)bounds.y.max));
+        }
+
+        /// <summary>
+        /// Write the file header for .dbf files.
+        /// （寫入 .dbf 檔案的標頭。）
+        /// </summary>
+        /// <param name="fs">The current file stream.（目前的檔案資料流。）</param>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="systemName">The exporting system's name.（輸出系統的名稱。）</param>
+        /// <param name="count">The number of features in the .shp file.（.shp 檔案中的圖徵數量。）</param>
+        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        private static void WriteDBFHeader(FileStream fs, BinaryWriter writer, Options options, System systemName, int count, out HashSet<Property> validatedFields)
+        {
+            validatedFields = new();
+            
+            writer.Write((byte)3);
+            writer.Write((byte)math.clamp((DateTime.UtcNow.Year - 1900) % 256, 0, 255)); // In case of some naughty users change their date beyond the year 2155.（以防有調皮的使用者將日期設在 2155 年以後。） 
+            writer.Write((byte)DateTime.UtcNow.Month);
+            writer.Write((byte)DateTime.UtcNow.Day);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(BitConverter.GetBytes(count));
+            }
+            else
+            {
+                writer.Write(IOUtils.GetFlippedBytes(count));
+            }
+
+            IOUtils.SkipBytes(writer, 24);
+
+            if (IO.AvailablePropertyTable.TryGetValue(systemName, out HashSet<Property> superset) && options.Properties.TryGetValue(systemName, out HashSet<Property> subset))
+            {
+                HashSet<Property> subsetCopy = new(subset);
+                subsetCopy.IntersectWith(superset);
+                WriteFieldDescriptors(writer, options, subsetCopy, out validatedFields);
+            }
+
+            writer.Write((byte)13);
+
+            int headerLength = IOUtils.GetPosition(writer);
+            fs.Seek(8, SeekOrigin.Begin);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(BitConverter.GetBytes((short)headerLength));
+            }
+            else
+            {
+                writer.Write(IOUtils.GetFlippedBytes((short)headerLength));
+            }
+
+            fs.Seek(headerLength, SeekOrigin.Begin);
+        }
+
+        /// <summary>
+        /// Write a field descriptor to the .dbf file.
+        /// （寫入一個欄位描述至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="fieldName">The field's title.（欄位的標題。）</param>
+        /// <param name="symbol">The type of the field.（欄位的型別。）</param>
+        private static void WriteFieldDescriptor(BinaryWriter writer, string fieldName, char symbol)
+        {
+            int fieldNameLength = Encoding.UTF8.GetByteCount(fieldName);
+
+            while (fieldNameLength > 10)
+            {
+                fieldName = fieldName.Substring(0, fieldName.Length - 1);
+                fieldNameLength = Encoding.UTF8.GetByteCount(fieldName);
+            }
+
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(Encoding.UTF8.GetBytes(fieldName));
+            }
+            else
+            {
+                writer.Write(IOUtils.GetFlippedBytes(fieldName));
+            }
+
+            IOUtils.SkipBytes(writer, 11 - fieldNameLength);
+            writer.Write(BitConverter.GetBytes(symbol));
+            IOUtils.SkipBytes(writer, 20);
+        }
+
+        /// <summary>
+        /// Write field decriptors to the .dbf file.
+        /// （寫入欄位描述至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="fields">The fields to write.（預計寫入的欄位。）</param>
+        /// <param name="validatedFields">The fields actually written.（實際寫入的欄位。）</param>
+        /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        private static void WriteFieldDescriptors(BinaryWriter writer, Options options, HashSet<Property> fields, out HashSet<Property> validatedFields)
+        {
+            HashSet<Property>.Enumerator enumerator = fields.GetEnumerator();
+            validatedFields = new();
+
+            while (enumerator.MoveNext())
+            {
+                Property field = enumerator.Current;
+                string fieldName = Enum.GetName(typeof(Property), field);
+
+                // Validate property registration.（檢驗屬性是否已被註冊。）
+                Type fieldType = IO.GetPropertyType(field, fieldName, options);
+
+                // Write non-composite fields.（寫入非複合欄位。）
+                if (FieldTypeTable.TryGetValue(fieldType, out char fieldSymbol))
+                {
+                    WriteFieldDescriptor(writer, fieldName, fieldSymbol);
+                    validatedFields.Add(field);
+                    continue;
+                }
+
+                // Write composite fields.（寫入複合欄位。）
+
+                if (!IO.CompositePropertyTable.TryGetValue(field, out Dictionary<FileFormat, string[]> subFieldTitleTable))
+                {
+                    throw new KeyNotFoundException($"The property `{fieldName}` is not in CompositePropertyTable. 屬性 `{fieldName}` 未紀錄於 CompositePropertyTable。");
+                }
+
+                if (!subFieldTitleTable.TryGetValue(FileFormat.Shapefile, out string[] subFieldTitles) &&
+                    !subFieldTitleTable.TryGetValue(FileFormat.Unknown, out subFieldTitles))
+                {
+                    throw new KeyNotFoundException($"Fallback titles missing for property `{fieldName}` in CompositePropertyTable. CompositePropertyTable 未紀錄屬性 {fieldName} 的後備標題。");
+                }
+
+                if (!CompositeFieldTypeTable.TryGetValue(field, out char[] fieldSymbols))
+                {
+                    throw new KeyNotFoundException($"The property `{fieldName}` is not in CompositeFieldTypeTable. 屬性 `{fieldName}` 未紀錄於 CompositeFieldTypeTable。");
+                }
+
+                if (fieldSymbols.Length != subFieldTitles.Length)
+                {
+                    throw new ArgumentException($"Array length mismatch: expected {subFieldTitles.Length}, but got {fieldSymbols.Length}. 陣列長度不符：預期為 {subFieldTitles.Length}，實際為 {fieldSymbols.Length}。");
+                }
+
+                for (int i = 0; i < subFieldTitles.Length; i++)
+                {
+                    WriteFieldDescriptor(writer, subFieldTitles[i], fieldSymbols[i]);
+                }
+
+                validatedFields.Add(field);
+            }
         }
 
         /// <summary>
@@ -231,7 +439,7 @@ namespace Carto.IO
         /// <param name="geometry">The geometry of the feature.（圖徵的幾何圖形。）</param>
         /// <param name="indexPair">The index pair used in .shx file.（用於 .shx 檔案的索引對。）</param>
         /// <param name="bounds">The bounding box of the feature.（圖徵的定界框。）</param>
-        public static void WriteGeometryLE(BinaryWriter writer, int id, int shape, Geometry geometry, out (int offset, int length) indexPair, out Bounds3 bounds)
+        public static void WriteGeometryLE(BinaryWriter writer, int id, int shape, Geometry geometry, out IndexPair indexPair, out Bounds3 bounds)
         {
             int numParts = geometry.GetParts(out int numPoints, out List<int> pointCounts, out bounds);
             int offset = IOUtils.GetPosition(writer) / 2;
@@ -266,7 +474,7 @@ namespace Carto.IO
                     break;
             }
 
-            indexPair = (offset, length);
+            indexPair = new(offset, length);
             writer.Write(IOUtils.GetFlippedBytes(length));          // Content length.（內容長度。）
             writer.Write(BitConverter.GetBytes(shape));             // Shape type.（幾何形狀。）
 
@@ -302,7 +510,7 @@ namespace Carto.IO
         /// <param name="pointCounts">The number of points in each part.（每個部件包含的點數。）</param>
         /// <param name="isRing">Whether the array represents a ring or not.（陣列是否為一個環？）</param>
         /// <param name="zArray">The array of z values.（Z值的陣列。）</param>
-        public static void WritePointArraysLE(BinaryWriter writer, Geometry geometry, List<int> pointCounts, bool isRing, out List<double> zArray)
+        private static void WritePointArraysLE(BinaryWriter writer, Geometry geometry, List<int> pointCounts, bool isRing, out List<double> zArray)
         {
             int pointIndex = 0;
             for (int i = 0; i < pointCounts.Count; i++)
@@ -352,7 +560,7 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="value">The value waiting to be written.（等待被寫入的數值。）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        public static void WritePointBE(BinaryWriter writer, float3 value, bool writeElevation)
+        private static void WritePointBE(BinaryWriter writer, float3 value, bool writeElevation)
         {
             writer.Write(IOUtils.GetFlippedBytes((double)value.x));
             writer.Write(IOUtils.GetFlippedBytes((double)value.y));
@@ -370,7 +578,7 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="value">The value waiting to be written.（等待被寫入的數值。）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        public static void WritePointLE(BinaryWriter writer, float3 value, bool writeElevation)
+        private static void WritePointLE(BinaryWriter writer, float3 value, bool writeElevation)
         {
             writer.Write(BitConverter.GetBytes((double)value.x));
             writer.Write(BitConverter.GetBytes((double)value.y));
@@ -387,7 +595,7 @@ namespace Carto.IO
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="shape">The geometry shape of the feature.（圖徵的幾何形狀。）</param>
-        public static void WriteSHPHeader(BinaryWriter writer, int shape)
+        private static void WriteSHPHeader(BinaryWriter writer, int shape)
         {
             if (BitConverter.IsLittleEndian)
             {
@@ -415,7 +623,7 @@ namespace Carto.IO
         /// <param name="shape">The geometry shape of the feature.（圖徵的幾何形狀。）</param>
         /// <param name="bounds">The bounding box of the features.（圖徵的定界框。）</param>
         /// <param name="indexPairs">The index pairs indicating the offset and the length of each record.（顯示每個紀錄偏移與長度的索引對。）</param>
-        public static void WriteSHX(BinaryWriter writer, int shape, Bounds3 bounds, List<(int offset, int length)> indexPairs)
+        private static void WriteSHX(BinaryWriter writer, int shape, Bounds3 bounds, List<IndexPair> indexPairs)
         {
             if (BitConverter.IsLittleEndian)
             {
@@ -481,10 +689,17 @@ namespace Carto.IO
         }
 
 
-        public static void WriteZArrayLE(BinaryWriter writer, Bounds3 bounds, List<double> zArray)
+        /// <summary>
+        /// Write the z coordinates in little endian.
+        /// （以小端序寫入 Z 坐標至檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="bounds">The bounding box of the features.（圖徵的定界框。）</param>
+        /// <param name="zArray">The list of z values.（Z 值的列表。）</param>
+        private static void WriteZArrayLE(BinaryWriter writer, Bounds3 bounds, List<double> zArray)
         {
-            writer.Write(BitConverter.GetBytes(bounds.z.min));
-            writer.Write(BitConverter.GetBytes(bounds.z.max));
+            writer.Write(BitConverter.GetBytes((double)bounds.z.min));
+            writer.Write(BitConverter.GetBytes((double)bounds.z.max));
             for (int i = 0; i < zArray.Count; i++)
             {
                 writer.Write(BitConverter.GetBytes(zArray[i]));

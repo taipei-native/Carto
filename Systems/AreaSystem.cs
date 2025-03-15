@@ -3,6 +3,7 @@ using Carto.Geodata;
 using Carto.IO;
 using Carto.Utils;
 using Colossal.Logging;
+using Colossal.Mathematics;
 using Game;
 using Game.Areas;
 using Game.Common;
@@ -11,9 +12,11 @@ using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -110,13 +113,13 @@ namespace Carto.Systems
         protected override void OnUpdate() { }
 
         /// <summary>
-        /// Write features (geometries and properties) to the designated file.
-        /// （寫出圖徵（幾何與屬性）至指定的檔案中。）
+        /// Write boundary features (geometries and properties) to the designated file.
+        /// （寫出邊界圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public void WriteFeatures(JsonTextWriter writer, Options options, Action<string, int> onReportMethod)
+        public void WriteBoundaryFeatures(JsonTextWriter writer, Options options, Action<string, int> onReportMethod)
         {
             Feature featureFlag = options.Features;
             if (!featureFlag.HasFlag(Feature.District)) _filters.Add(ComponentType.ReadOnly<District>());
@@ -141,6 +144,9 @@ namespace Carto.Systems
 
             // Create alias for fields.（創造欄位的別名。）
             ref NativeList<BuildingStat> buildingStats = ref _shared.BuildingStats;
+
+            // Validate native containers integrity.（驗證原生容器的完整性。）
+            Utils.CommonUtils.ValidateIntegrity(ref buildingStats, true);
 
             // Initialize native containers.（初始化原生容器。）
             int areaCount = query.CalculateEntityCount();
@@ -196,18 +202,25 @@ namespace Carto.Systems
                 }
 
                 // Collect the statistics of each area.（收集各個區域的統計資料。）
-                CollectAreaStatsJob collectJob = new()
+                CollectAreaStatsJob collectStatsJob = new()
                 {
                     districtLookup = GetComponentLookup<District>(true),
                     mapTileLookup = GetComponentLookup<MapTile>(true),
                     nativeLookup = GetComponentLookup<Native>(true),
                     areaEntityMap = areaEntityMap,
                     buildingStats = buildingStats,
-                    statslist = areaStats.AsParallelWriter(),
-                    nodeEntityMap = nodeEntityMap.AsParallelWriter(),
+                    statslist = areaStats.AsParallelWriter()
                 };
-                JobHandle collectHandle = collectJob.ScheduleParallel(query, default);
-                collectHandle.Complete();
+                JobHandle collectStatsHandle = collectStatsJob.ScheduleParallel(query, default);
+                collectStatsHandle.Complete();
+
+                // Collect the boundary of each area.（收集各個區域的邊界。）
+                CollectBoundariesJob collectBoundariesJob = new()
+                {
+                    nodeEntityMap = nodeEntityMap.AsParallelWriter()
+                };
+                JobHandle collectBoundariesHandle = collectBoundariesJob.ScheduleParallel(query, default);
+                collectBoundariesHandle.Complete();
 
                 // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
                 if (hasName)
@@ -338,6 +351,75 @@ namespace Carto.Systems
             }
         }
 
+        public void WriteBoundarySHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds)
+        {
+            Feature featureFlag = options.Features;
+            if (!featureFlag.HasFlag(Feature.District)) _filters.Add(ComponentType.ReadOnly<District>());
+            if (!featureFlag.HasFlag(Feature.MapTile)) _filters.Add(ComponentType.ReadOnly<MapTile>());
+            _queryDesc.None = _filters.ToArray();
+            EntityQuery query = GetEntityQuery(_queryDesc);
+
+            // Initialize native containers.（初始化原生容器。）
+            int areaCount = query.CalculateEntityCount();
+            NativeParallelHashMap<Entity, NativeArray<float3>> nodeEntityMap = new(areaCount, Allocator.Persistent);
+
+            // Initialize out parameters.（初始化回傳參數。）
+            Bounds3 _bounds = new();
+            _bounds.Reset();
+            List<Shapefile.IndexPair> _indexPairs = new();
+
+            try
+            {
+                CollectBoundariesJob collectBoundariesJob = new()
+                {
+                    nodeEntityMap = nodeEntityMap.AsParallelWriter()
+                };
+                JobHandle collectBoundariesHandle = collectBoundariesJob.ScheduleParallel(query, default);
+                collectBoundariesHandle.Complete();
+                
+                Task writerThread = Task.Run(() =>
+                {
+                    Coord referenceCoord = options.GetTMCoord();
+                    CRS referenceProjection = options.GetTMProjection();
+                    int enumeratorIndex = 0;
+                    int shapeId = Shapefile.GetShapeType(VectorKind.Boundary, options.Elevation);
+                    NativeParallelHashMap<Entity, NativeArray<float3>>.Enumerator enumerator = nodeEntityMap.GetEnumerator();
+                    ProjectionDefinition referenceProjectionDefinition = options.GetTMProjectionDefinition();
+
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            enumeratorIndex++;
+                            KeyValue<Entity, NativeArray<float3>> feature = enumerator.Current;
+                            float3[] transformedAreaNodes = new float3[feature.Value.Length];
+
+                            for (int i = 0; i < feature.Value.Length; i++)
+                            {
+                                Coord coord = new(referenceCoord.Double3 + feature.Value[i], referenceCoord);
+                                transformedAreaNodes[i] = Transform.Apply(coord, referenceProjection, options.TargetProjection, referenceProjectionDefinition, options.TargetProjectionDefinition).Float3;
+                            }
+
+                            Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(new float3[1][] { transformedAreaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            _bounds |= featureBounds;
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                bounds = _bounds;
+                indexPairs = _indexPairs;
+            }
+        }
+
         /// <summary>
         /// The job to collect and aggregate area statistics.
         /// （收集並聚合區域統計的工作。）
@@ -363,10 +445,7 @@ namespace Carto.Systems
             [WriteOnly]
             public NativeList<AreaStat>.ParallelWriter statslist;
 
-            [WriteOnly]
-            public NativeParallelHashMap<Entity, NativeArray<float3>>.ParallelWriter nodeEntityMap;
-
-            public void Execute(in Area areaComponent, in Game.Areas.Geometry geometry, in DynamicBuffer<Node> nodes, Entity area)
+            public void Execute(in Game.Areas.Geometry geometry, Entity area)
             {
                 AreaStat stat = new()
                 {
@@ -414,6 +493,22 @@ namespace Carto.Systems
                     stat.unlocked = true;
                 }
 
+                statslist.AddNoResize(stat);
+            }
+        }
+
+        /// <summary>
+        /// The job to collect area's boundaries.
+        /// （收集區域邊界的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CollectBoundariesJob : IJobEntity
+        {
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, NativeArray<float3>>.ParallelWriter nodeEntityMap;
+
+            public void Execute(in Area areaComponent, in DynamicBuffer<Node> nodes, Entity area)
+            {
                 NativeArray<float3> nodesArray = new(nodes.Length, Allocator.Persistent);
                 if ((areaComponent.m_Flags & AreaFlags.CounterClockwise) != 0)
                 {
@@ -431,7 +526,6 @@ namespace Carto.Systems
                 }
 
                 nodeEntityMap.TryAdd(area, nodesArray);
-                statslist.AddNoResize(stat);
             }
         }
 

@@ -431,6 +431,20 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// Check whether the vector kind exist in the specific system.
+        /// （確認向量種類存在於特定系統。）
+        /// </summary>
+        /// <param name="system">The specific system.（特定的系統。）</param>
+        /// <param name="vectorKind">The vector kind to be checked.（待檢查的向量種類。）</param>
+        /// <returns>Return <see cref="true"/> is the vector kind exists.（若向量種類存在，回傳 <see cref="true"/>。）</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        public bool Has(System system, VectorKind vectorKind)
+        {
+            if (VectorKinds == null) throw new NullReferenceException("The VectorKinds property id null. VectorKinds 屬性為空值。");
+            return VectorKinds.TryGetValue(system, out VectorKind existingKinds) && ((vectorKind & existingKinds) != 0);
+        }
+
+        /// <summary>
         /// Initialize the options.
         /// （初始化設定。）
         /// </summary>

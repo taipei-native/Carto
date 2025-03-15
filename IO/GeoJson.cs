@@ -24,6 +24,15 @@ namespace Carto.IO
         */
 
         /// <summary>
+        /// The delegate of the WriteFeatures() methods implemented in each system.
+        /// （在各個系統實作的 WriteFeatures() 方法的委派。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        public delegate void WriteFeaturesMethod(JsonTextWriter writer, Options options, Action<string, int> onReportMethod);
+
+        /// <summary>
         /// Write the GeoJSON file.
         /// （寫出 GeoJSON 檔案。）
         /// </summary>
@@ -32,7 +41,7 @@ namespace Carto.IO
         /// <param name="vectorKind">The classification of exported vector objects.（對輸出向量物體的分類。）</param>
         /// <param name="writeFeaturesMethod">The WriteFeatures() method implemented in each system.（各系統實作的 WriteFeatures() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public static void Write(Options options, System systemName, VectorKind vectorKind, Action<JsonTextWriter, Options, Action<string, int>> writeFeaturesMethod, Action<string, int> onReportMethod)
+        public static void Write(Options options, System systemName, VectorKind vectorKind, WriteFeaturesMethod writeFeaturesMethod, Action<string, int> onReportMethod)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if ((options == null) || (writeFeaturesMethod == null)) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
@@ -78,7 +87,7 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="value">The value waiting to be written.（等待被寫出的數值。）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        public static void WriteFloat3(JsonTextWriter writer, float3 value, bool writeElevation = false)
+        private static void WriteFloat3(JsonTextWriter writer, float3 value, bool writeElevation = false)
         {
             writer.WriteStartArray();
             writer.WriteValue(value.x);
@@ -95,7 +104,7 @@ namespace Carto.IO
         /// <param name="array">The value waiting to be written.（等待被寫出的數值。）</param>
         /// <param name="isRing">Whether the array represents a ring or not.（陣列是否為一個環？）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        public static void WriteFloat3Array(JsonTextWriter writer, float3[] array, bool isRing, bool writeElevation = false)
+        private static void WriteFloat3Array(JsonTextWriter writer, float3[] array, bool isRing, bool writeElevation = false)
         {
             writer.WriteStartArray();
             for (int i = 0; i < array.Length; i++) WriteFloat3(writer, array[i]);
