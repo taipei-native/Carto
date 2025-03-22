@@ -3,12 +3,20 @@
   "WorkspaceRootPath": "D:\\Documents\\[by-type]\\github\\Carto\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\io\\shapefile.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:io\\shapefile.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\systems\\shareddatacollectionsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:systems\\shareddatacollectionsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\systems\\areasystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:systems\\areasystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\io\\io.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:io\\io.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|d:\\documents\\[by-type]\\github\\carto\\io\\shapefile.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D533BC7C-229C-41C3-BC41-955B931A8237}|Carto.csproj|solutionrelative:io\\shapefile.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,7 +26,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 224,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Bookmark",
@@ -26,28 +34,52 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
+              "Title": "SharedDataCollectionSystem.cs",
+              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\SharedDataCollectionSystem.cs",
+              "RelativeDocumentMoniker": "Systems\\SharedDataCollectionSystem.cs",
+              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\SharedDataCollectionSystem.cs",
+              "RelativeToolTip": "Systems\\SharedDataCollectionSystem.cs",
+              "ViewState": "AgIAAB0DAAAAAAAAAADgv1QCAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-18T13:19:06.823Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
               "Title": "IO.cs",
               "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\IO.cs",
               "RelativeDocumentMoniker": "IO\\IO.cs",
               "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\IO.cs",
               "RelativeToolTip": "IO\\IO.cs",
-              "ViewState": "AgIAAOwAAAAAAAAAAADwv7YAAAASAAAAAAAAAA==",
+              "ViewState": "AgIAAAwBAAAAAAAAAAAlwBwBAACpAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-03-13T15:10:54.771Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-03-15T18:53:19.698Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 3,
               "Title": "Shapefile.cs",
               "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\Shapefile.cs",
               "RelativeDocumentMoniker": "IO\\Shapefile.cs",
               "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\IO\\Shapefile.cs",
               "RelativeToolTip": "IO\\Shapefile.cs",
-              "ViewState": "AgIAABMBAAAAAAAAAADwvycBAAAMAAAAAAAAAA==",
+              "ViewState": "AgIAAPUAAAAAAAAAAADgv/wAAAByAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-03-02T14:40:37.528Z",
+              "WhenOpened": "2025-03-02T14:40:37.528Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "AreaSystem.cs",
+              "DocumentMoniker": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\AreaSystem.cs",
+              "RelativeDocumentMoniker": "Systems\\AreaSystem.cs",
+              "ToolTip": "D:\\Documents\\[by-type]\\github\\Carto\\Systems\\AreaSystem.cs",
+              "RelativeToolTip": "Systems\\AreaSystem.cs",
+              "ViewState": "AgIAAGABAAAAAAAAAADgv2sBAAAjAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-15T17:59:34.08Z",
               "EditorCaption": ""
             }
           ]

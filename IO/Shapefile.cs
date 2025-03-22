@@ -106,6 +106,119 @@ namespace Carto.IO
         };
 
         /// <summary>
+        /// The field length in the .dbf file.
+        /// （.dbf 檔案中的欄位長度。）
+        /// </summary>
+        public struct FieldLength
+        {
+            /// <summary>
+            /// The maximum total length of a character field.
+            /// （字串欄位最大總長度。）
+            /// </summary>
+            public const int characterMaxTotalLength = 254;
+            
+            /// <summary>
+            /// The maximum decimal length of a float field.
+            /// （浮點數欄位最大小數點後長度。）
+            /// </summary>
+            public const int floatMaxDecimalLength = 7;
+
+            /// <summary>
+            /// The maximum total length of a float field.
+            /// （浮點數欄位最大總長度。）
+            /// </summary>
+            public const int floatMaxTotalLength = 18;
+
+            /// <summary>
+            /// The maximum total length of a number field.
+            /// （整數欄位最大總長度。）
+            /// </summary>
+            public const int numberMaxTotalLength = 11;
+            
+            /// <summary>
+            /// The number of places after the period.
+            /// （小數點後的位數。）
+            /// </summary>
+            public readonly int decimalLength;
+
+            /// <summary>
+            /// The type of the field.（欄位代表的型別。）
+            /// </summary>
+            public readonly char fieldType;
+
+            /// <summary>
+            /// Whether to represent the value in scientific notation or not.
+            /// （是否以科學記號表示數值？）
+            /// </summary>
+            public readonly bool scientific;
+
+            /// <summary>
+            /// The total length of the value in bytes.
+            /// （以位元組計的數值總長度。）
+            /// </summary>
+            public readonly int totalLength;
+
+            public FieldLength(bool value)
+            {
+                fieldType = fieldTypeNumber;
+                decimalLength = 0;
+                totalLength = 1;
+                scientific = false;
+            }
+
+            public FieldLength(float value)
+            {
+                fieldType = fieldTypeFloat;
+                totalLength = Utils.MathUtils.GetDigits(value, out int decimalLength, true, true);
+                scientific = false;
+                int excessiveLength = totalLength - floatMaxTotalLength;
+
+                if (excessiveLength > 0)
+                {
+                    if (excessiveLength <= decimalLength)
+                    {
+                        decimalLength -= excessiveLength;
+                        totalLength = floatMaxTotalLength;
+                    }
+                    else
+                    {
+                        decimalLength = 0;
+                        totalLength -= excessiveLength - decimalLength;
+                    }
+                }
+
+                if (totalLength > floatMaxTotalLength)
+                {
+                    scientific = true;
+                    totalLength = floatMaxTotalLength;
+                }
+
+                if (decimalLength > floatMaxDecimalLength) decimalLength = floatMaxDecimalLength;
+                this.decimalLength = decimalLength;
+            }
+
+            public FieldLength(int value)
+            {
+                fieldType = fieldTypeNumber;
+                decimalLength = 0;
+                totalLength = Utils.MathUtils.GetDigits(value, true);
+                scientific = false;
+            }
+
+            public FieldLength(string value)
+            {
+                fieldType = fieldTypeCharacter;
+                decimalLength = 0;
+                totalLength = value.Length + 6;
+                if (totalLength > characterMaxTotalLength)
+                {
+                    totalLength = characterMaxTotalLength;
+                }
+                scientific = false;
+            }
+        }
+
+        /// <summary>
         /// The index pair in the .shx file.
         /// （.shx 檔案的索引對。）
         /// </summary>
@@ -131,10 +244,21 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// The delegate of the WriteDBF() methods implemented in each system.
+        /// （在各個系統實作的 WriteDBF() 方法的委派。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="fieldLengthMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
+        public delegate void WriteDBFMethod(BinaryWriter writer, Options options, HashSet<Property> validatedFields, out Dictionary<Property, List<FieldLength>> fieldLengthMap);
+
+        /// <summary>
         /// The delegate of the WriteSHP() methods implemented in each system.
         /// （在各個系統實作的 WriteSHP() 方法的委派。）
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
         /// <param name="bounds">The bounding box.（定界框。）</param>
         public delegate void WriteSHPMethod(BinaryWriter writer, Options options, out List<IndexPair> indexPairs, out Bounds3 bounds);
@@ -157,6 +281,18 @@ namespace Carto.IO
                 VectorKind.Location => includeElevation ? shapeTypePointZ : shapeTypePoint,
                 _ => throw new ArgumentException("Only points, line strings and (multi-) polygons can be exported as Shapefile. 只有點、線段和（複合）多邊形可以被輸出為 Shapefile。")
             };
+        }
+
+        /// <summary>
+        /// Update the .dbf file header.
+        /// （更新 .dbf 檔案的標頭。）
+        /// </summary>
+        /// <param name="fs">The current file stream.（目前的檔案資料流。）</param>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="fieldLengthMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
+        private static void UpdateDBFHeader(FileStream fs, BinaryWriter writer, Dictionary<Property, List<FieldLength>> fieldLengthMap)
+        {
+
         }
 
         /// <summary>
@@ -203,6 +339,40 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// Validate whether the field is a registered composite field or not.
+        /// （驗證欄位是否為已註冊的複合欄位。）
+        /// </summary>
+        /// <param name="field">The input field.（輸入的欄位。）</param>
+        /// <param name="fieldName">The field's title.（欄位的名稱。）</param>
+        /// <param name="subFieldTitles">The composite field's titles.（複合欄位的名稱。）</param>
+        /// <param name="fieldSymbols">The composite field's types.（複合欄位代表的型別。）</param>
+        /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        private static void ValidateCompositeField(Property field, string fieldName, out string[] subFieldTitles, out char[] fieldSymbols)
+        {
+            if (!IO.CompositePropertyTable.TryGetValue(field, out Dictionary<FileFormat, string[]> subFieldTitleTable))
+            {
+                throw new KeyNotFoundException($"The property `{fieldName}` is not in CompositePropertyTable. 屬性 `{fieldName}` 未紀錄於 CompositePropertyTable。");
+            }
+
+            if (!subFieldTitleTable.TryGetValue(FileFormat.Shapefile, out subFieldTitles) &&
+                !subFieldTitleTable.TryGetValue(FileFormat.Unknown, out subFieldTitles))
+            {
+                throw new KeyNotFoundException($"Fallback titles missing for property `{fieldName}` in CompositePropertyTable. CompositePropertyTable 未紀錄屬性 {fieldName} 的後備標題。");
+            }
+
+            if (!CompositeFieldTypeTable.TryGetValue(field, out fieldSymbols))
+            {
+                throw new KeyNotFoundException($"The property `{fieldName}` is not in CompositeFieldTypeTable. 屬性 `{fieldName}` 未紀錄於 CompositeFieldTypeTable。");
+            }
+
+            if (fieldSymbols.Length != subFieldTitles.Length)
+            {
+                throw new ArgumentException($"Array length mismatch: expected {subFieldTitles.Length}, but got {fieldSymbols.Length}. 陣列長度不符：預期為 {subFieldTitles.Length}，實際為 {fieldSymbols.Length}。");
+            }
+        }
+
+        /// <summary>
         /// Write the ESRI Shapefile.
         /// （寫出 ESRI Shapefile。）
         /// </summary>
@@ -210,8 +380,9 @@ namespace Carto.IO
         /// <param name="systemName">The exporting system's name.（輸出系統的名稱。）</param>
         /// <param name="vectorKind">The classification of exported vector objects.（對輸出向量物體的分類。）</param>
         /// <param name="writeSHPMethod">The WriteSHP() method implemented in each system.（各系統實作的 WriteSHP() 方法。）</param>
+        /// <param name="writeDBFMethod">The WriteDBF() method implemented in each system.（各系統實作的 WriteDBF() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public static void Write(Options options, System systemName, VectorKind vectorKind, WriteSHPMethod writeSHPMethod, Action<string, int> onReportMethod)
+        public static void Write(Options options, System systemName, VectorKind vectorKind, WriteSHPMethod writeSHPMethod, WriteDBFMethod writeDBFMethod, Action<string, int> onReportMethod)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (options == null) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
@@ -247,7 +418,13 @@ namespace Carto.IO
             {
                 using BinaryWriter writer = new(fs);
                 WriteDBFHeader(fs, writer, options, systemName, indexPairs.Count, out HashSet<Property> validatedFields);
+                writeDBFMethod.Invoke(writer, options, validatedFields, out Dictionary<Property, List<FieldLength>> fieldLengthMap);
+                UpdateDBFHeader(fs, writer, fieldLengthMap);
             }
+
+            // TODO: WriteCPG(BinaryWriter writer)
+
+            // TODO: WritePRJ(BinaryWriter writer, Options options)
 
             stopwatch.Stop();
             Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
@@ -398,27 +575,7 @@ namespace Carto.IO
                 }
 
                 // Write composite fields.（寫入複合欄位。）
-
-                if (!IO.CompositePropertyTable.TryGetValue(field, out Dictionary<FileFormat, string[]> subFieldTitleTable))
-                {
-                    throw new KeyNotFoundException($"The property `{fieldName}` is not in CompositePropertyTable. 屬性 `{fieldName}` 未紀錄於 CompositePropertyTable。");
-                }
-
-                if (!subFieldTitleTable.TryGetValue(FileFormat.Shapefile, out string[] subFieldTitles) &&
-                    !subFieldTitleTable.TryGetValue(FileFormat.Unknown, out subFieldTitles))
-                {
-                    throw new KeyNotFoundException($"Fallback titles missing for property `{fieldName}` in CompositePropertyTable. CompositePropertyTable 未紀錄屬性 {fieldName} 的後備標題。");
-                }
-
-                if (!CompositeFieldTypeTable.TryGetValue(field, out char[] fieldSymbols))
-                {
-                    throw new KeyNotFoundException($"The property `{fieldName}` is not in CompositeFieldTypeTable. 屬性 `{fieldName}` 未紀錄於 CompositeFieldTypeTable。");
-                }
-
-                if (fieldSymbols.Length != subFieldTitles.Length)
-                {
-                    throw new ArgumentException($"Array length mismatch: expected {subFieldTitles.Length}, but got {fieldSymbols.Length}. 陣列長度不符：預期為 {subFieldTitles.Length}，實際為 {fieldSymbols.Length}。");
-                }
+                ValidateCompositeField(field, fieldName, out string[] subFieldTitles, out char[] fieldSymbols);
 
                 for (int i = 0; i < subFieldTitles.Length; i++)
                 {
@@ -587,6 +744,118 @@ namespace Carto.IO
                 writer.Write(BitConverter.GetBytes((double)value.z));
                 IOUtils.SkipBytes(writer, 8);
             }
+        }
+
+        /// <summary>
+        /// The core method to write a field.
+        /// （用於寫入欄位的核心方法。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
+        /// <param name="alignRight">Whether to align the field to the right.（是否要將欄位向右對齊？）</param>
+        /// <param name="value">The input string.（輸入的字串。）</param>
+        private static void WriteRecordCore(BinaryWriter writer, int fieldLength, bool alignRight, string value)
+        {
+            if (Encoding.UTF8.GetByteCount(value) < fieldLength)
+            {
+                string padding = new(' ', fieldLength - Encoding.UTF8.GetByteCount(value));
+                string padded = alignRight ? padding + value : value + padding;
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    writer.Write(Encoding.UTF8.GetBytes(padded));
+                }
+                else
+                {
+                    writer.Write(IOUtils.GetFlippedBytes(padded));
+                }
+            }
+            else
+            {
+                if (BitConverter.IsLittleEndian)
+                {
+                    writer.Write(Encoding.UTF8.GetBytes(value));
+                }
+                else
+                {
+                    writer.Write(IOUtils.GetFlippedBytes(value));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Write a boolean to the .dbf file.
+        /// （寫入一個布林值至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
+        /// <param name="value">The input boolean.（輸入的布林值。）</param>
+        public static void WriteRecord(BinaryWriter writer, FieldLength fieldLength, bool value)
+        {
+            int valueInt = value ? 1 : 0;
+            WriteRecordCore(writer, fieldLength.totalLength, true, valueInt.ToString());
+        }
+
+        /// <summary>
+        /// Write a floating-point number to the .dbf file.
+        /// （寫入一個浮點數至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
+        /// <param name="value">The input floating-point number.（輸入的浮點數。）</param>
+        public static void WriteRecord(BinaryWriter writer, FieldLength fieldLength, float value)
+        {
+            string valueString;
+            
+            if (fieldLength.scientific)
+            {
+                int place = fieldLength.totalLength - 5;
+                string formatter = $"#.{new string('#', place)}e+00";
+                valueString = value.ToString(formatter);
+
+                while (Encoding.UTF8.GetByteCount(valueString) > fieldLength.totalLength)
+                {
+                    place--;
+                    formatter = $"#.{new string('#', place)}e+00";
+                    valueString = value.ToString(formatter);
+                }
+            }
+            else
+            {
+                string formatter = $"0.{new string('#', fieldLength.decimalLength)}";
+                valueString = value.ToString(formatter);
+            }
+
+            WriteRecordCore(writer, fieldLength.totalLength, true, valueString);
+        }
+
+        /// <summary>
+        /// Write an integer to the .dbf file.
+        /// （寫入一個整數至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
+        /// <param name="value">The input integer.（輸入的整數。）</param>
+        public static void WriteRecord(BinaryWriter writer, FieldLength fieldLength, int value)
+        {
+            WriteRecordCore(writer, fieldLength.totalLength, true, value.ToString());
+        }
+
+        /// <summary>
+        /// Write a string to the .dbf file.
+        /// （寫入一個字串至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
+        /// <param name="value">The input string.（輸入的字串。）</param>
+        public static void WriteRecord(BinaryWriter writer, FieldLength fieldLength, string value)
+        {
+            while (Encoding.UTF8.GetByteCount(value) > fieldLength.totalLength && value.Length > 0)
+            {
+                value = value.Substring(0, value.Length - 1);
+            }
+
+            WriteRecordCore(writer, fieldLength.totalLength, false, value);
         }
 
         /// <summary>

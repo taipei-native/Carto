@@ -282,7 +282,7 @@ namespace Carto.IO
                             {
                                 if (areaHasBoundary)
                                 {
-                                    Shapefile.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, OnReport);
+                                    Shapefile.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, Instance.Area.WriteBoundaryDBF, OnReport);
                                 }
                             }
                             break;

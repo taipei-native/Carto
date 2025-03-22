@@ -351,6 +351,27 @@ namespace Carto.Systems
             }
         }
 
+        /// <summary>
+        /// Write boundary attributes to the designated file.
+        /// （寫出邊界屬性至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="fieldLengthMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
+        public void WriteBoundaryDBF(BinaryWriter writer, Options options, HashSet<Property> validatedFields, out Dictionary<Property, List<Shapefile.FieldLength>> fieldLengthMap)
+        {
+            fieldLengthMap = new();
+        }
+
+        /// <summary>
+        /// Write boundary geometries to the designated file.
+        /// （寫出邊界幾何至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
+        /// <param name="bounds">The bounding box.（定界框。）</param>
         public void WriteBoundarySHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds)
         {
             Feature featureFlag = options.Features;
@@ -405,6 +426,8 @@ namespace Carto.Systems
                             _indexPairs.Add(indexPair);
                         }
                     }
+
+                    // TODO: Implement Shapefile.WriteGeometryBE()
                 });
                 writerThread.Wait();
             }
