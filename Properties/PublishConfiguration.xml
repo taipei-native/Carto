@@ -64,15 +64,16 @@ You can reach me at the PDX forum’s comment section (English / Chinese), Citie
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.3.2" />
+	<ModVersion Value="0.3.3" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.2.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Fixed an issue where the mod didn’t properly handle missing prefabs. [Reported by @kang93jun]
-* Added a completion sound effect that plays when the export finishes. [Suggested by @kiyokawa1900]
+* Ensured graceful handling of missing zoning prefabs when exporting buildings.
+* Fixed an issue where the polygons of several parking lot roads and the covered pedestrian bridge were missing two vertices. [Reported by @jefferyharrell]
+* Fixed an issue where the category field of several networks were not tagged correctly due to the tab rearrangement of UI menu. [Reported by @Excellent Guy]
 	</ChangeLog>
 	<!--ChangeLog>
 	</ChangeLog-->

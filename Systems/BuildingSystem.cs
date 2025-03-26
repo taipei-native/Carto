@@ -439,16 +439,16 @@ namespace Carto.Systems
                             // （獲取建築的主題風格。預期輸出：歐式）
                             if (useTheme)
                             {
-                                props["Theme"] = zoningThemes[zone];
-                                fieldLength["Theme"] = MiscUtils.GetFieldLength(fieldLength, "Theme", zoningThemes[zone]);
+                                props["Theme"] = zoningThemes.TryGetValue(zone, out string zoningName) ? zoningName : LocaleUtils.Translate("Assets.THEME[Carto Generic]");
+                                fieldLength["Theme"] = MiscUtils.GetFieldLength(fieldLength, "Theme", props["Theme"]);
                             }
 
                             // Retrieve the zoning purposes of the building. Expected output: Residential, Commercial
                             // （獲取建築的分區用途。預期輸出：Residential, Commercial）
                             if (useZoning)
                             {
-                                props["Zoning"] = zoningCategories[zone].ToString();
-                                fieldLength["Zoning"] = MiscUtils.GetFieldLength(fieldLength, "Zoning", zoningCategories[zone].ToString());
+                                props["Zoning"] = zoningCategories.TryGetValue(zone, out ZoningCategory? zoningCategory) ? zoningCategory.ToString() : ZoningCategory.None.ToString();
+                                fieldLength["Zoning"] = MiscUtils.GetFieldLength(fieldLength, "Zoning", props["Zoning"]);
                             }
                         }
                         else

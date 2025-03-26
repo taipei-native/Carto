@@ -3,8 +3,12 @@
   "WorkspaceRootPath": "D:\\Documents\\source\\repos\\Carto\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\systems\\audiosystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:systems\\audiosystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\systems\\netsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:systems\\netsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\systems\\buildingsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:systems\\buildingsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,7 +18,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 2,
           "Children": [
             {
               "$type": "Bookmark",
@@ -22,15 +26,27 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "AudioSystem.cs",
-              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Systems\\AudioSystem.cs",
-              "RelativeDocumentMoniker": "Systems\\AudioSystem.cs",
-              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Systems\\AudioSystem.cs",
-              "RelativeToolTip": "Systems\\AudioSystem.cs",
-              "ViewState": "AgIAADAAAAAAAAAAAAAAAEoAAAB2AAAAAAAAAA==",
+              "DocumentIndex": 1,
+              "Title": "BuildingSystem.cs",
+              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Systems\\BuildingSystem.cs",
+              "RelativeDocumentMoniker": "Systems\\BuildingSystem.cs",
+              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Systems\\BuildingSystem.cs",
+              "RelativeToolTip": "Systems\\BuildingSystem.cs",
+              "ViewState": "AgIAAK4BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-03-11T17:36:20.27Z",
+              "WhenOpened": "2025-03-25T16:19:50.839Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "NetSystem.cs",
+              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Systems\\NetSystem.cs",
+              "RelativeDocumentMoniker": "Systems\\NetSystem.cs",
+              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Systems\\NetSystem.cs",
+              "RelativeToolTip": "Systems\\NetSystem.cs",
+              "ViewState": "AgIAAEEBAAAAAAAAAADgv0sBAAAuAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-25T16:19:48.395Z",
               "EditorCaption": ""
             }
           ]

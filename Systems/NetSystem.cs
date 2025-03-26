@@ -45,11 +45,11 @@
         /// The network category, which is a slightly different version of `Game.Net.Layer`.
         /// （網絡的分類，是與 `Game.Net.Layer` 稍微不同的版本。）
         /// </summary>
-        public static Dictionary<string, string> Category = new Dictionary<string, string>
+        public static Dictionary<string, NetCategory> Category = new Dictionary<string, NetCategory>
         {
-            { "RoadsSmallRoads", "Small" }, { "RoadsMediumRoads", "Medium" }, { "RoadsLargeRoads", "Large" }, { "RoadsHighways", "Highway" },
-            { "TrainTracks", "Train" }, { "SubwayTracks", "Subway" }, { "TramTracks", "Tram" },
-            { "Pathway", "Pathway" }
+            { "RoadsSmallRoads", NetCategory.Small }, { "RoadsMediumRoads", NetCategory.Medium }, { "RoadsLargeRoads", NetCategory.Large }, { "RoadsHighways", NetCategory.Highway },
+            { "TrainTracks", NetCategory.Train }, { "SubwayTracks", NetCategory.Subway }, { "TramTracks", NetCategory.Tram },
+            { "Pathway", NetCategory.Pathway }
             //Taxiway, Waterway, Fence, WaterPipe, SewagePipe, PowerHigh, PowerLow
         };
 
@@ -272,12 +272,20 @@
         /// Retrieve the category of the networks.
         /// （獲取網路的分類。）
         /// </summary>
-        public static void GetNetCategory(Entity net, EntityManager em, out NetCategory netCategory, out string netCategoryString)
+        public static NetCategory GetNetCategory(Entity net, EntityManager em, out string objectName)
         {
             Entity prefab = em.GetComponentData<PrefabRef>(net).m_Prefab; 
-            netCategory = NetCategory.None;
+            NetCategory netCategory = NetCategory.None;
 
-            InitializeRBSupport(em);
+            if (Instance.RBMod.Ready && RBIntegrity)
+            {
+                if (em.HasComponent(net, RBNetworkType))
+                {
+                    (NetCategory rbNetCategory, string rbObjectName) = Instance.Net.HandleRBNetwork(net);
+                    objectName = rbObjectName;
+                    return rbNetCategory;
+                }
+            }
 
             if (em.HasComponent<RoadData>(prefab))
             {
@@ -295,66 +303,59 @@
                 if (trackTypes.HasFlag(TrackTypes.Subway)) netCategory |= NetCategory.Subway;
             }
 
+            if (em.HasComponent<TrainTrack>(net))
+            {
+                netCategory |= NetCategory.Train;
+            }
+
+            if (em.HasComponent<SubwayTrack>(net))
+            {
+                netCategory |= NetCategory.Subway;
+            }
+
+            if (em.HasComponent<TramTrack>(net))
+            {
+                netCategory |= NetCategory.Tram;
+            }
+
             if (em.HasComponent<PathwayData>(prefab))
             {
                 netCategory |= NetCategory.Pathway;
             }
 
-            if (Instance.RBMod.Ready && RBIntegrity)
-            {
-                if (em.HasComponent(net, RBNetworkType))
-                {
-                    var rbNetworkProperties = Instance.Net.HandleRBNetwork(net);
-
-                    if (Enum.TryParse(rbNetworkProperties.category, out NetCategory result))
-                    {
-                        netCategory = result;
-                    }
-
-                    netCategoryString = rbNetworkProperties.category;
-                    return;
-                }
-            }
-
             if (em.HasComponent<UIObjectData>(prefab) && em.HasComponent<RoadData>(prefab) && !netCategory.HasFlag(NetCategory.Highway))
             {
-                string uiGroupName = Instance.Prefab.GetPrefabName(em.GetComponentData<UIObjectData>(prefab).m_Group);
-                float netWidth = em.GetComponentData<NetCompositionData>(em.GetComponentData<Composition>(net).m_Edge).m_Width;
+                objectName = "Road";
 
-                NetCategory GetCategoryByWidth(NetCategory input)
+                if (Category.TryGetValue(Instance.Prefab.GetPrefabName(em.GetComponentData<UIObjectData>(prefab).m_Group), out NetCategory uiCategory))
                 {
-                    NetCategory category = input;
-
-                    if      (netWidth >= 32) category |= NetCategory.Large;
-                    else if (netWidth >= 24) category |= NetCategory.Medium;
-                    else                     category |= NetCategory.Small;
-
-                    return category;
-                }
-
-                if (Category.TryGetValue(uiGroupName, out string val))
-                {
-                    if (Enum.TryParse(val, out NetCategory result))
-                    {
-                        netCategory |= result;
-                        netCategoryString = netCategory.ToString();
-                        return;
-                    }
-                    else
-                    {
-                        netCategoryString = val + ", " + netCategory.ToString();
-                    }
+                    netCategory |= uiCategory;
                 }
                 else
                 {
-                    netCategoryString = uiGroupName + ", " + netCategory.ToString();
+                    float netWidth = em.GetComponentData<NetCompositionData>(em.GetComponentData<Composition>(net).m_Edge).m_Width;
+                    if (netWidth >= 32) netCategory |= NetCategory.Large;
+                    else if (netWidth >= 24) netCategory |= NetCategory.Medium;
+                    else netCategory |= NetCategory.Small;
                 }
 
-                netCategory = GetCategoryByWidth(netCategory);
-                return;
+                return netCategory;
             }
 
-            netCategoryString = netCategory.ToString();
+            if (netCategory.HasFlag(NetCategory.Train) || netCategory.HasFlag(NetCategory.Subway) || netCategory.HasFlag(NetCategory.Tram))
+            {
+                objectName = "Track";
+                return netCategory;
+            }
+
+            if (netCategory.HasFlag(NetCategory.Pathway))
+            {
+                objectName = "Pathway";
+                return netCategory;
+            }
+
+            objectName = "Road";
+            return netCategory;
         }
 
         /// <summary>
@@ -665,8 +666,16 @@
             nodeList.AddRange(segmentB.GetRange(0, segmentB.Count - 1));
             nodeList.AddRange(segmentC.GetRange(0, segmentC.Count - 1));
 
+            // Version 0.3.3: To solve the problem of the parking lot roads and the covered pedestrian bridge missing part of their segmentC and segmentG,
+            //                the last vertices of these segments are tracked. If the position of the first vertex from the next segment is different, the last vertex would be re-added.
+            // （0.3.3 版本：為了解決停車巷以及有頂人行天橋遺失一部分 segmentC 及 segmentG 的問題，這兩個路段的最後一個頂點將會被追蹤。
+            //               若下個路段的首個頂點與該頂點位置不同，該頂點將被重新加入。）
+
+            float3 lastPointLeft = segmentC[segmentC.Count - 1];
+            int lastPointLeftNextIndex = nodeList.Count;
+
             if (endRoundabout)
-            {
+            {                
                 nodeList.AddRange(RoundaboutOuterLeftVertices[endNode][net]);
                 nodeList.AddRange(RoundaboutInnerVertices[endNode][net]);
                 List<float3> segmentD3 = RoundaboutOuterRightVertices[endNode][net];
@@ -699,8 +708,16 @@
                 }
             }
 
+            if (math.any(nodeList[lastPointLeftNextIndex] != lastPointLeft))
+            {
+                nodeList.Insert(lastPointLeftNextIndex, lastPointLeft);
+            }
+
             nodeList.AddRange(segmentF.GetRange(0, segmentF.Count - 1));
             nodeList.AddRange(segmentG.GetRange(0, segmentG.Count - 1));
+
+            float3 lastPointRight = segmentG[segmentG.Count - 1];
+            int lastPointRightNextIndex = nodeList.Count;
 
             if (startRoundabout)
             {
@@ -734,6 +751,11 @@
                     }
                     else nodeList.AddRange(segmentA);
                 }
+            }
+
+            if (math.any(nodeList[lastPointRightNextIndex] != lastPointRight))
+            {
+                nodeList.Insert(lastPointRightNextIndex, lastPointRight);
             }
 
             return GeometryUtils.RemoveDuplicate(nodeList).Where(n => !math.any(math.isnan(n))).ToList();
@@ -792,7 +814,7 @@
                     // （獲取小徑的分類。預期輸出："Pathway"）
                     if (useCategory)
                     {
-                        props["Category"] = Category["Pathway"];
+                        props["Category"] = NetCategory.Pathway.ToString();
                         fieldLength["Category"] = 12;
                     }
 
@@ -1139,21 +1161,12 @@
 
                     // Retrieve the category of the road. Expected output: "Highway"
                     // （獲取道路的分類。預期輸出："Highway"）
+                    NetCategory roadCategory = GetNetCategory(_road, EntityManager, out string objectName);
+
                     if (useCategory)
                     {
-                        Entity roadPrefab = EntityManager.GetComponentData<PrefabRef>(_road).m_Prefab;
-                        Entity roadUIGroup = EntityManager.GetComponentData<UIObjectData>(roadPrefab).m_Group;
-                        string roadUIGroupPrefabName = m_Prefab.GetPrefabName(roadUIGroup);
-                        string roadCategory = Category.TryGetValue(roadUIGroupPrefabName, out string v) ? v : roadUIGroupPrefabName;
-
-                        // Handle the street-running tracks.
-                        // （處理混合路權的軌道。）
-                        if (EntityManager.HasComponent<TrainTrack>(_road)) roadCategory = roadCategory + ", " + Category["TrainTracks"];
-                        if (EntityManager.HasComponent<SubwayTrack>(_road)) roadCategory = roadCategory + ", " + Category["SubwayTracks"];
-                        if (EntityManager.HasComponent<TramTrack>(_road)) roadCategory = roadCategory + ", " + Category["TramTracks"];
-
-                        props["Category"] = roadCategory;
-                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", roadCategory);
+                        props["Category"] = roadCategory.ToString();
+                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", props["Category"]);
                     }
 
                     // Retrieve the nodes forming the centerline of the road segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
@@ -1223,26 +1236,8 @@
 
                     if (useObject)
                     {
-                        props["Object"] = "Road";
-                        fieldLength["Object"] = 9;
-                    }
-
-                    if (Instance.RBMod.Ready && RBIntegrity)
-                    {
-                        if (EntityManager.HasComponent(_road, RBNetworkType))
-                        {
-                            var rbNetworkProperties = HandleRBNetwork(_road);
-                            if (useCategory)
-                            {
-                                props["Category"] = rbNetworkProperties.category;
-                                fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", rbNetworkProperties.category);
-                            }
-                            if (useObject)
-                            {
-                                props["Object"] = rbNetworkProperties.objectName;
-                                fieldLength["Object"] = MiscUtils.GetFieldLength(fieldLength, "Object", rbNetworkProperties.objectName);
-                            }
-                        }
+                        props["Object"] = objectName;
+                        fieldLength["Object"] = MiscUtils.GetFieldLength(fieldLength, "Object", props["Object"]);
                     }
 
                     roadList.Add(new CartoObject(edges, props, type));
@@ -1381,8 +1376,8 @@
                     // （獲取道路的分類。預期輸出："Tram"）
                     if (useCategory)
                     {
-                        props["Category"] = Category["TramTracks"];
-                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", Category["TramTracks"]);
+                        props["Category"] = NetCategory.Tram.ToString();
+                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", props["Category"]);
                     }
 
                     // Retrieve the nodes forming the centerline of the road segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
@@ -1505,14 +1500,11 @@
 
                     // Retrieve the category of the track. Expected output: "Train"
                     // （獲取軌道的分類。預期輸出："Train"）
+                    NetCategory trackCategory = GetNetCategory(_track, EntityManager, out string objectName);
+
                     if (useCategory)
                     {
-                        List<string> trackCategory = new List<string>();
-                        if (EntityManager.HasComponent<TrainTrack>(_track)) trackCategory.Add(Category["TrainTracks"]);
-                        if (EntityManager.HasComponent<SubwayTrack>(_track)) trackCategory.Add(Category["SubwayTracks"]);
-                        if (EntityManager.HasComponent<TramTrack>(_track)) trackCategory.Add(Category["TramTracks"]);
-
-                        props["Category"] = string.Join(", ", trackCategory);
+                        props["Category"] = trackCategory.ToString();
                         fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", props["Category"]);
                     }
 
@@ -1583,26 +1575,8 @@
 
                     if (useObject)
                     {
-                        props["Object"] = "Track";
-                        fieldLength["Object"] = 10;
-                    }
-
-                    if (Instance.RBMod.Ready && RBIntegrity)
-                    {
-                        if (EntityManager.HasComponent(_track, RBNetworkType))
-                        {
-                            var rbNetworkProperties = HandleRBNetwork(_track);
-                            if (useCategory)
-                            {
-                                props["Category"] = rbNetworkProperties.category;
-                                fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", rbNetworkProperties.category);
-                            }
-                            if (useObject)
-                            {
-                                props["Object"] = rbNetworkProperties.objectName;
-                                fieldLength["Object"] = MiscUtils.GetFieldLength(fieldLength, "Object", rbNetworkProperties.objectName);
-                            }
-                        }
+                        props["Object"] = objectName;
+                        fieldLength["Object"] = MiscUtils.GetFieldLength(fieldLength, "Object", props["Object"]);
                     }
 
                     trackList.Add(new CartoObject(edges, props, type));
@@ -1649,8 +1623,8 @@
                     // （獲取軌道的分類。預期輸出："Tram"）
                     if (useCategory)
                     {
-                        props["Category"] = Category["TramTracks"];
-                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", Category["TramTracks"]);
+                        props["Category"] = NetCategory.Tram.ToString();
+                        fieldLength["Category"] = MiscUtils.GetFieldLength(fieldLength, "Category", props["Category"]);
                     }
 
                     // Retrieve the nodes forming the centerline of the track segment. Expected output (per node): float3(-79.33802f, 548.8162f, 397.9146f)
@@ -1713,11 +1687,10 @@
         /// （用來處理由 Road Builder 模組產生的網路的方法。）
         /// </summary>
         /// <param name="entity">The Road Builder network entity.（Road Builder 網路實體。）</param>
-        public (string category, string objectName) HandleRBNetwork(Entity entity)
+        public (NetCategory category, string objectName) HandleRBNetwork(Entity entity)
         {
-            string CategoryName = default;
-            string ObjectName = default;
-            List<string> networkCategories = new List<string>();
+            string objectName = "Road";
+            NetCategory netCategory = NetCategory.None;
 
             if (Instance.RBMod.Ready && RBIntegrity && EntityManager.HasComponent(entity, RBNetworkType))
             {
@@ -1739,7 +1712,7 @@
                         if (EntityManager.GetComponentData<RoadData>(rbNetworkPrefab).m_Flags.HasFlag(Game.Prefabs.RoadFlags.UseHighwayRules))
                         {
                             isHighway = true;
-                            networkCategories.Add(Category["RoadsHighways"]);
+                            netCategory |= NetCategory.Highway;
                         }
                     }
 
@@ -1747,22 +1720,20 @@
                     {
                         Entity edgeComposition = EntityManager.GetComponentData<Composition>(entity).m_Edge;
                         float rbNetworkWidth = EntityManager.GetComponentData<NetCompositionData>(edgeComposition).m_Width;
-                        if (rbNetworkWidth < 24) networkCategories.Add(Category["RoadsSmallRoads"]);
-                        else if (rbNetworkWidth < 32) networkCategories.Add(Category["RoadsMediumRoads"]);
-                        else networkCategories.Add(Category["RoadsLargeRoads"]);
+                        if (rbNetworkWidth < 24) netCategory |= NetCategory.Small;
+                        else if (rbNetworkWidth < 32) netCategory |= NetCategory.Medium;
+                        else netCategory |= NetCategory.Large;
                     }
                 }
 
-                if (rbNetworkFinalCategory.HasFlag(LaneCategory.Train)) networkCategories.Add(Category["TrainTracks"]);
-                if (rbNetworkFinalCategory.HasFlag(LaneCategory.Subway)) networkCategories.Add(Category["SubwayTracks"]);
-                if (rbNetworkFinalCategory.HasFlag(LaneCategory.Tram)) networkCategories.Add(Category["TramTracks"]);
-                if (networkCategories.Count == 0) networkCategories.Add("None");
+                if (rbNetworkFinalCategory.HasFlag(LaneCategory.Train)) netCategory |= NetCategory.Train;
+                if (rbNetworkFinalCategory.HasFlag(LaneCategory.Subway)) netCategory |= NetCategory.Subway;
+                if (rbNetworkFinalCategory.HasFlag(LaneCategory.Tram)) netCategory |= NetCategory.Tram;
 
-                ObjectName = (rbNetworkFinalCategory.HasFlag(LaneCategory.Car)) ? "Road" : ((rbNetworkFinalCategory.HasFlag(LaneCategory.Train) || rbNetworkFinalCategory.HasFlag(LaneCategory.Subway) || rbNetworkFinalCategory.HasFlag(LaneCategory.Tram)) ? "Track" : "None");
-                CategoryName = string.Join(", ", networkCategories);
+                objectName = rbNetworkFinalCategory.HasFlag(LaneCategory.Car) ? "Road" : ((rbNetworkFinalCategory.HasFlag(LaneCategory.Train) || rbNetworkFinalCategory.HasFlag(LaneCategory.Subway) || rbNetworkFinalCategory.HasFlag(LaneCategory.Tram)) ? "Track" : "Road");
             }
 
-            return (CategoryName, ObjectName);
+            return (netCategory, objectName);
         }
 
         /// <summary>
