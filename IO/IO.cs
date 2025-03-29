@@ -1,6 +1,7 @@
 using Carto.Domain;
 using Carto.Geodata;
 using Colossal.Logging;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -22,6 +23,10 @@ namespace Carto.IO
         /// </summary>
         static readonly ILog _log = Instance.Log;
 
+        /// <summary>
+        /// The list of available properties for each system.
+        /// （各系統可用的屬性列表。）
+        /// </summary>
         public static readonly Dictionary<System, HashSet<Property>> AvailablePropertyTable = new()
         {
             { System.Unknown, new() { } },
@@ -31,6 +36,16 @@ namespace Carto.IO
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
             { System.Route, new() { Property.Name, Property.Object, Property.Length, Property.Model, Property.Passenger, Property.Stop, Property.Transport, Property.Vehicle} },
             { System.Zoning, new() { Property.Name, Property.Object, Property.Color, Property.Density, Property.Theme, Property.Zoning} }
+        };
+
+        /// <summary>
+        /// The properties that are imcompatable with Burst compile.
+        /// （與 Burst 編譯不合的屬性集合。）
+        /// </summary>
+        public static readonly HashSet<Property> BurstImcompatablePropertyTable = new()
+        {
+            Property.Asset, Property.Brand, Property.Category, Property.Color, Property.Density, Property.Direction, Property.Form, Property.Model, Property.Name, Property.Object,
+            Property.Product, Property.Theme, Property.Transport, Property.Zoning
         };
 
         /// <summary>
@@ -365,5 +380,14 @@ namespace Carto.IO
 
             return expectedType;
         }
+
+        /// <summary>
+        /// Check whether the property is a composite property or not.
+        /// （確認屬性是否是一個複合屬性。）
+        /// </summary>
+        /// <param name="property">The property enumeration.（欄位枚舉。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <returns>True if the property is a composite property.（若屬性是複合屬性，回傳真值。）</returns>
+        public static bool IsCompositeProperty(Property property, Options options = null) => GetPropertyType(property, property.ToString(), options).IsArray;
     }
 }

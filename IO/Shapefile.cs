@@ -1,3 +1,4 @@
+using Carto.Domain;
 using Carto.Geodata;
 using Carto.Utils;
 using Colossal.Mathematics;
@@ -5,7 +6,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace Carto.IO
@@ -106,119 +111,6 @@ namespace Carto.IO
         };
 
         /// <summary>
-        /// The field length in the .dbf file.
-        /// （.dbf 檔案中的欄位長度。）
-        /// </summary>
-        public struct FieldLength
-        {
-            /// <summary>
-            /// The maximum total length of a character field.
-            /// （字串欄位最大總長度。）
-            /// </summary>
-            public const int characterMaxTotalLength = 254;
-            
-            /// <summary>
-            /// The maximum decimal length of a float field.
-            /// （浮點數欄位最大小數點後長度。）
-            /// </summary>
-            public const int floatMaxDecimalLength = 7;
-
-            /// <summary>
-            /// The maximum total length of a float field.
-            /// （浮點數欄位最大總長度。）
-            /// </summary>
-            public const int floatMaxTotalLength = 18;
-
-            /// <summary>
-            /// The maximum total length of a number field.
-            /// （整數欄位最大總長度。）
-            /// </summary>
-            public const int numberMaxTotalLength = 11;
-            
-            /// <summary>
-            /// The number of places after the period.
-            /// （小數點後的位數。）
-            /// </summary>
-            public readonly int decimalLength;
-
-            /// <summary>
-            /// The type of the field.（欄位代表的型別。）
-            /// </summary>
-            public readonly char fieldType;
-
-            /// <summary>
-            /// Whether to represent the value in scientific notation or not.
-            /// （是否以科學記號表示數值？）
-            /// </summary>
-            public readonly bool scientific;
-
-            /// <summary>
-            /// The total length of the value in bytes.
-            /// （以位元組計的數值總長度。）
-            /// </summary>
-            public readonly int totalLength;
-
-            public FieldLength(bool value)
-            {
-                fieldType = fieldTypeNumber;
-                decimalLength = 0;
-                totalLength = 1;
-                scientific = false;
-            }
-
-            public FieldLength(float value)
-            {
-                fieldType = fieldTypeFloat;
-                totalLength = Utils.MathUtils.GetDigits(value, out int decimalLength, true, true);
-                scientific = false;
-                int excessiveLength = totalLength - floatMaxTotalLength;
-
-                if (excessiveLength > 0)
-                {
-                    if (excessiveLength <= decimalLength)
-                    {
-                        decimalLength -= excessiveLength;
-                        totalLength = floatMaxTotalLength;
-                    }
-                    else
-                    {
-                        decimalLength = 0;
-                        totalLength -= excessiveLength - decimalLength;
-                    }
-                }
-
-                if (totalLength > floatMaxTotalLength)
-                {
-                    scientific = true;
-                    totalLength = floatMaxTotalLength;
-                }
-
-                if (decimalLength > floatMaxDecimalLength) decimalLength = floatMaxDecimalLength;
-                this.decimalLength = decimalLength;
-            }
-
-            public FieldLength(int value)
-            {
-                fieldType = fieldTypeNumber;
-                decimalLength = 0;
-                totalLength = Utils.MathUtils.GetDigits(value, true);
-                scientific = false;
-            }
-
-            public FieldLength(string value)
-            {
-                fieldType = fieldTypeCharacter;
-                decimalLength = 0;
-                totalLength = value.Length + 6;
-                if (totalLength > characterMaxTotalLength)
-                {
-                    totalLength = characterMaxTotalLength;
-                }
-                scientific = false;
-            }
-        }
-
-        /// <summary>
         /// The index pair in the .shx file.
         /// （.shx 檔案的索引對。）
         /// </summary>
@@ -250,8 +142,8 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
-        /// <param name="fieldLengthMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
-        public delegate void WriteDBFMethod(BinaryWriter writer, Options options, HashSet<Property> validatedFields, out Dictionary<Property, List<FieldLength>> fieldLengthMap);
+        /// <param name="fieldMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
+        public delegate void WriteDBFMethod(BinaryWriter writer, Options options, HashSet<Property> validatedFields, out Dictionary<Property, FieldInfo> fieldMap);
 
         /// <summary>
         /// The delegate of the WriteSHP() methods implemented in each system.
@@ -262,6 +154,54 @@ namespace Carto.IO
         /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
         /// <param name="bounds">The bounding box.（定界框。）</param>
         public delegate void WriteSHPMethod(BinaryWriter writer, Options options, out List<IndexPair> indexPairs, out Bounds3 bounds);
+
+        /// <summary>
+        /// Combine the <see cref="FieldInfo"/> created by jobs and those created manually into a single dictionary.<br/>
+        /// （將工作與手動產生的 <see cref="FieldInfo"/> 合併成單一字典。）
+        /// </summary>
+        /// <param name="validatedFields">The fields actually written into the .dbf file.（實際寫入 .dbf 檔案的欄位。）</param>
+        /// <param name="propertyFieldMap">The native and multi map between property and the field information.（屬性與欄位資訊間的原生及複合映射表。）</param>
+        /// <param name="fieldMap">The map between property and the field information.（屬性與欄位資訊間的映射表。）</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static void CombineFieldInfos(ref NativeParallelHashSet<EnumWrapper<Property>> validatedFields, ref NativeParallelMultiHashMap<EnumWrapper<Property>, FieldInfo> propertyFieldMap, Dictionary<Property, FieldInfo> fieldMap)
+        {
+            if (fieldMap == null) throw new ArgumentNullException("The fieldMap is not initiated. fieldMap 尚未被初始化。");
+            NativeHashMap<EnumWrapper<Property>, FieldInfo> nativeFieldMap = new(validatedFields.Capacity, Allocator.Persistent);
+            AggregateFieldInfoJob aggregateJob = new()
+            {
+                validatedFields = validatedFields,
+                propertyFieldMap = propertyFieldMap,
+                nativeFieldMap = nativeFieldMap
+            };
+            JobHandle aggregateHandle = aggregateJob.Schedule(default);
+            aggregateHandle.Complete();
+
+            NativeHashMap<EnumWrapper<Property>, FieldInfo>.Enumerator nativeFieldInfo = nativeFieldMap.GetEnumerator();
+            while (nativeFieldInfo.MoveNext())
+            {
+                fieldMap.Add(nativeFieldInfo.Current.Key, nativeFieldInfo.Current.Value);
+            }
+
+            CommonUtils.Dispose(ref nativeFieldMap);
+        }
+
+        /// <summary>
+        /// Retrieve Burst compatable properties in the input hashset.
+        /// （獲得輸入集合中可用於 Burst 的屬性。）
+        /// </summary>
+        /// <param name="managedSet">The input hashset.（輸入的集合。）</param>
+        /// <param name="nativeSet">The native hashset to be written.（將被輸入的原生集合。）</param>
+        public static void FilterBurstCompatableProperties(HashSet<Property> managedSet, ref NativeParallelHashSet<EnumWrapper<Property>> nativeSet)
+        {
+            HashSet<Property>.Enumerator enumerator = managedSet.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                if (!IO.BurstImcompatablePropertyTable.Contains(enumerator.Current))
+                {
+                    nativeSet.Add(enumerator.Current);
+                }
+            }
+        }
 
         /// <summary>
         /// Retrieve the shape type code from vector kinds.
@@ -289,10 +229,64 @@ namespace Carto.IO
         /// </summary>
         /// <param name="fs">The current file stream.（目前的檔案資料流。）</param>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="fieldLengthMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
-        private static void UpdateDBFHeader(FileStream fs, BinaryWriter writer, Dictionary<Property, List<FieldLength>> fieldLengthMap)
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="fieldMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
+        private static void UpdateDBFHeader(FileStream fs, BinaryWriter writer, Options options, HashSet<Property> validatedFields, Dictionary<Property, FieldInfo> fieldMap)
         {
+            int currentPosition = 32;
+            int recordLength = 0;
+            fs.Seek(currentPosition, SeekOrigin.Begin);
+            HashSet<Property>.Enumerator fieldEnumerator = validatedFields.GetEnumerator();
+            while (fieldEnumerator.MoveNext())
+            {
+                Property property = fieldEnumerator.Current;
+                if (!IO.IsCompositeProperty(property, options))
+                {
+                    if (fieldMap.TryGetValue(property, out FieldInfo fieldInfo))
+                    {
+                        UpdateFieldDescriptor(fs, writer, fieldInfo, ref currentPosition, ref recordLength);
+                    }
+                    continue;
+                }
+                else
+                {
+                    if ((property == Property.Address) && fieldMap.TryGetValue(property, out FieldInfo addressField))
+                    {
+                        UpdateFieldDescriptor(fs, writer, addressField, ref currentPosition, ref recordLength);
+                        UpdateFieldDescriptor(fs, writer, addressField, ref currentPosition, ref recordLength);
+                        UpdateFieldDescriptor(fs, writer, new(100000), ref currentPosition, ref recordLength);
+                    }
+                    if ((property == Property.Resident) && fieldMap.TryGetValue(property, out FieldInfo residentField))
+                    {
+                        UpdateFieldDescriptor(fs, writer, residentField, ref currentPosition, ref recordLength);
+                        UpdateFieldDescriptor(fs, writer, residentField, ref currentPosition, ref recordLength);
+                    }
+                }
+            }
 
+            fs.Seek(10, SeekOrigin.Begin);
+            byte[] recordLengthBytes = BitConverter.IsLittleEndian ? BitConverter.GetBytes((ushort) recordLength + 1) : IOUtils.GetFlippedBytes((ushort) recordLength + 1);
+            writer.Write(recordLengthBytes);
+        }
+
+        /// <summary>
+        /// Update the field descriptor in the .dbf file's header.
+        /// （更新 .dbf 檔案標頭的欄位描述。）
+        /// </summary>
+        /// <param name="fs">The current file stream.（目前的檔案資料流。）</param>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="fieldInfo">The field's information.（欄位的資訊。）</param>
+        /// <param name="currentPosition">The current position of the data stream.（目前資料流的位置。）</param>
+        /// <param name="recordLength">The length of a record.（一個紀錄的長度。）</param>
+        private static void UpdateFieldDescriptor(FileStream fs, BinaryWriter writer, FieldInfo fieldInfo, ref int currentPosition, ref int recordLength)
+        {
+            currentPosition += 16;
+            fs.Seek(currentPosition, SeekOrigin.Begin);
+            writer.Write(fieldInfo.length > byte.MaxValue ? byte.MaxValue : (byte)fieldInfo.length);
+            writer.Write(fieldInfo.decimalLength > byte.MaxValue ? byte.MaxValue : (byte)fieldInfo.decimalLength);
+            currentPosition += 16;
+            recordLength += fieldInfo.length;
         }
 
         /// <summary>
@@ -405,7 +399,7 @@ namespace Carto.IO
                 WriteSHPHeader(writer, shape);
                 writeSHPMethod.Invoke(writer, options, out indexPairs, out bounds);
                 IndexPair lastIndexPair = indexPairs[indexPairs.Count - 1];
-                UpdateSHPHeader(fs, writer, bounds, lastIndexPair.offset + lastIndexPair.length, options.Elevation);
+                UpdateSHPHeader(fs, writer, bounds, lastIndexPair.offset + lastIndexPair.length + 4, options.Elevation);
             }
 
             using (FileStream fs = new(shxPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
@@ -418,8 +412,8 @@ namespace Carto.IO
             {
                 using BinaryWriter writer = new(fs);
                 WriteDBFHeader(fs, writer, options, systemName, indexPairs.Count, out HashSet<Property> validatedFields);
-                writeDBFMethod.Invoke(writer, options, validatedFields, out Dictionary<Property, List<FieldLength>> fieldLengthMap);
-                UpdateDBFHeader(fs, writer, fieldLengthMap);
+                writeDBFMethod.Invoke(writer, options, validatedFields, out Dictionary<Property, FieldInfo> fieldMap);
+                UpdateDBFHeader(fs, writer, options, validatedFields, fieldMap);
             }
 
             // TODO: WriteCPG(BinaryWriter writer)
@@ -492,7 +486,7 @@ namespace Carto.IO
             {
                 HashSet<Property> subsetCopy = new(subset);
                 subsetCopy.IntersectWith(superset);
-                WriteFieldDescriptors(writer, options, subsetCopy, out validatedFields);
+                WriteFieldDescriptors(writer, options, subsetCopy.OrderBy(p => p, new PropertyComparer()).ToHashSet(), out validatedFields);
             }
 
             writer.Write((byte)13);
@@ -502,11 +496,11 @@ namespace Carto.IO
 
             if (BitConverter.IsLittleEndian)
             {
-                writer.Write(BitConverter.GetBytes((short)headerLength));
+                writer.Write(BitConverter.GetBytes((ushort)headerLength));
             }
             else
             {
-                writer.Write(IOUtils.GetFlippedBytes((short)headerLength));
+                writer.Write(IOUtils.GetFlippedBytes((ushort)headerLength));
             }
 
             fs.Seek(headerLength, SeekOrigin.Begin);
@@ -540,7 +534,7 @@ namespace Carto.IO
 
             IOUtils.SkipBytes(writer, 11 - fieldNameLength);
             writer.Write(BitConverter.GetBytes(symbol));
-            IOUtils.SkipBytes(writer, 20);
+            IOUtils.SkipBytes(writer, 19);
         }
 
         /// <summary>
@@ -607,27 +601,27 @@ namespace Carto.IO
             switch (shape)
             {
                 case shapeTypePoint:
-                    length = 14;
+                    length = 10;
                     break;
 
                 case shapeTypePolyLine:
-                    length = 28 + 8 * numPoints;
+                    length = 24 + 8 * numPoints;
                     break;
 
                 case shapeTypePolygon:
-                    length = 26 + 2 * numParts + 8 * (numPoints + numParts);
+                    length = 22 + 2 * numParts + 8 * (numPoints + numParts);
                     break;
 
                 case shapeTypePointZ:
-                    length = 22;
+                    length = 18;
                     break;
 
                 case shapeTypePolyLineZ:
-                    length = 36 + 12 * numPoints;
+                    length = 32 + 12 * numPoints;
                     break;
 
                 case shapeTypePolygonZ:
-                    length = 34 + 2 * numParts + 12 * (numPoints + numParts);
+                    length = 30 + 2 * numParts + 12 * (numPoints + numParts);
                     break;
             }
 
@@ -646,9 +640,9 @@ namespace Carto.IO
                     return;
             }
             
-            WriteBoxLE(writer, bounds);                             // Box.（定界框。）
-            writer.Write(BitConverter.GetBytes(numParts));          // NumParts.（部件的數量。）
-            writer.Write(BitConverter.GetBytes(numPoints));         // NumPoints.（點的數量。）
+            WriteBoxLE(writer, bounds);                                 // Box.（定界框。）
+            writer.Write(BitConverter.GetBytes(numParts));              // NumParts.（部件的數量。）
+            writer.Write(BitConverter.GetBytes(numPoints + numParts));  // NumPoints.（點的數量。）
 
             WritePointArraysLE(writer, geometry, pointCounts, (shape == shapeTypePolygon) || (shape == shapeTypePolygonZ), out List<double> zArray);
 
@@ -747,6 +741,81 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// Write a boolean to the .dbf file.
+        /// （寫入一個布林值至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="field">The field's constriant.（欄位限制。）</param>
+        /// <param name="value">The input boolean.（輸入的布林值。）</param>
+        public static void WriteRecord(BinaryWriter writer, FieldInfo field, bool value)
+        {
+            int valueInt = value ? 1 : 0;
+            WriteRecordCore(writer, field.length, true, valueInt.ToString());
+        }
+
+        /// <summary>
+        /// Write a floating-point number to the .dbf file.
+        /// （寫入一個浮點數至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="field">The field's constriant.（欄位限制。）</param>
+        /// <param name="value">The input floating-point number.（輸入的浮點數。）</param>
+        public static void WriteRecord(BinaryWriter writer, FieldInfo field, float value)
+        {
+            string valueString;
+            
+            if (field.scientific)
+            {
+                int place = field.length - 5;
+                string formatter = $"#.{new string('#', place)}e+00";
+                valueString = value.ToString(formatter);
+
+                while (Encoding.UTF8.GetByteCount(valueString) > field.length)
+                {
+                    place--;
+                    formatter = $"#.{new string('#', place)}e+00";
+                    valueString = value.ToString(formatter);
+                }
+            }
+            else
+            {
+                string formatter = $"0.{new string('#', field.decimalLength)}";
+                valueString = value.ToString(formatter);
+            }
+
+            WriteRecordCore(writer, field.length, true, valueString);
+        }
+
+        /// <summary>
+        /// Write an integer to the .dbf file.
+        /// （寫入一個整數至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="field">The field's constriant.（欄位限制。）</param>
+        /// <param name="value">The input integer.（輸入的整數。）</param>
+        public static void WriteRecord(BinaryWriter writer, FieldInfo field, int value)
+        {
+            WriteRecordCore(writer, field.length, true, value.ToString());
+        }
+
+        /// <summary>
+        /// Write a string to the .dbf file.
+        /// （寫入一個字串至 .dbf 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="field">The field's constriant.（欄位長度限制。）</param>
+        /// <param name="value">The input string.（輸入的字串。）</param>
+        public static void WriteRecord(BinaryWriter writer, FieldInfo field, string value)
+        {
+            while (Encoding.UTF8.GetByteCount(value) > field.length && value.Length > 0)
+            {
+                value = value.Substring(0, value.Length - 1);
+            }
+
+            WriteRecordCore(writer, field.length, false, value);
+        }
+
+        /// <summary>
         /// The core method to write a field.
         /// （用於寫入欄位的核心方法。）
         /// </summary>
@@ -781,81 +850,6 @@ namespace Carto.IO
                     writer.Write(IOUtils.GetFlippedBytes(value));
                 }
             }
-        }
-
-        /// <summary>
-        /// Write a boolean to the .dbf file.
-        /// （寫入一個布林值至 .dbf 檔案。）
-        /// </summary>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
-        /// <param name="value">The input boolean.（輸入的布林值。）</param>
-        public static void WriteRecord(BinaryWriter writer, FieldLength fieldLength, bool value)
-        {
-            int valueInt = value ? 1 : 0;
-            WriteRecordCore(writer, fieldLength.totalLength, true, valueInt.ToString());
-        }
-
-        /// <summary>
-        /// Write a floating-point number to the .dbf file.
-        /// （寫入一個浮點數至 .dbf 檔案。）
-        /// </summary>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
-        /// <param name="value">The input floating-point number.（輸入的浮點數。）</param>
-        public static void WriteRecord(BinaryWriter writer, FieldLength fieldLength, float value)
-        {
-            string valueString;
-            
-            if (fieldLength.scientific)
-            {
-                int place = fieldLength.totalLength - 5;
-                string formatter = $"#.{new string('#', place)}e+00";
-                valueString = value.ToString(formatter);
-
-                while (Encoding.UTF8.GetByteCount(valueString) > fieldLength.totalLength)
-                {
-                    place--;
-                    formatter = $"#.{new string('#', place)}e+00";
-                    valueString = value.ToString(formatter);
-                }
-            }
-            else
-            {
-                string formatter = $"0.{new string('#', fieldLength.decimalLength)}";
-                valueString = value.ToString(formatter);
-            }
-
-            WriteRecordCore(writer, fieldLength.totalLength, true, valueString);
-        }
-
-        /// <summary>
-        /// Write an integer to the .dbf file.
-        /// （寫入一個整數至 .dbf 檔案。）
-        /// </summary>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
-        /// <param name="value">The input integer.（輸入的整數。）</param>
-        public static void WriteRecord(BinaryWriter writer, FieldLength fieldLength, int value)
-        {
-            WriteRecordCore(writer, fieldLength.totalLength, true, value.ToString());
-        }
-
-        /// <summary>
-        /// Write a string to the .dbf file.
-        /// （寫入一個字串至 .dbf 檔案。）
-        /// </summary>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="fieldLength">The field's length constriant.（欄位長度限制。）</param>
-        /// <param name="value">The input string.（輸入的字串。）</param>
-        public static void WriteRecord(BinaryWriter writer, FieldLength fieldLength, string value)
-        {
-            while (Encoding.UTF8.GetByteCount(value) > fieldLength.totalLength && value.Length > 0)
-            {
-                value = value.Substring(0, value.Length - 1);
-            }
-
-            WriteRecordCore(writer, fieldLength.totalLength, false, value);
         }
 
         /// <summary>
@@ -972,6 +966,42 @@ namespace Carto.IO
             for (int i = 0; i < zArray.Count; i++)
             {
                 writer.Write(BitConverter.GetBytes(zArray[i]));
+            }
+        }
+
+        /// <summary>
+        /// Aggregate multiple <see cref="FieldInfo"/> to a single one for each <see cref="Property"/>.<br/>
+        /// （對於每個 <see cref="Property"/>，將數個 <see cref="FieldInfo"/> 聚合成一個。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct AggregateFieldInfoJob : IJob
+        {
+            [ReadOnly]
+            public NativeParallelHashSet<EnumWrapper<Property>> validatedFields;
+
+            [ReadOnly]
+            public NativeParallelMultiHashMap<EnumWrapper<Property>, FieldInfo> propertyFieldMap;
+
+            [WriteOnly]
+            public NativeHashMap<EnumWrapper<Property>, FieldInfo> nativeFieldMap;
+
+            public void Execute()
+            {
+                NativeParallelHashSet<EnumWrapper<Property>>.Enumerator field = validatedFields.GetEnumerator();
+                while (field.MoveNext())
+                {
+                    if (propertyFieldMap.TryGetFirstValue(field.Current, out FieldInfo fieldInfo, out NativeParallelMultiHashMapIterator<EnumWrapper<Property>> it))
+                    {
+                        FieldInfo internalFieldInfo = fieldInfo;
+                        
+                        while (propertyFieldMap.TryGetNextValue(out fieldInfo, ref it))
+                        {
+                            internalFieldInfo += fieldInfo;
+                        }
+
+                        nativeFieldMap.Add(field.Current, internalFieldInfo);
+                    }
+                }
             }
         }
     }

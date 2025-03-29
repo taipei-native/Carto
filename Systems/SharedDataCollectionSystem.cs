@@ -590,6 +590,214 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Retrieve the world heightmap.
+        /// （獲取世界高度圖。）
+        /// </summary>
+        /// <param name="options">The export options.（檔案輸出設定。）</param>
+        public void GetWorldElevation(Options options)
+        {
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeArray<ushort> worldElevation = ref _worldElevation;
+            Texture map = _terrain.worldHeightmap;
+
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset(ref worldElevation, map.width * map.height);
+
+            // Convert the texture into array.（將材質貼圖轉為陣列。）
+            AsyncGPUReadback.RequestIntoNativeArray(ref worldElevation, map).WaitForCompletion();
+        }
+
+        /// <summary>
+        /// Retrieve theme / asset pack's information.
+        /// （獲取建築風格／資產包的資訊。）
+        /// </summary>
+        /// <param name="options">The export options.（檔案輸出設定。）</param>
+        private void GetThemes(Options options)
+        {
+            // Create alias for fields.（創造欄位的別名。）
+            ref List<Theme> themes = ref _themes;
+            ref Dictionary<PrefabBase, int> prefabMap = ref _themesPrefabMap;
+
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset<List<Theme>, Theme>(ref themes);
+            Utils.CommonUtils.Reset<Dictionary<PrefabBase, int>, PrefabBase, int>(ref prefabMap);
+
+            // Add the fallback theme.（添加後備建築風格。）
+            themes.Add(new() { entity = Entity.Null, name = "Carto Generic" });
+
+            // Collect building themes.（收集建築風格。）
+            NativeArray<Entity> themeEntities = _themePrefabQuery.ToEntityArray(Allocator.Temp);
+            NativeArray<PrefabData> themePrefabs = _themePrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
+            for (int i = 0; i < themeEntities.Length; i++)
+            {
+                if (Instance.Prefab.TryGetPrefab(themePrefabs[i], out PrefabBase themePrefab))
+                {
+                    Entity theme = themeEntities[i];
+                    Theme data = new()
+                    {
+                        entity = theme,
+                        name = Instance.Prefab.GetPrefabName(theme),
+                    };
+                    themes.Add(data);
+                    prefabMap.Add(themePrefab, themes.Count - 1);
+                }
+            }
+
+            // Collect asset packs.（收集資產包。）
+            if (options.AssetPack)
+            {
+                NativeArray<Entity> assetPacks = _assetPackPrefabQuery.ToEntityArray(Allocator.Temp);
+                NativeArray<PrefabData> assetPackPrefabs = _assetPackPrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
+                for (int i = 0; i < assetPacks.Length; i++)
+                {
+                    if (Instance.Prefab.TryGetPrefab(assetPackPrefabs[i], out PrefabBase assetPackPrefab))
+                    {
+                        Entity assetPack = assetPacks[i];
+                        Theme data = new()
+                        {
+                            entity = assetPack,
+                            name = Instance.Prefab.GetPrefabName(assetPack)
+                        };
+                        themes.Add(data);
+                        prefabMap.Add(assetPackPrefab, themes.Count - 1);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get zoning density from its categories and ZoneData component.
+        /// （由分區分類與 ZoneData 部件獲得其發展強度。）
+        /// </summary>
+        /// <param name="categories">The flag indicating zoning categories.（顯示分區分類的旗標。）</param>
+        /// <param name="zoneData">The ZoneData component.（ZoneData 部件。）</param>
+        /// <returns>A flag indicating zoning density.（顯示分區發展強度的旗標。）</returns>
+        private static ZoningDensity GetZoningDensity(ZoningCategory categories, ZoneData zoneData)
+        {
+            ZoningDensity density = ZoningDensity.Generic;
+            ushort heightLimit = zoneData.m_MaxHeight;
+
+            if ((categories & ZoningCategory.Residential) != 0)
+            {
+                density = heightLimit switch
+                {
+                    < 12 => ZoningDensity.Low,
+                    < 60 => ZoningDensity.Medium,
+                    _ => ZoningDensity.High
+                };
+            }
+            else if ((categories & ZoningCategory.Commercial) != 0 | (categories & ZoningCategory.Office) != 0)
+            {
+                density = heightLimit < 20 ? ZoningDensity.Low : ZoningDensity.High;
+            }
+
+            return density;
+        }
+
+        /// <summary>
+        /// Retrieve zoning types' information.
+        /// （獲取分區類別的資訊。）
+        /// </summary>
+        /// <param name="options">The export options.（檔案輸出設定。）</param>
+        public void GetZoningTypes(Options options)
+        {
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeParallelHashMap<Entity, int> entityMap = ref _zoningTypesEntityMap;
+            ref NativeParallelHashMap<ushort, int> idMap = ref _zoningTypesIdMap;
+            ref NativeList<NativeText> names = ref _zoningTypesNames;
+            ref NativeList<ZoningType> types = ref _zoningTypes;
+
+            // Initialize native containers.（初始化原生容器。）
+            int zoningTypeCount = _zoningPrefabQuery.CalculateEntityCount();
+            NativeParallelHashSet<Entity> zoningTypePool = new(zoningTypeCount, Allocator.TempJob);
+
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset(ref entityMap, zoningTypeCount);
+            Utils.CommonUtils.Reset(ref idMap, zoningTypeCount);
+            Utils.CommonUtils.Reset(ref names, zoningTypeCount);
+            Utils.CommonUtils.Reset(ref types, zoningTypeCount);
+
+            try
+            {
+                // Collect zoning types by looking at all spawanable building prefabs.（透過檢查所有自長建築預製模板收集分區類型。）
+                CollectZoningTypesJob collectJob = new()
+                {
+                    prefabDataLookup = GetComponentLookup<PrefabData>(),
+                    zoneDataLookup = GetComponentLookup<ZoneData>(),
+                    list = types.AsParallelWriter(),
+                    zoningTypePool = zoningTypePool.AsParallelWriter(),
+                    commercialIndex = TypeManager.GetTypeIndex<CommercialProperty>(),
+                    industrialIndex = TypeManager.GetTypeIndex<IndustrialProperty>(),
+                    officeIndex = TypeManager.GetTypeIndex<OfficeProperty>(),
+                    residentialIndex = TypeManager.GetTypeIndex<ResidentialProperty>()
+                };
+                JobHandle collectHandle = collectJob.ScheduleParallel(_spawnableBuildingPrefabQuery, default);
+                collectHandle.Complete();
+
+                // Ensure to collect zoning types without buildings (ex. Unzoned).（確保收集到沒有建築的分區類型，例如無分區類型。）
+                VerifyZoningTypesJob verifyJob = new()
+                {
+                    list = types.AsParallelWriter(),
+                    zoningTypePool = zoningTypePool
+                };
+                JobHandle verifyHandle = verifyJob.ScheduleParallel(_zoningPrefabQuery, default);
+                verifyHandle.Complete();
+
+                // Prepare themes / asset packs information.（準備建築風格／資產包資訊。）
+                GetThemes(options);
+
+                // Add the data that can only be retrieved in the main thread.（添加只能在主執行緒取得的資料。）
+                for (int index = 0; index < zoningTypeCount; index++)
+                {
+                    ref ZoningType zoningType = ref types.ElementAt(index);
+
+                    // Ensure safety when the zonings are not correctly loaded (e.g. a region pack is missing).
+                    // （確保分區未正確載入時的安全性（例如缺少地區包）。）
+                    if (!Instance.Prefab.TryGetPrefab(zoningType.prefabData, out ZonePrefab zonePrefabData))
+                    {
+                        names.Add(new("Placeholder", Allocator.Persistent));
+                        continue;
+                    }
+
+                    zoningType.color = zonePrefabData.m_Color;
+
+                    if (zonePrefabData.Has<AssetPackItem>())
+                    {
+                        if (_themesPrefabMap.TryGetValue(zonePrefabData.GetComponent<AssetPackItem>().m_Packs[0], out int themeIndex))
+                        {
+                            zoningType.theme = themeIndex;
+                        }
+                    }
+
+                    if (zonePrefabData.Has<ThemeObject>())
+                    {
+                        if (_themesPrefabMap.TryGetValue(zonePrefabData.GetComponent<ThemeObject>().m_Theme, out int themeIndex))
+                        {
+                            zoningType.theme = themeIndex;
+                        }
+                    }
+
+                    entityMap.TryAdd(zoningType.entity, index);
+                    idMap.TryAdd(zoningType.id, index);
+                    names.Add(new NativeText(Instance.Prefab.GetPrefabName(zoningType.entity), Allocator.Persistent));
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                if (zoningTypePool.IsCreated)
+                {
+                    zoningTypePool.Dispose();
+                }
+
+                _themesPrefabMap.Clear();
+            }
+        }
+
+        /// <summary>
         /// The job to collect building statistics.
         /// （收集建築統計資訊的工作。）
         /// </summary>
@@ -885,185 +1093,6 @@ namespace Carto.Systems
         }
 
         /// <summary>
-        /// Retrieve the world heightmap.
-        /// （獲取世界高度圖。）
-        /// </summary>
-        /// <param name="options">The export options.（檔案輸出設定。）</param>
-        public void GetWorldElevation(Options options)
-        {
-            // Create alias for fields.（創造欄位的別名。）
-            ref NativeArray<ushort> worldElevation = ref _worldElevation;
-            Texture map = _terrain.worldHeightmap;
-
-            // Reset output containers.（重置輸出容器。）
-            Utils.CommonUtils.Reset(ref worldElevation, map.width * map.height);
-
-            // Convert the texture into array.（將材質貼圖轉為陣列。）
-            AsyncGPUReadback.RequestIntoNativeArray(ref worldElevation, map).WaitForCompletion();
-        }
-
-        /// <summary>
-        /// Retrieve theme / asset pack's information.
-        /// （獲取建築風格／資產包的資訊。）
-        /// </summary>
-        /// <param name="options">The export options.（檔案輸出設定。）</param>
-        private void GetThemes(Options options)
-        {
-            // Create alias for fields.（創造欄位的別名。）
-            ref List<Theme> themes = ref _themes;
-            ref Dictionary<PrefabBase, int> prefabMap = ref _themesPrefabMap;
-            
-            // Reset output containers.（重置輸出容器。）
-            Utils.CommonUtils.Reset<List<Theme>, Theme>(ref themes);
-            Utils.CommonUtils.Reset<Dictionary<PrefabBase, int>, PrefabBase, int>(ref prefabMap);
-
-            // Add the fallback theme.（添加後備建築風格。）
-            themes.Add(new() { entity = Entity.Null, name = "Carto Generic" });
-
-            // Collect building themes.（收集建築風格。）
-            NativeArray<Entity> themeEntities = _themePrefabQuery.ToEntityArray(Allocator.Temp);
-            NativeArray<PrefabData> themePrefabs = _themePrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
-            for (int i = 0; i < themeEntities.Length; i++)
-            {
-                if (Instance.Prefab.TryGetPrefab(themePrefabs[i], out PrefabBase themePrefab))
-                {
-                    Entity theme = themeEntities[i];
-                    Theme data = new()
-                    {
-                        entity = theme,
-                        name = Instance.Prefab.GetPrefabName(theme),
-                    };
-                    themes.Add(data);
-                    prefabMap.Add(themePrefab, themes.Count - 1);
-                }
-            }
-
-            // Collect asset packs.（收集資產包。）
-            if (options.AssetPack)
-            {
-                NativeArray<Entity> assetPacks = _assetPackPrefabQuery.ToEntityArray(Allocator.Temp);
-                NativeArray<PrefabData> assetPackPrefabs = _assetPackPrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
-                for (int i = 0; i < assetPacks.Length; i++)
-                {
-                    if (Instance.Prefab.TryGetPrefab(assetPackPrefabs[i], out PrefabBase assetPackPrefab))
-                    {
-                        Entity assetPack = assetPacks[i];
-                        Theme data = new()
-                        {
-                            entity = assetPack,
-                            name = Instance.Prefab.GetPrefabName(assetPack)
-                        };
-                        themes.Add(data);
-                        prefabMap.Add(assetPackPrefab, themes.Count - 1);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Retrieve zoning types' information.
-        /// （獲取分區類別的資訊。）
-        /// </summary>
-        /// <param name="options">The export options.（檔案輸出設定。）</param>
-        public void GetZoningTypes(Options options)
-        {
-            // Create alias for fields.（創造欄位的別名。）
-            ref NativeParallelHashMap<Entity, int> entityMap = ref _zoningTypesEntityMap;
-            ref NativeParallelHashMap<ushort, int> idMap = ref _zoningTypesIdMap;
-            ref NativeList<NativeText> names = ref _zoningTypesNames;
-            ref NativeList<ZoningType> types = ref _zoningTypes;
-
-            // Initialize native containers.（初始化原生容器。）
-            int zoningTypeCount = _zoningPrefabQuery.CalculateEntityCount();
-            NativeParallelHashSet<Entity> zoningTypePool = new(zoningTypeCount, Allocator.TempJob);
-
-            // Reset output containers.（重置輸出容器。）
-            Utils.CommonUtils.Reset(ref entityMap, zoningTypeCount);
-            Utils.CommonUtils.Reset(ref idMap, zoningTypeCount);
-            Utils.CommonUtils.Reset(ref names, zoningTypeCount);
-            Utils.CommonUtils.Reset(ref types, zoningTypeCount);
-
-            try
-            {
-                // Collect zoning types by looking at all spawanable building prefabs.（透過檢查所有自長建築預製模板收集分區類型。）
-                CollectZoningTypesJob collectJob = new()
-                {
-                    prefabDataLookup = GetComponentLookup<PrefabData>(),
-                    zoneDataLookup = GetComponentLookup<ZoneData>(),
-                    list = types.AsParallelWriter(),
-                    zoningTypePool = zoningTypePool.AsParallelWriter(),
-                    commercialIndex = TypeManager.GetTypeIndex<CommercialProperty>(),
-                    industrialIndex = TypeManager.GetTypeIndex<IndustrialProperty>(),
-                    officeIndex = TypeManager.GetTypeIndex<OfficeProperty>(),
-                    residentialIndex = TypeManager.GetTypeIndex<ResidentialProperty>()
-                };
-                JobHandle collectHandle = collectJob.ScheduleParallel(_spawnableBuildingPrefabQuery, default);
-                collectHandle.Complete();
-
-                // Ensure to collect zoning types without buildings (ex. Unzoned).（確保收集到沒有建築的分區類型，例如無分區類型。）
-                VerifyZoningTypesJob verifyJob = new()
-                {
-                    list = types.AsParallelWriter(),
-                    zoningTypePool = zoningTypePool
-                };
-                JobHandle verifyHandle = verifyJob.ScheduleParallel(_zoningPrefabQuery, default);
-                verifyHandle.Complete();
-
-                // Prepare themes / asset packs information.（準備建築風格／資產包資訊。）
-                GetThemes(options);
-
-                // Add the data that can only be retrieved in the main thread.（添加只能在主執行緒取得的資料。）
-                for (int index = 0; index < zoningTypeCount; index++)
-                {
-                    ref ZoningType zoningType = ref types.ElementAt(index);
-
-                    // Ensure safety when the zonings are not correctly loaded (e.g. a region pack is missing).
-                    // （確保分區未正確載入時的安全性（例如缺少地區包）。）
-                    if (!Instance.Prefab.TryGetPrefab(zoningType.prefabData, out ZonePrefab zonePrefabData))
-                    {
-                        names.Add(new("Placeholder", Allocator.Persistent));
-                        continue;
-                    }
-
-                    zoningType.color = zonePrefabData.m_Color;
-
-                    if (zonePrefabData.Has<AssetPackItem>())
-                    {
-                        if (_themesPrefabMap.TryGetValue(zonePrefabData.GetComponent<AssetPackItem>().m_Packs[0], out int themeIndex))
-                        {
-                            zoningType.theme = themeIndex;
-                        }
-                    }
-
-                    if (zonePrefabData.Has<ThemeObject>())
-                    {
-                        if (_themesPrefabMap.TryGetValue(zonePrefabData.GetComponent<ThemeObject>().m_Theme, out int themeIndex))
-                        {
-                            zoningType.theme = themeIndex;
-                        }
-                    }
-
-                    entityMap.TryAdd(zoningType.entity, index);
-                    idMap.TryAdd(zoningType.id, index);
-                    names.Add(new NativeText(Instance.Prefab.GetPrefabName(zoningType.entity), Allocator.Persistent));
-                }
-            }
-            catch (Exception ex)
-            {
-                _log.Error(ex.ToString());
-            }
-            finally
-            {
-                if (zoningTypePool.IsCreated)
-                {
-                    zoningTypePool.Dispose();
-                }
-
-                _themesPrefabMap.Clear();
-            }
-        }
-
-        /// <summary>
         /// The job to collect zoning types.
         /// （收集分區類別的工作。）
         /// </summary>
@@ -1206,35 +1235,6 @@ namespace Carto.Systems
                     list.AddNoResize(data);
                 }
             }
-        }
-
-        /// <summary>
-        /// Get zoning density from its categories and ZoneData component.
-        /// （由分區分類與 ZoneData 部件獲得其發展強度。）
-        /// </summary>
-        /// <param name="categories">The flag indicating zoning categories.（顯示分區分類的旗標。）</param>
-        /// <param name="zoneData">The ZoneData component.（ZoneData 部件。）</param>
-        /// <returns>A flag indicating zoning density.（顯示分區發展強度的旗標。）</returns>
-        private static ZoningDensity GetZoningDensity(ZoningCategory categories, ZoneData zoneData)
-        {
-            ZoningDensity density = ZoningDensity.Generic;
-            ushort heightLimit = zoneData.m_MaxHeight;
-
-            if ((categories & ZoningCategory.Residential) != 0)
-            {
-                density = heightLimit switch
-                {
-                    < 12 => ZoningDensity.Low,
-                    < 60 => ZoningDensity.Medium,
-                    _ => ZoningDensity.High
-                };
-            }
-            else if ((categories & ZoningCategory.Commercial) != 0 | (categories & ZoningCategory.Office) != 0)
-            {
-                density = heightLimit < 20 ? ZoningDensity.Low : ZoningDensity.High;
-            }
-
-            return density;
         }
     }
 }

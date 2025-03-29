@@ -113,6 +113,253 @@ namespace Carto.Systems
         protected override void OnUpdate() { }
 
         /// <summary>
+        /// Fill the map between area entity and building's index in <see cref="SharedDataCollectionSystem.BuildingStats"/>.<br/>
+        /// （填入區域實體與建築在 <see cref="SharedDataCollectionSystem.BuildingStats"/> 的索引值的映射表。）
+        /// </summary>
+        /// <param name="buildingStats">The list of all building's statistics in the savegame.（遊戲存檔內所有建築的統計數據。）</param>
+        /// <param name="areaEntityMap">The map between area entity and the building index.（區域實體與建築索引值間的映射表。）</param>
+        /// <param name="mapTileStatistics">Whether to export statistics (e.g. age, company, employee, household, ...) for map tiles.（是否要輸出地圖區塊的統計資料？（例如年齡、公司、員工、家庭……）？）</param>
+        private void FillBuildingStatMap(ref NativeList<BuildingStat> buildingStats, ref NativeParallelMultiHashMap<Entity, int> areaEntityMap, bool mapTileStatistics)
+        {
+            // Initialize native containers.（初始化原生容器。）
+            NativeArray<float3> locations = new(buildingStats.Length, Allocator.Persistent);
+            NativeList<BVHUtils.Triangle> triangles = new(_mapTileQuery.CalculateEntityCount() * 4, Allocator.Persistent);
+
+            // Map each building to districts.（將各棟建築映射至行政區。）
+            MapBuildingsToDistrictsJob mapDistrictsJob = new()
+            {
+                currentDistrictLookup = GetComponentLookup<CurrentDistrict>(true),
+                buildingStats = buildingStats,
+                hashmap = areaEntityMap.AsParallelWriter()
+            };
+            JobHandle mapDistrictsHandle = mapDistrictsJob.Schedule(buildingStats.Length, 8);
+            mapDistrictsHandle.Complete();
+
+            // Only execute this part when map tile requires statistical fields.
+            //（僅在地圖區塊需要統計欄位時執行。）
+            if (mapTileStatistics)
+            {
+                // Extract building centroids.（萃取建築中點。）
+                GetBuildingLocationsJob getLocationsJob = new()
+                {
+                    transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
+                    buildingStats = buildingStats,
+                    locations = locations
+                };
+                JobHandle getLocationHandle = getLocationsJob.Schedule(buildingStats.Length, 8);
+                getLocationHandle.Complete();
+
+                // Extract map tile triangles.（萃取地圖區塊三角形。）
+                // Can't apply parallel operation on this job since the length of `triangles` is unknown.（無法在這個工作上執行平行處理，因為 `triangle` 的長度未知。）
+                RetrieveTrianglesJob retrieveJob = new()
+                {
+                    triangleList = triangles
+                };
+                JobHandle retrieveHandle = retrieveJob.Schedule(_mapTileQuery, default);
+                retrieveHandle.Complete();
+
+                // Map each building to map tiles.（將各建築映射至地圖區塊。）
+                BVHUtils.GetIntersectMap(ref triangles, ref locations, ref areaEntityMap);
+            }
+
+            // Dispose the native containers.（拋棄原生容器。）
+            Utils.CommonUtils.Dispose(ref locations);
+            Utils.CommonUtils.Dispose(ref triangles);
+        }
+
+        /// <summary>
+        /// Write boundary attributes to the designated file.
+        /// （寫出邊界屬性至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="fieldMap">The map between the property and the fields.（屬性與欄位的映射表。）</param>
+        public void WriteBoundaryDBF(BinaryWriter writer, Options options, HashSet<Property> validatedFields, out Dictionary<Property, FieldInfo> fieldMap)
+        {
+            Feature featureFlag = options.Features;
+            if (!featureFlag.HasFlag(Feature.District)) _filters.Add(ComponentType.ReadOnly<District>());
+            if (!featureFlag.HasFlag(Feature.MapTile)) _filters.Add(ComponentType.ReadOnly<MapTile>());
+            _queryDesc.None = _filters.ToArray();
+            EntityQuery query = GetEntityQuery(_queryDesc);
+
+            bool hasName = validatedFields.Contains(Property.Name);
+            bool hasAge = validatedFields.Contains(Property.Age);
+            bool hasArea = validatedFields.Contains(Property.Area);
+            bool hasCompany = validatedFields.Contains(Property.Company);
+            bool hasEmployee = validatedFields.Contains(Property.Employee);
+            bool hasHousehold = validatedFields.Contains(Property.Household);
+            bool hasLabor = validatedFields.Contains(Property.Labor);
+            bool hasObject = validatedFields.Contains(Property.Object);
+            bool hasProfit = validatedFields.Contains(Property.Profit);
+            bool hasResident = validatedFields.Contains(Property.Resident);
+            bool hasSexRatio = validatedFields.Contains(Property.SexRatio);
+            bool hasUnlocked = validatedFields.Contains(Property.Unlocked);
+            bool hasWage = validatedFields.Contains(Property.Wage);
+            bool hasStatistics = hasAge | hasCompany | hasEmployee | hasHousehold | hasLabor | hasProfit | hasResident | hasSexRatio | hasWage;
+
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeList<BuildingStat> buildingStats = ref _shared.BuildingStats;
+
+            // Validate native containers integrity.（驗證原生容器的完整性。）
+            Utils.CommonUtils.ValidateIntegrity(ref buildingStats, true);
+
+            // Initialize native containers.（初始化原生容器。）
+            int areaCount = query.CalculateEntityCount();
+            int burstCompatableFieldCount = validatedFields.Count - (hasName ? 1 : 0) - (hasObject ? 1 : 0);
+            NativeList<AreaStat> areaStats = new(areaCount, Allocator.Persistent);
+            NativeParallelHashSet<EnumWrapper<Property>> propertySet = new(burstCompatableFieldCount, Allocator.Persistent);
+            NativeParallelMultiHashMap<Entity, int> areaEntityMap = new(buildingStats.Length * 2, Allocator.Persistent);
+            NativeParallelMultiHashMap<EnumWrapper<Property>, FieldInfo> propertyFieldMap = new(burstCompatableFieldCount * areaCount, Allocator.Persistent);
+
+            // Initialize managed containers.（初始化控管容器。）
+            List<Feature> areaFeatures = new();
+            List<string> areaNames = new();
+            Dictionary<Property, FieldInfo> _fieldMap = new();
+
+            // Copy managed container contents to their native counterparts.（將控管容器的內容複製至原生容器。）
+            Shapefile.FilterBurstCompatableProperties(validatedFields, ref propertySet);
+
+            try
+            {
+                // Only execute this part when any of these fields are required: age, company, employee, household, labor, profit, resident, sex ratio, and wage.
+                //（僅在需要下列任何欄位時執行：年齡、公司、員工、家庭、勞工、利潤、居民、性別比、薪資）
+                if (hasStatistics) FillBuildingStatMap(ref buildingStats, ref areaEntityMap, options.StatisticsMapTile);
+
+                // Collect the statistics of each area.（收集各個區域的統計資料。）
+                CollectAreaStatsSHPJob collectStatsJob = new()
+                {
+                    districtLookup = GetComponentLookup<District>(true),
+                    mapTileLookup = GetComponentLookup<MapTile>(true),
+                    nativeLookup = GetComponentLookup<Native>(true),
+                    buildingStats = buildingStats,
+                    propertySet = propertySet,
+                    areaEntityMap = areaEntityMap,
+                    statslist = areaStats.AsParallelWriter(),
+                    propertyFieldMap = propertyFieldMap.AsParallelWriter()
+                };
+                JobHandle collectStatsHandle = collectStatsJob.ScheduleParallel(query, default);
+                collectStatsHandle.Complete();
+
+                // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
+                if (hasName)
+                {
+                    FieldInfo nameField = new(0, 0, false, FieldType.String);
+
+                    for (int i = 0; i < areaStats.Length; i++)
+                    {
+                        AreaStat stat = areaStats[i];
+                        areaNames.Add(stat.objectType == Feature.District ? _name.GetRenderedLabelName(stat.entity) : _name.GetDebugName(stat.entity));
+                        nameField += new FieldInfo(areaNames[i]);
+                    }
+
+                    _fieldMap.Add(Property.Name, nameField);
+                }
+
+                if (hasObject)
+                {
+                    FieldInfo objectField = new(0, 0, false, FieldType.String);
+
+                    for (int i = 0; i < areaStats.Length; i++)
+                    {
+                        AreaStat stat = areaStats[i];
+                        areaFeatures.Add(options.Display[(Property.Object, IO.System.Unknown)] ? stat.objectType : Utils.CommonUtils.GetFirstMatch(stat.objectType, IO.IO.FeatureDisplayOrder));
+                        objectField += new FieldInfo(areaFeatures[i].ToString());
+                    }
+
+                    _fieldMap.Add(Property.Object, objectField);
+                }
+
+                Shapefile.CombineFieldInfos(ref propertySet, ref propertyFieldMap, _fieldMap);
+
+                // Initialize the writer thread.（初始化負責寫出的執行緒。）
+                Task writerThread = Task.Run(() =>
+                {
+                    for (int i = 0; i < areaStats.Length; i++)
+                    {
+                        AreaStat stat = areaStats[i];
+                        writer.Write((byte) 32);
+
+                        if (hasName && _fieldMap.TryGetValue(Property.Name, out FieldInfo nameField))
+                        {
+                            Shapefile.WriteRecord(writer, nameField, areaNames[i]);
+                        }
+                        if (hasAge && _fieldMap.TryGetValue(Property.Age, out FieldInfo ageField))
+                        {
+                            Shapefile.WriteRecord(writer, ageField, stat.GetAverageAge());
+                        }
+                        if (hasArea && _fieldMap.TryGetValue(Property.Area, out FieldInfo areaField))
+                        {
+                            Shapefile.WriteRecord(writer, areaField, stat.area);
+                        }
+                        if (hasCompany && _fieldMap.TryGetValue(Property.Company, out FieldInfo companyField))
+                        {
+                            Shapefile.WriteRecord(writer, companyField, stat.company);
+                        }
+                        if (hasEmployee &&  _fieldMap.TryGetValue(Property.Employee, out FieldInfo employeeField))
+                        {
+                            Shapefile.WriteRecord(writer, employeeField, stat.employee);
+                        }
+                        if (hasHousehold && _fieldMap.TryGetValue(Property.Household, out FieldInfo householdField))
+                        {
+                            Shapefile.WriteRecord(writer, householdField, stat.household);
+                        }
+                        if (hasLabor && _fieldMap.TryGetValue(Property.Labor, out FieldInfo laborField))
+                        {
+                            Shapefile.WriteRecord(writer, laborField, stat.labor);
+                        }
+                        if (hasObject && _fieldMap.TryGetValue(Property.Object, out FieldInfo objectField))
+                        {
+                            Shapefile.WriteRecord(writer, objectField, areaFeatures[i].ToString());
+                        }
+                        if (hasProfit && _fieldMap.TryGetValue(Property.Profit, out FieldInfo profitField))
+                        {
+                            Shapefile.WriteRecord(writer, profitField, stat.GetAverageProfit());
+                        }
+                        if (hasResident && _fieldMap.TryGetValue(Property.Resident, out FieldInfo residentField))
+                        {
+                            if (options.SeparateResident)
+                            {
+                                Shapefile.WriteRecord(writer, residentField, stat.residentFemale);
+                                Shapefile.WriteRecord(writer, residentField, stat.residentMale);
+                            }
+                            else
+                            {
+                                Shapefile.WriteRecord(writer, residentField, stat.residentFemale + stat.residentMale);
+                            }
+                        }
+                        if (hasSexRatio && _fieldMap.TryGetValue(Property.SexRatio, out FieldInfo sexRatioField))
+                        {
+                            Shapefile.WriteRecord(writer, sexRatioField, stat.GetSexRatio());
+                        }
+                        if (hasUnlocked && _fieldMap.TryGetValue(Property.Unlocked, out FieldInfo unlockedField))
+                        {
+                            Shapefile.WriteRecord(writer, unlockedField, stat.unlocked);
+                        }
+                        if (hasWage && _fieldMap.TryGetValue(Property.Wage, out FieldInfo wageField))
+                        {
+                            Shapefile.WriteRecord(writer, wageField, stat.GetAverageWage());
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                fieldMap = _fieldMap;
+                Utils.CommonUtils.Dispose(ref areaEntityMap);
+                Utils.CommonUtils.Dispose(ref areaStats);
+                Utils.CommonUtils.Dispose(ref propertyFieldMap);
+                Utils.CommonUtils.Dispose(ref propertySet);
+                Instance.Shared.Dispose(DisposePhase.AfterAreaSystem);
+            }
+        }
+
+        /// <summary>
         /// Write boundary features (geometries and properties) to the designated file.
         /// （寫出邊界圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
@@ -150,56 +397,18 @@ namespace Carto.Systems
 
             // Initialize native containers.（初始化原生容器。）
             int areaCount = query.CalculateEntityCount();
-            NativeArray<float3> locations = new(buildingStats.Length, Allocator.Persistent);
             NativeList<AreaStat> areaStats = new(areaCount, Allocator.Persistent);
-            NativeList<NativeText> areaNames = new(areaCount, Allocator.Persistent);
-            NativeList<BVHUtils.Triangle> triangles = new(_mapTileQuery.CalculateEntityCount() * 4, Allocator.Persistent);
             NativeParallelHashMap<Entity, NativeArray<float3>> nodeEntityMap = new(areaCount, Allocator.Persistent);
             NativeParallelMultiHashMap<Entity, int> areaEntityMap = new(buildingStats.Length * 2, Allocator.Persistent);
+
+            // Initialize managed containers.（初始化控管容器。）
+            List<string> areaNames = new();
 
             try
             {
                 // Only execute this part when any of these fields are required: age, company, employee, household, labor, profit, resident, sex ratio, and wage.
                 //（僅在需要下列任何欄位時執行：年齡、公司、員工、家庭、勞工、利潤、居民、性別比、薪資）
-                if (hasStatistics)
-                {
-                    // Map each building to districts.（將各棟建築映射至行政區。）
-                    MapBuildingsToDistrictsJob mapDistrictsJob = new()
-                    {
-                        currentDistrictLookup = GetComponentLookup<CurrentDistrict>(true),
-                        buildingStats = buildingStats,
-                        hashmap = areaEntityMap.AsParallelWriter()
-                    };
-                    JobHandle mapDistrictsHandle = mapDistrictsJob.Schedule(buildingStats.Length, 8);
-                    mapDistrictsHandle.Complete();
-
-                    // Only execute this part when map tile requires statistical fields.
-                    //（僅在地圖區塊需要統計欄位時執行。）
-                    if (options.StatisticsMapTile)
-                    {
-                        // Extract building centroids.（萃取建築中點。）
-                        GetBuildingLocationsJob getLocationsJob = new()
-                        {
-                            transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
-                            buildingStats = buildingStats,
-                            locations = locations
-                        };
-                        JobHandle getLocationHandle = getLocationsJob.Schedule(buildingStats.Length, 8);
-                        getLocationHandle.Complete();
-
-                        // Extract map tile triangles.（萃取地圖區塊三角形。）
-                        // Can't apply parallel operation on this job since the length of `triangles` is unknown.（無法在這個工作上執行平行處理，因為 `triangle` 的長度未知。）
-                        RetrieveTrianglesJob retrieveJob = new()
-                        {
-                            triangleList = triangles
-                        };
-                        JobHandle retrieveHandle = retrieveJob.Schedule(_mapTileQuery, default);
-                        retrieveHandle.Complete();
-
-                        // Map each building to map tiles.（將各建築映射至地圖區塊。）
-                        BVHUtils.GetIntersectMap(ref triangles, ref locations, ref areaEntityMap);
-                    }
-                }
+                if (hasStatistics) FillBuildingStatMap(ref buildingStats, ref areaEntityMap, options.StatisticsMapTile);
 
                 // Collect the statistics of each area.（收集各個區域的統計資料。）
                 CollectAreaStatsJob collectStatsJob = new()
@@ -228,7 +437,7 @@ namespace Carto.Systems
                     for (int i = 0; i < areaStats.Length; i++)
                     {
                         AreaStat stat = areaStats[i];
-                        areaNames[i] = new(stat.objectType == Feature.District ? _name.GetRenderedLabelName(stat.entity) : _name.GetDebugName(stat.entity), Allocator.Persistent);
+                        areaNames.Add(stat.objectType == Feature.District ? _name.GetRenderedLabelName(stat.entity) : _name.GetDebugName(stat.entity));
                     }
                 }
 
@@ -264,12 +473,11 @@ namespace Carto.Systems
                         writer.WriteStartObject();
                         if (hasName)
                         {
-                            GeoJson.WriteProperty(writer, Property.Name, areaNames[i].ToString());
+                            GeoJson.WriteProperty(writer, Property.Name, areaNames[i]);
                         }
                         if (hasAge)
                         {
-                            float age = (stat.residentFemale + stat.residentMale <= 0) ? 0f : (float)Math.Round(stat.age / (stat.residentFemale + stat.residentMale), 1);
-                            GeoJson.WriteProperty(writer, Property.Age, age);
+                            GeoJson.WriteProperty(writer, Property.Age, stat.GetAverageAge());
                         }
                         if (hasArea)
                         {
@@ -298,8 +506,7 @@ namespace Carto.Systems
                         }
                         if (hasProfit)
                         {
-                            float profit = stat.company <= 0 ? 0f : (float)Math.Round((double)stat.profit / stat.company, 2);
-                            GeoJson.WriteProperty(writer, Property.Profit, profit);
+                            GeoJson.WriteProperty(writer, Property.Profit, stat.GetAverageProfit());
                         }
                         if (hasResident)
                         {
@@ -314,8 +521,7 @@ namespace Carto.Systems
                         }
                         if (hasSexRatio)
                         {
-                            float sexRatio = stat.residentFemale <= 0 ? 0f : (float)Math.Round((double)stat.residentMale / stat.residentFemale * 100, 4);
-                            GeoJson.WriteProperty(writer, Property.SexRatio, sexRatio);
+                            GeoJson.WriteProperty(writer, Property.SexRatio, stat.GetSexRatio());
                         }
                         if (hasUnlocked)
                         {
@@ -323,8 +529,7 @@ namespace Carto.Systems
                         }
                         if (hasWage)
                         {
-                            float wage = stat.labor <= 0 ? 0f : (float)Math.Round((double)stat.wage / stat.labor, 2);
-                            GeoJson.WriteProperty(writer, Property.Wage, wage);
+                            GeoJson.WriteProperty(writer, Property.Wage, stat.GetAverageWage());
                         }
 
                         writer.WriteEndObject();
@@ -343,25 +548,10 @@ namespace Carto.Systems
             finally
             {
                 Utils.CommonUtils.Dispose(ref areaEntityMap);
-                Utils.CommonUtils.Dispose(ref areaNames);
                 Utils.CommonUtils.Dispose(ref areaStats);
-                Utils.CommonUtils.Dispose(ref locations);
                 Utils.CommonUtils.Dispose(ref nodeEntityMap);
                 Instance.Shared.Dispose(DisposePhase.AfterAreaSystem);
             }
-        }
-
-        /// <summary>
-        /// Write boundary attributes to the designated file.
-        /// （寫出邊界屬性至指定的檔案中。）
-        /// </summary>
-        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
-        /// <param name="options">The export options.（輸出設定。）</param>
-        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
-        /// <param name="fieldLengthMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
-        public void WriteBoundaryDBF(BinaryWriter writer, Options options, HashSet<Property> validatedFields, out Dictionary<Property, List<Shapefile.FieldLength>> fieldLengthMap)
-        {
-            fieldLengthMap = new();
         }
 
         /// <summary>
@@ -517,6 +707,144 @@ namespace Carto.Systems
                 }
 
                 statslist.AddNoResize(stat);
+            }
+        }
+
+        /// <summary>
+        /// The job to collect and aggregate area statistics (Shapefile variant).
+        /// （收集並聚合區域統計的工作（Shapefile 變種）。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CollectAreaStatsSHPJob : IJobEntity
+        {
+            [ReadOnly]
+            public ComponentLookup<District> districtLookup;
+
+            [ReadOnly]
+            public ComponentLookup<MapTile> mapTileLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Native> nativeLookup;
+            
+            [ReadOnly]
+            public NativeList<BuildingStat> buildingStats;
+
+            [ReadOnly]
+            public NativeParallelHashSet<EnumWrapper<Property>> propertySet;
+
+            [ReadOnly]
+            public NativeParallelMultiHashMap<Entity, int> areaEntityMap;
+
+            [WriteOnly]
+            public NativeParallelMultiHashMap<EnumWrapper<Property>, FieldInfo>.ParallelWriter propertyFieldMap;
+
+            [WriteOnly]
+            public NativeList<AreaStat>.ParallelWriter statslist;
+
+            public void Execute(in Game.Areas.Geometry geometry, Entity area)
+            {
+                AreaStat stat = new()
+                {
+                    entity = area,
+                    age = 0f,
+                    area = geometry.m_SurfaceArea,
+                    company = 0,
+                    employee = 0,
+                    household = 0,
+                    labor = 0,
+                    objectType = Feature.None,
+                    profit = 0,
+                    residentFemale = 0,
+                    residentMale = 0,
+                    wage = 0,
+                    unlocked = false
+                };
+
+                if (areaEntityMap.TryGetFirstValue(area, out int buildingIndex, out NativeParallelMultiHashMapIterator<Entity> iterator))
+                {
+                    do
+                    {
+                        if ((buildingIndex >= 0) & (buildingIndex < buildingStats.Length))
+                        {
+                            ref BuildingStat building = ref buildingStats.ElementAt(buildingIndex);
+                            stat.age += building.age;
+                            stat.company += building.company;
+                            stat.employee += building.employee;
+                            stat.household += building.household;
+                            stat.labor += building.labor;
+                            stat.profit += building.profit;
+                            stat.residentFemale += building.residentFemale;
+                            stat.residentMale += building.residentMale;
+                            stat.wage += building.wage;
+                        }
+                    }
+                    while (areaEntityMap.TryGetNextValue(out buildingIndex, ref iterator));
+                }
+
+                if (districtLookup.TryGetComponent(area, out _)) stat.objectType |= Feature.District;
+                if (mapTileLookup.TryGetComponent(area, out _)) stat.objectType |= Feature.MapTile;
+
+                if (mapTileLookup.TryGetComponent(area, out _) && !nativeLookup.TryGetComponent(area, out _))
+                {
+                    stat.unlocked = true;
+                }
+
+                statslist.AddNoResize(stat);
+
+                if (propertySet.Contains(Property.Age))
+                {
+                    propertyFieldMap.Add(Property.Age, new(stat.GetAverageAge()));
+                }
+                
+                if (propertySet.Contains(Property.Area))
+                {
+                    propertyFieldMap.Add(Property.Area, new(stat.area));
+                }
+
+                if (propertySet.Contains(Property.Company))
+                {
+                    propertyFieldMap.Add(Property.Company, new(stat.company));
+                }
+
+                if (propertySet.Contains(Property.Employee))
+                {
+                    propertyFieldMap.Add(Property.Employee, new(stat.employee));
+                }
+
+                if (propertySet.Contains(Property.Household))
+                {
+                    propertyFieldMap.Add(Property.Household, new(stat.household));
+                }
+
+                if (propertySet.Contains(Property.Labor))
+                {
+                    propertyFieldMap.Add(Property.Labor, new(stat.labor));
+                }
+
+                if (propertySet.Contains(Property.Profit))
+                {
+                    propertyFieldMap.Add(Property.Profit, new(stat.GetAverageProfit()));
+                }
+
+                if (propertySet.Contains(Property.Resident))
+                {
+                    propertyFieldMap.Add(Property.Resident, new(stat.residentFemale + stat.residentMale));
+                }
+
+                if (propertySet.Contains(Property.SexRatio))
+                {
+                    propertyFieldMap.Add(Property.SexRatio, new(stat.GetSexRatio()));
+                }
+
+                if (propertySet.Contains(Property.Unlocked))
+                {
+                    propertyFieldMap.Add(Property.Unlocked, new(stat.unlocked));
+                }
+
+                if (propertySet.Contains(Property.Wage))
+                {
+                    propertyFieldMap.Add(Property.Wage, new(stat.GetAverageWage()));
+                }
             }
         }
 

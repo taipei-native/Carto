@@ -169,6 +169,37 @@ namespace Carto.IO
     }
     
     /// <summary>
+    /// The data type of the fields.
+    /// （欄位的型別。）
+    /// </summary>
+    public enum FieldType
+    {
+        /// <summary>
+        /// The boolean.
+        /// （布林值。）
+        /// </summary>
+        Bool,
+
+        /// <summary>
+        /// The single-precision floating-point number.
+        /// （單精度浮點數。）
+        /// </summary>
+        Float,
+
+        /// <summary>
+        /// The 32-bit integer.
+        /// （32 位元整數。）
+        /// </summary>
+        Int,
+
+        /// <summary>
+        /// The character string.
+        /// （字串。）
+        /// </summary>
+        String
+    }
+
+    /// <summary>
     /// The file formats Carto supports.
     /// （Carto 支援的檔案格式。）
     /// </summary>
@@ -469,7 +500,7 @@ namespace Carto.IO
         Volume,
 
         /// <summary>
-        /// The average wage of all households in the area in ₡ per month (₡/month).（薪資，區域內所有家庭的平均薪資金額，單位為₡／月（₡/month）。）
+        /// The average wage of all labors in the area in ₡ per month (₡/month).（薪資，區域內所有勞工的平均薪資金額，單位為₡／月（₡/month）。）
         /// </summary>
         Wage,
 

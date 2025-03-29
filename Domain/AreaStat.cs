@@ -1,4 +1,5 @@
 using Carto.IO;
+using System;
 using Unity.Entities;
 
 namespace Carto.Domain
@@ -86,6 +87,34 @@ namespace Carto.Domain
         /// （區域內居民所賺取的薪資總額。）
         /// </summary>
         public int wage;
+
+        /// <summary>
+        /// Retrieve the average age of the residents in the area.
+        /// （獲得區域內居民的平均年齡。）
+        /// </summary>
+        /// <returns>The age in days.（以日數計的年齡。）</returns>
+        public readonly float GetAverageAge() => (residentFemale + residentMale) > 0 ? (float)Math.Round(age / (residentFemale + residentMale), 1) : 0f;
+
+        /// <summary>
+        /// Retrieve the average amount of profit earned by the company in the area.
+        /// （獲得區域內公司的平均利潤。）
+        /// </summary>
+        /// <returns>The profit in ₡ per month.（以 ₡／月 計的利潤。）</returns>
+        public readonly float GetAverageProfit() => company > 0 ? (float)Math.Round((double)profit / company, 2) : 0f;
+
+        /// <summary>
+        /// Retrieve the average amount of wage earned by the labors in the area.
+        /// （獲得區域內勞工的平均薪資。）
+        /// </summary>
+        /// <returns>The wage in ₡ per month.（以 ₡／月 計的薪資。）</returns>
+        public readonly float GetAverageWage() => labor > 0 ? (float)Math.Round((double)wage / labor, 2) : 0f;
+
+        /// <summary>
+        /// Retrieve the sex ratio of the area.
+        /// （獲得區域的性別比。）
+        /// </summary>
+        /// <returns>The sex ratio in percentage.（以百分比計的性別比。）</returns>
+        public readonly float GetSexRatio() => residentFemale > 0 ? (float)Math.Round((double)residentMale / residentFemale * 100, 4) : 0f;
 
         public override readonly string ToString()
         {

@@ -86,7 +86,7 @@ namespace Carto.Utils
             /// <returns>Return true if two bounding box intersect with each other.（若兩個定界框相交，回傳 true。）</returns>
             public readonly bool Intersect(Bounds other)
             {
-                return MathUtils.Intersect(ToBounds2(), other.ToBounds2());
+                return Colossal.Mathematics.MathUtils.Intersect(ToBounds2(), other.ToBounds2());
             }
 
             /// <summary>
@@ -97,7 +97,7 @@ namespace Carto.Utils
             /// <returns>Return true if intersects.（若相交，回傳 true。）</returns>
             public readonly bool Intersect(float2 point)
             {
-                return MathUtils.Intersect(ToBounds2(), point);
+                return Colossal.Mathematics.MathUtils.Intersect(ToBounds2(), point);
             }
 
             /// <summary>
@@ -519,7 +519,7 @@ namespace Carto.Utils
             /// <returns>Return true if intersects.（若相交，回傳 true。）</returns>
             public readonly bool Intersect(float2 point)
             {
-                return MathUtils.Intersect(ToTriangle2(), point);
+                return Colossal.Mathematics.MathUtils.Intersect(ToTriangle2(), point);
             }
 
             /// <summary>

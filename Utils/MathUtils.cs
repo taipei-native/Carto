@@ -1,4 +1,6 @@
+using System;
 using System.Globalization;
+using UnityEngine;
 
 namespace Carto.Utils
 {
@@ -16,7 +18,7 @@ namespace Carto.Utils
         /// <param name="decimalDigits">The number of place after the period.（小數點後的位數。）</param>
         /// <param name="countSign">Whether to count the sign as a digit.（是否要將負號視為一位。）</param>
         /// <param name="countSign">Whether to count the period as a digit.（是否要將小數點視為一位。）</param>
-        /// <returns></returns>
+        /// <returns>The number of digits.（數字的位數。）</returns>
         public static int GetDigits(float number, out int decimalDigits, bool countSign = false,  bool countPoint = false)
         {
             string[] parts = number.ToString("G", CultureInfo.InvariantCulture).Split('.');
@@ -79,6 +81,41 @@ namespace Carto.Utils
                     _ => countSign ? 2 : 1,
                 };
             }
+        }
+
+        /// <summary>
+        /// Retrieve the digit count of the number.
+        /// （獲得數字的位數。）
+        /// </summary>
+        /// <param name="number">The input number.（輸入的數字。）</param>
+        /// <param name="decimalDigits">The number of place after the period.（小數點後的位數。）</param>
+        /// <param name="countSign">Whether to count the sign as a digit.（是否要將負號視為一位。）</param>
+        /// <param name="countSign">Whether to count the period as a digit.（是否要將小數點視為一位。）</param>
+        /// <returns>The number of digits.（數字的位數。）</returns>
+        public static int GetDigitsBurstCompatible(float number, out int decimalDigits, bool countSign = false, bool countPoint = false)
+        {
+            float decimalParts = Math.Abs(number);
+            int total = GetDigits((int)decimalParts) + (countSign && (number < 0) ? 1 : 0);
+            decimalParts -= (int)decimalParts;
+            decimalDigits = 0;
+            int trailingZeros = 0;
+            while (decimalDigits < 7 && Math.Round(decimalParts, 4) > 0)
+            {
+                decimalParts *= 10;
+                if ((int)decimalParts == 0)
+                {
+                    trailingZeros++;
+                }
+                else
+                {
+                    decimalDigits += 1 + trailingZeros;
+                    trailingZeros = 0;
+                }
+
+                total++;
+                decimalParts -= (int)decimalParts;
+            }
+            return total + (countPoint && (decimalDigits > 0) ? 1 : 0);
         }
     }
 }
