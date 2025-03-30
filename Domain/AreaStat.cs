@@ -8,8 +8,13 @@ namespace Carto.Domain
     /// The container of area statistics.
     /// （區域統計資料的容器。）
     /// </summary>
-    public struct AreaStat
+    public struct AreaStat : IStat
     {
+        /// <summary>
+        /// See <see cref="entity"/>.（詳見 <see cref="entity"/>。）
+        /// </summary>
+        public Entity Entity { readonly get => entity; set => entity = value; }
+
         /// <summary>
         /// The area entity.
         /// （區域實體。）

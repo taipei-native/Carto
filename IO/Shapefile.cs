@@ -5,11 +5,13 @@ using Colossal.Mathematics;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 
@@ -142,8 +144,9 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
         /// <param name="fieldMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
-        public delegate void WriteDBFMethod(BinaryWriter writer, Options options, HashSet<Property> validatedFields, out Dictionary<Property, FieldInfo> fieldMap);
+        public delegate void WriteDBFMethod(BinaryWriter writer, Options options, HashSet<Property> validatedFields, List<Entity> entitySyncList, out Dictionary<Property, FieldInfo> fieldMap);
 
         /// <summary>
         /// The delegate of the WriteSHP() methods implemented in each system.
@@ -153,7 +156,8 @@ namespace Carto.IO
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
         /// <param name="bounds">The bounding box.（定界框。）</param>
-        public delegate void WriteSHPMethod(BinaryWriter writer, Options options, out List<IndexPair> indexPairs, out Bounds3 bounds);
+        /// /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
+        public delegate void WriteSHPMethod(BinaryWriter writer, Options options, out List<IndexPair> indexPairs, out Bounds3 bounds, out List<Entity> entitySyncList);
 
         /// <summary>
         /// Combine the <see cref="FieldInfo"/> created by jobs and those created manually into a single dictionary.<br/>
@@ -179,24 +183,34 @@ namespace Carto.IO
             NativeHashMap<EnumWrapper<Property>, FieldInfo>.Enumerator nativeFieldInfo = nativeFieldMap.GetEnumerator();
             while (nativeFieldInfo.MoveNext())
             {
-                fieldMap.Add(nativeFieldInfo.Current.Key, nativeFieldInfo.Current.Value);
+                Property key = nativeFieldInfo.Current.Key;
+                FieldInfo constraint = nativeFieldInfo.Current.Value;
+                if (IO.PropertyDecimalConstraintTable.TryGetValue(key, out int maxLength))
+                {
+                    int newDecimalLength = constraint.decimalLength > maxLength ? maxLength : constraint.decimalLength;
+                    fieldMap.Add(key, new(newDecimalLength, constraint.length, constraint.scientific, constraint.type));
+                }
+                else
+                {
+                    fieldMap.Add(key, constraint);
+                }
             }
 
             CommonUtils.Dispose(ref nativeFieldMap);
         }
 
         /// <summary>
-        /// Retrieve Burst compatable properties in the input hashset.
+        /// Retrieve Burst compatible properties in the input hashset.
         /// （獲得輸入集合中可用於 Burst 的屬性。）
         /// </summary>
         /// <param name="managedSet">The input hashset.（輸入的集合。）</param>
         /// <param name="nativeSet">The native hashset to be written.（將被輸入的原生集合。）</param>
-        public static void FilterBurstCompatableProperties(HashSet<Property> managedSet, ref NativeParallelHashSet<EnumWrapper<Property>> nativeSet)
+        public static void FilterBurstCompatibleProperties(HashSet<Property> managedSet, ref NativeParallelHashSet<EnumWrapper<Property>> nativeSet)
         {
             HashSet<Property>.Enumerator enumerator = managedSet.GetEnumerator();
             while (enumerator.MoveNext())
             {
-                if (!IO.BurstImcompatablePropertyTable.Contains(enumerator.Current))
+                if (!IO.BurstImcompatiblePropertyTable.Contains(enumerator.Current))
                 {
                     nativeSet.Add(enumerator.Current);
                 }
@@ -221,6 +235,28 @@ namespace Carto.IO
                 VectorKind.Location => includeElevation ? shapeTypePointZ : shapeTypePoint,
                 _ => throw new ArgumentException("Only points, line strings and (multi-) polygons can be exported as Shapefile. 只有點、線段和（複合）多邊形可以被輸出為 Shapefile。")
             };
+        }
+
+        /// <summary>
+        /// Map each entity in <paramref name="syncList"/> to its index in the <paramref name="statList"/>.
+        /// （將每個 <paramref name="statList"/> 內的實體映射至其在 <paramref name="statList"/> 的索引值。）
+        /// </summary>
+        /// <typeparam name="T">The statistical object type.（統計物件型別。）</typeparam>
+        /// <param name="syncList">The list of entities.（實體的列表。）</param>
+        /// <param name="statList">The list of statistical objects.（統計物件的列表。）</param>
+        /// <param name="syncMap">The output map.（輸出的映射表。）</param>
+        public static void SyncStatsToIndex<T>(List<Entity> syncList, ref NativeList<T> statList, ref NativeParallelHashMap<Entity, int> syncMap) where T : unmanaged, IStat
+        {
+            NativeArray<Entity> nativeSyncList = new(syncList.ToArray(), Allocator.TempJob);
+            SyncStatsToIndexJob<T> syncJob = new()
+            {
+                syncList = nativeSyncList,
+                statList = statList,
+                syncMap = syncMap.AsParallelWriter()
+            };
+            JobHandle syncHandle = syncJob.Schedule(syncList.Count, 4, default);
+            syncHandle.Complete();
+            CommonUtils.Dispose(ref nativeSyncList);
         }
 
         /// <summary>
@@ -381,10 +417,13 @@ namespace Carto.IO
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (options == null) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
             string filePath = options.GetFilePath(systemName, vectorKind);
+            string cpgPath = Path.ChangeExtension(filePath, "cpg");
             string dbfPath = Path.ChangeExtension(filePath, "dbf");
+            string prjPath = Path.ChangeExtension(filePath, "prj");
             string shxPath = Path.ChangeExtension(filePath, "shx");
             Bounds3 bounds;
             int shape = GetShapeType(vectorKind, options.Elevation);
+            List<Entity> syncList;
             List<IndexPair> indexPairs;
 
             // The shapefile is a format composed by at least three sidecar files - which means multiple files have to be generated.
@@ -397,7 +436,7 @@ namespace Carto.IO
             {
                 using BinaryWriter writer = new(fs);
                 WriteSHPHeader(writer, shape);
-                writeSHPMethod.Invoke(writer, options, out indexPairs, out bounds);
+                writeSHPMethod.Invoke(writer, options, out indexPairs, out bounds, out syncList);
                 IndexPair lastIndexPair = indexPairs[indexPairs.Count - 1];
                 UpdateSHPHeader(fs, writer, bounds, lastIndexPair.offset + lastIndexPair.length + 4, options.Elevation);
             }
@@ -412,13 +451,21 @@ namespace Carto.IO
             {
                 using BinaryWriter writer = new(fs);
                 WriteDBFHeader(fs, writer, options, systemName, indexPairs.Count, out HashSet<Property> validatedFields);
-                writeDBFMethod.Invoke(writer, options, validatedFields, out Dictionary<Property, FieldInfo> fieldMap);
+                writeDBFMethod.Invoke(writer, options, validatedFields, syncList, out Dictionary<Property, FieldInfo> fieldMap);
                 UpdateDBFHeader(fs, writer, options, validatedFields, fieldMap);
             }
 
-            // TODO: WriteCPG(BinaryWriter writer)
+            using (FileStream fs = new(cpgPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
+            {
+                using BinaryWriter writer = new(fs);
+                WriteCPG(writer);
+            }
 
-            // TODO: WritePRJ(BinaryWriter writer, Options options)
+            using (FileStream fs = new(prjPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
+            {
+                using StreamWriter writer = new(fs, new UTF8Encoding(false));
+                WritePRJ(writer, options);
+            }
 
             stopwatch.Stop();
             Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
@@ -450,6 +497,23 @@ namespace Carto.IO
             writer.Write(BitConverter.GetBytes((double)bounds.y.min));
             writer.Write(BitConverter.GetBytes((double)bounds.x.max));
             writer.Write(BitConverter.GetBytes((double)bounds.y.max));
+        }
+
+        /// <summary>
+        /// Write the .cpg file.
+        /// （寫入 .cpg 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        private static void WriteCPG(BinaryWriter writer)
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(Encoding.UTF8.GetBytes("UTF-8"));
+            }
+            else
+            {
+                writer.Write(IOUtils.GetFlippedBytes("UTF-8"));
+            }
         }
 
         /// <summary>
@@ -581,6 +645,78 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// Write the geometry to the file in big endian.
+        /// （以大端序寫入幾何圖形至檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="id">The unique identifier of the feature.（圖徵的獨特識別碼。）</param>
+        /// <param name="shape">The geometry shape of the feature.（圖徵的幾何形狀。）</param>
+        /// <param name="geometry">The geometry of the feature.（圖徵的幾何圖形。）</param>
+        /// <param name="indexPair">The index pair used in .shx file.（用於 .shx 檔案的索引對。）</param>
+        /// <param name="bounds">The bounding box of the feature.（圖徵的定界框。）</param>
+        public static void WriteGeometryBE(BinaryWriter writer, int id, int shape, Geometry geometry, out IndexPair indexPair, out Bounds3 bounds)
+        {
+            int numParts = geometry.GetParts(out int numPoints, out List<int> pointCounts, out bounds);
+            int offset = IOUtils.GetPosition(writer) / 2;
+            int length = 0;
+
+            writer.Write(BitConverter.GetBytes(id));                // Record number.（紀錄編號。）
+
+            switch (shape)
+            {
+                case shapeTypePoint:
+                    length = 10;
+                    break;
+
+                case shapeTypePolyLine:
+                    length = 24 + 8 * numPoints;
+                    break;
+
+                case shapeTypePolygon:
+                    length = 22 + 2 * numParts + 8 * (numPoints + numParts);
+                    break;
+
+                case shapeTypePointZ:
+                    length = 18;
+                    break;
+
+                case shapeTypePolyLineZ:
+                    length = 32 + 12 * numPoints;
+                    break;
+
+                case shapeTypePolygonZ:
+                    length = 30 + 2 * numParts + 12 * (numPoints + numParts);
+                    break;
+            }
+
+            indexPair = new(offset, length);
+            writer.Write(BitConverter.GetBytes(length));            // Content length.（內容長度。）
+            writer.Write(IOUtils.GetFlippedBytes(shape));           // Shape type.（幾何形狀。）
+
+            switch (shape)
+            {
+                case shapeTypePoint:
+                    WritePointBE(writer, geometry.Inclusions[0][0], false);
+                    return;
+
+                case shapeTypePointZ:
+                    WritePointBE(writer, geometry.Inclusions[0][0], true);
+                    return;
+            }
+
+            WriteBoxBE(writer, bounds);                                     // Box.（定界框。）
+            writer.Write(IOUtils.GetFlippedBytes(numParts));                // NumParts.（部件的數量。）
+            writer.Write(IOUtils.GetFlippedBytes(numPoints + numParts));    // NumPoints.（點的數量。）
+
+            WritePointArraysBE(writer, geometry, pointCounts, (shape == shapeTypePolygon) || (shape == shapeTypePolygonZ), out List<double> zArray);
+
+            if ((shape == shapeTypePolyLineZ) || (shape == shapeTypePolygonZ))
+            {
+                WriteZArrayBE(writer, bounds, zArray);
+            }
+        }
+
+        /// <summary>
         /// Write the geometry to the file in little endian.
         /// （以小端序寫入幾何圖形至檔案中。）
         /// </summary>
@@ -649,6 +785,58 @@ namespace Carto.IO
             if ((shape == shapeTypePolyLineZ) || (shape == shapeTypePolygonZ))
             {
                 WriteZArrayLE(writer, bounds, zArray);
+            }
+        }
+
+        /// <summary>
+        /// Write the point array to the file in big endian.
+        /// （以大端序寫入點陣列至檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="geometry">The value waiting to be written.（等待被寫出的數值。）</param>
+        /// <param name="pointCounts">The number of points in each part.（每個部件包含的點數。）</param>
+        /// <param name="isRing">Whether the array represents a ring or not.（陣列是否為一個環？）</param>
+        /// <param name="zArray">The array of z values.（Z值的陣列。）</param>
+        private static void WritePointArraysBE(BinaryWriter writer, Geometry geometry, List<int> pointCounts, bool isRing, out List<double> zArray)
+        {
+            int pointIndex = 0;
+            for (int i = 0; i < pointCounts.Count; i++)
+            {
+                writer.Write(IOUtils.GetFlippedBytes(pointIndex));
+                pointIndex += pointCounts[i];
+                if (isRing) pointIndex++;
+            }
+
+            zArray = new();
+            for (int i = 0; i < geometry.Inclusions.Length; i++)
+            {
+                for (int j = 0; j < geometry.Inclusions[i].Length; j++)
+                {
+                    WritePointBE(writer, geometry.Inclusions[i][j], false);
+                    zArray.Add(geometry.Inclusions[i][j].z);
+                }
+                if (isRing)
+                {
+                    WritePointBE(writer, geometry.Inclusions[i][0], false);
+                    zArray.Add(geometry.Inclusions[i][0].z);
+                }
+            }
+
+            for (int i = 0; i < geometry.Exclusions.Length; i++)
+            {
+                for (int j = 0; j < geometry.Exclusions[i].Length; j++)
+                {
+                    for (int k = 0; k < geometry.Exclusions[i][j].Length; k++)
+                    {
+                        WritePointBE(writer, geometry.Exclusions[i][j][k], false);
+                        zArray.Add(geometry.Exclusions[i][j][k].z);
+                    }
+                    if (isRing)
+                    {
+                        WritePointBE(writer, geometry.Exclusions[i][j][0], false);
+                        zArray.Add(geometry.Exclusions[i][j][0].z);
+                    }
+                }
             }
         }
 
@@ -737,6 +925,92 @@ namespace Carto.IO
             {
                 writer.Write(BitConverter.GetBytes((double)value.z));
                 IOUtils.SkipBytes(writer, 8);
+            }
+        }
+
+        /// <summary>
+        /// Write the .prj file.
+        /// （寫入 .prj 檔案。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        private static void WritePRJ(StreamWriter writer, Options options)
+        {
+            CultureInfo invariant = CultureInfo.InvariantCulture;
+            string format = "0.0######";
+            Coord center = Transform.Apply(options.SourceCoordinates, options.SourceProjection, options.TargetProjection, options.SourceProjectionDefinition, options.TargetProjectionDefinition);
+            switch (options.TargetProjection)
+            {
+                case CRS.TransverseMercator:
+                    ProjectionDefinition projection = options.TargetProjectionDefinition;
+                    EllipsoidDefinition ellipsoid = projection.ellipsoid;
+                    writer.Write("PROJCS[\"User Defined Transverse Mercator\",GEOGCS[\"User Defined GCS\",DATUM[\"User Defined Datum\",SPHEROID[\"");
+                    writer.Write(options.TargetEllipsoid == Ellipsoid.Custom ? "User Defined Ellipsoid" : Epsg.Ellipsoid.GetName(options.TargetEllipsoid));
+                    writer.Write("\",");
+                    writer.Write(ellipsoid.a.ToString(format, invariant));
+                    writer.Write(",");
+                    writer.Write(ellipsoid.rf.ToString(format, invariant));
+                    writer.Write("],TOWGS84[");
+                    
+                    switch (projection.transform.Length)
+                    {
+                        case 3:
+                            for (int i = 0; i < 3; i++)
+                            {
+                                writer.Write(projection.transform[i].ToString(invariant));
+                                writer.Write(",");
+                            }
+                            writer.Write("0,0,0,0");
+                            break;
+
+                        case 7:
+                            for (int i = 0; i < 7; i++)
+                            {
+                                writer.Write(projection.transform[i].ToString(invariant));
+                                if (i != 6) writer.Write(",");
+                            }
+                            break;
+
+                        default:
+                            writer.Write("0,0,0,0,0,0,0");
+                            break;
+                    }
+
+                    writer.Write($"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"{Epsg.Meridian.Greenwich}\"]],UNIT[\"Degree\",0.0174532925199433,");
+                    writer.Write($"AUTHORITY[\"EPSG\",\"{Epsg.Uom.Degree}\"]],AUTHORITY[\"EPSG\",\"{Epsg.UserDefined}\"]],");
+                    writer.Write("PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"Latitude_Of_Origin\",");
+                    writer.Write(projection.origin.latitude.ToString(format, invariant));
+                    writer.Write("],PARAMETER[\"Central_Meridian\",");
+                    writer.Write(projection.origin.longitude.ToString(format, invariant));
+                    writer.Write("],PARAMETER[\"Scale_Factor\",");
+                    writer.Write(projection.scaleFactor.ToString(format, invariant));
+                    writer.Write("],PARAMETER[\"False_Easting\",");
+                    writer.Write(projection.shift.easting.ToString(format, invariant));
+                    writer.Write("],PARAMETER[\"False_Northing\",");
+                    writer.Write(projection.shift.northing.ToString(format, invariant));
+                    writer.Write($"],UNIT[\"Metre\",1.0,AUTHORITY[\"EPSG\",\"{Epsg.Uom.Metre}\"]],");
+                    writer.Write($"AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"{Epsg.UserDefined}\"]]");
+                    break;
+
+                case CRS.UTM:
+                    writer.Write("PROJCS[\"WGS_1984_UTM_Zone_");
+                    writer.Write(center.zone);
+                    writer.Write(center.hemisphere == Hemisphere.North ? "N" : "S");
+                    writer.Write("\",GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",");
+                    writer.Write("SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],");
+                    writer.Write("UNIT[\"Degree\",0.0174532925199433]],PROJECTION[\"Transverse_Mercator\"],");
+                    writer.Write("PARAMETER[\"False_Easting\",500000.0],PARAMETER[\"False_Northing\",");
+                    writer.Write(center.hemisphere == Hemisphere.North ? "0" : "10000000");
+                    writer.Write(".0],PARAMETER[\"Central_Meridian\",");
+                    writer.Write((center.zone - 1) * 6 + 3 - 180);
+                    writer.Write(".0],PARAMETER[\"Scale_Factor\",0.9996],");
+                    writer.Write("PARAMETER[\"Latitude_Of_Origin\",0.0],UNIT[\"Meter\",1.0]]");
+                    break;
+
+                case CRS.WGS84:
+                    writer.Write("GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],");
+                    writer.Write("PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]");
+                    break;
             }
         }
 
@@ -951,6 +1225,22 @@ namespace Carto.IO
             }
         }
 
+        /// <summary>
+        /// Write the z coordinates in big endian.
+        /// （以大端序寫入 Z 坐標至檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="bounds">The bounding box of the features.（圖徵的定界框。）</param>
+        /// <param name="zArray">The list of z values.（Z 值的列表。）</param>
+        private static void WriteZArrayBE(BinaryWriter writer, Bounds3 bounds, List<double> zArray)
+        {
+            writer.Write(IOUtils.GetFlippedBytes((double)bounds.z.min));
+            writer.Write(IOUtils.GetFlippedBytes((double)bounds.z.max));
+            for (int i = 0; i < zArray.Count; i++)
+            {
+                writer.Write(IOUtils.GetFlippedBytes(zArray[i]));
+            }
+        }
 
         /// <summary>
         /// Write the z coordinates in little endian.
@@ -1000,6 +1290,38 @@ namespace Carto.IO
                         }
 
                         nativeFieldMap.Add(field.Current, internalFieldInfo);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Map each entity in <see cref="syncList"/> to its index in the <see cref="statList"/>.
+        /// （將每個 <see cref="syncList"/> 內的實體映射至其在 <see cref="statList"/> 的索引值。）
+        /// </summary>
+        /// <typeparam name="T">The statistical object type.（統計物件型別。）</typeparam>
+        [BurstCompile]
+        public partial struct SyncStatsToIndexJob<T> : IJobParallelFor
+            where T : unmanaged, IStat
+        {
+            [ReadOnly]
+            public NativeArray<Entity> syncList;
+
+            [ReadOnly]
+            public NativeList<T> statList;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter syncMap;
+
+            public void Execute(int index)
+            {
+                Entity entity = syncList[index];
+                for (int i = 0; i < statList.Length; i++)
+                {
+                    if (statList[i].Entity == entity)
+                    {
+                        syncMap.TryAdd(entity, i);
+                        return;
                     }
                 }
             }

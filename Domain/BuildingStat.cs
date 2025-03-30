@@ -8,8 +8,13 @@ namespace Carto.Domain
     /// The container of building statistics.
     /// （建築統計資料的容器。）
     /// </summary>
-    public struct BuildingStat
+    public struct BuildingStat : IStat
     {
+        /// <summary>
+        /// See <see cref="entity"/>.（詳見 <see cref="entity"/>。）
+        /// </summary>
+        public Entity Entity { readonly get => entity; set => entity = value; }
+        
         /// <summary>
         /// The building entity.
         /// （建築實體。）

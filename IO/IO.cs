@@ -39,10 +39,10 @@ namespace Carto.IO
         };
 
         /// <summary>
-        /// The properties that are imcompatable with Burst compile.
+        /// The properties that are imcompatible with Burst compile.
         /// （與 Burst 編譯不合的屬性集合。）
         /// </summary>
-        public static readonly HashSet<Property> BurstImcompatablePropertyTable = new()
+        public static readonly HashSet<Property> BurstImcompatiblePropertyTable = new()
         {
             Property.Asset, Property.Brand, Property.Category, Property.Color, Property.Density, Property.Direction, Property.Form, Property.Model, Property.Name, Property.Object,
             Property.Product, Property.Theme, Property.Transport, Property.Zoning
@@ -172,6 +172,27 @@ namespace Carto.IO
             { Property.Zoning, typeof(string) }
         };
 
+        /// <summary>
+        /// The table between the property and the custom maximum decimal length.
+        /// （屬性與客製化的最長小數點位數對照表。）
+        /// </summary>
+        public static readonly Dictionary<Property, int> PropertyDecimalConstraintTable = new()
+        {
+            { Property.Age, 1 },
+            { Property.Area, 2 },
+            { Property.Discharge, 2 },
+            { Property.Elevation, 4 },
+            { Property.Height, 4 },
+            { Property.Length, 4 },
+            { Property.Limit, 4 },
+            { Property.Load, 2 },
+            { Property.Profit, 2 },
+            { Property.SexRatio, 4 },
+            { Property.Value, 2 },
+            { Property.Wage, 2 },
+            { Property.Width, 4 }
+        };
+
         public static void OnReport(string file, int progress)
         {
 
@@ -219,7 +240,7 @@ namespace Carto.IO
                 ),
                 StatisticsMapTile = true,
                 Systems = System.Area,
-                TargetEllipsoid = Ellipsoid.WGS84,
+                TargetEllipsoid = Ellipsoid.GRS80,
                 TargetProjection = CRS.TransverseMercator,
                 TargetProjectionDefinition = new ProjectionDefinition
                 (

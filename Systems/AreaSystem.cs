@@ -174,8 +174,9 @@ namespace Carto.Systems
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
         /// <param name="fieldMap">The map between the property and the fields.（屬性與欄位的映射表。）</param>
-        public void WriteBoundaryDBF(BinaryWriter writer, Options options, HashSet<Property> validatedFields, out Dictionary<Property, FieldInfo> fieldMap)
+        public void WriteBoundaryDBF(BinaryWriter writer, Options options, HashSet<Property> validatedFields, List<Entity> entitySyncList, out Dictionary<Property, FieldInfo> fieldMap)
         {
             Feature featureFlag = options.Features;
             if (!featureFlag.HasFlag(Feature.District)) _filters.Add(ComponentType.ReadOnly<District>());
@@ -206,11 +207,12 @@ namespace Carto.Systems
 
             // Initialize native containers.（初始化原生容器。）
             int areaCount = query.CalculateEntityCount();
-            int burstCompatableFieldCount = validatedFields.Count - (hasName ? 1 : 0) - (hasObject ? 1 : 0);
+            int burstCompatibleFieldCount = validatedFields.Count - (hasName ? 1 : 0) - (hasObject ? 1 : 0);
             NativeList<AreaStat> areaStats = new(areaCount, Allocator.Persistent);
-            NativeParallelHashSet<EnumWrapper<Property>> propertySet = new(burstCompatableFieldCount, Allocator.Persistent);
+            NativeParallelHashMap<Entity, int> syncMap = new(areaCount, Allocator.Persistent);
+            NativeParallelHashSet<EnumWrapper<Property>> propertySet = new(burstCompatibleFieldCount, Allocator.Persistent);
             NativeParallelMultiHashMap<Entity, int> areaEntityMap = new(buildingStats.Length * 2, Allocator.Persistent);
-            NativeParallelMultiHashMap<EnumWrapper<Property>, FieldInfo> propertyFieldMap = new(burstCompatableFieldCount * areaCount, Allocator.Persistent);
+            NativeParallelMultiHashMap<EnumWrapper<Property>, FieldInfo> propertyFieldMap = new(burstCompatibleFieldCount * areaCount, Allocator.Persistent);
 
             // Initialize managed containers.（初始化控管容器。）
             List<Feature> areaFeatures = new();
@@ -218,7 +220,7 @@ namespace Carto.Systems
             Dictionary<Property, FieldInfo> _fieldMap = new();
 
             // Copy managed container contents to their native counterparts.（將控管容器的內容複製至原生容器。）
-            Shapefile.FilterBurstCompatableProperties(validatedFields, ref propertySet);
+            Shapefile.FilterBurstCompatibleProperties(validatedFields, ref propertySet);
 
             try
             {
@@ -240,6 +242,9 @@ namespace Carto.Systems
                 };
                 JobHandle collectStatsHandle = collectStatsJob.ScheduleParallel(query, default);
                 collectStatsHandle.Complete();
+
+                // Sync the entity order with that of the .shp file.（與 .shp 檔案的實體順序同步。）
+                Shapefile.SyncStatsToIndex(entitySyncList, ref areaStats, ref syncMap);
 
                 // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
                 if (hasName)
@@ -275,10 +280,15 @@ namespace Carto.Systems
                 // Initialize the writer thread.（初始化負責寫出的執行緒。）
                 Task writerThread = Task.Run(() =>
                 {
-                    for (int i = 0; i < areaStats.Length; i++)
+                    for (int index = 0; index < entitySyncList.Count; index++)
                     {
+                        if (!syncMap.TryGetValue(entitySyncList[index], out int i))
+                        {
+                            _log.Error($"Couldn't find the statistical object of {entitySyncList[index]} at index {index}. 無法找到位於索引值 {index} 的實體 {entitySyncList[index]} 之統計物件。");
+                        }
+
                         AreaStat stat = areaStats[i];
-                        writer.Write((byte) 32);
+                        writer.Write((byte)32);
 
                         if (hasName && _fieldMap.TryGetValue(Property.Name, out FieldInfo nameField))
                         {
@@ -296,7 +306,7 @@ namespace Carto.Systems
                         {
                             Shapefile.WriteRecord(writer, companyField, stat.company);
                         }
-                        if (hasEmployee &&  _fieldMap.TryGetValue(Property.Employee, out FieldInfo employeeField))
+                        if (hasEmployee && _fieldMap.TryGetValue(Property.Employee, out FieldInfo employeeField))
                         {
                             Shapefile.WriteRecord(writer, employeeField, stat.employee);
                         }
@@ -355,6 +365,7 @@ namespace Carto.Systems
                 Utils.CommonUtils.Dispose(ref areaStats);
                 Utils.CommonUtils.Dispose(ref propertyFieldMap);
                 Utils.CommonUtils.Dispose(ref propertySet);
+                Utils.CommonUtils.Dispose(ref syncMap);
                 Instance.Shared.Dispose(DisposePhase.AfterAreaSystem);
             }
         }
@@ -562,7 +573,8 @@ namespace Carto.Systems
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
         /// <param name="bounds">The bounding box.（定界框。）</param>
-        public void WriteBoundarySHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds)
+        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
+        public void WriteBoundarySHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds, out List<Entity> entitySyncList)
         {
             Feature featureFlag = options.Features;
             if (!featureFlag.HasFlag(Feature.District)) _filters.Add(ComponentType.ReadOnly<District>());
@@ -577,6 +589,7 @@ namespace Carto.Systems
             // Initialize out parameters.（初始化回傳參數。）
             Bounds3 _bounds = new();
             _bounds.Reset();
+            List<Entity> _entitySyncList = new();
             List<Shapefile.IndexPair> _indexPairs = new();
 
             try
@@ -613,11 +626,30 @@ namespace Carto.Systems
 
                             Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(new float3[1][] { transformedAreaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
                             _bounds |= featureBounds;
+                            _entitySyncList.Add(feature.Key);
                             _indexPairs.Add(indexPair);
                         }
                     }
+                    else
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            enumeratorIndex++;
+                            KeyValue<Entity, NativeArray<float3>> feature = enumerator.Current;
+                            float3[] transformedAreaNodes = new float3[feature.Value.Length];
 
-                    // TODO: Implement Shapefile.WriteGeometryBE()
+                            for (int i = 0; i < feature.Value.Length; i++)
+                            {
+                                Coord coord = new(referenceCoord.Double3 + feature.Value[i], referenceCoord);
+                                transformedAreaNodes[i] = Transform.Apply(coord, referenceProjection, options.TargetProjection, referenceProjectionDefinition, options.TargetProjectionDefinition).Float3;
+                            }
+
+                            Shapefile.WriteGeometryBE(writer, enumeratorIndex, shapeId, new(new float3[1][] { transformedAreaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            _bounds |= featureBounds;
+                            _entitySyncList.Add(feature.Key);
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
                 });
                 writerThread.Wait();
             }
@@ -629,6 +661,7 @@ namespace Carto.Systems
             {
                 Utils.CommonUtils.Dispose(ref nodeEntityMap);
                 bounds = _bounds;
+                entitySyncList = _entitySyncList;
                 indexPairs = _indexPairs;
             }
         }

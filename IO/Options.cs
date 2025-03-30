@@ -386,7 +386,7 @@ namespace Carto.IO
         /// <returns>The coordinate in Transverse Mercator.（橫麥卡托的坐標。）</returns>
         public Coord GetTMCoord()
         {
-            if ((SourceProjection != CRS.TransverseMercator) || (SourceProjection != CRS.UTM))
+            if ((SourceProjection != CRS.TransverseMercator) && (SourceProjection != CRS.UTM))
             {
                 return Transform.Apply(SourceCoordinates, SourceProjection, CRS.UTM, SourceProjectionDefinition, new());
             }
@@ -403,7 +403,7 @@ namespace Carto.IO
         /// <returns>The Transverse Mercator projection.（橫麥卡托投影。）</returns>
         public CRS GetTMProjection()
         {
-            if ((SourceProjection != CRS.TransverseMercator) || (SourceProjection != CRS.UTM))
+            if ((SourceProjection != CRS.TransverseMercator) && (SourceProjection != CRS.UTM))
             {
                 return CRS.UTM;
             }
@@ -420,7 +420,7 @@ namespace Carto.IO
         /// <returns>The definition of the Transverse Mercator projection.（橫麥卡托投影的定義。）</returns>
         public ProjectionDefinition GetTMProjectionDefinition()
         {
-            if ((SourceProjection != CRS.TransverseMercator) || (SourceProjection != CRS.UTM))
+            if ((SourceProjection != CRS.TransverseMercator) && (SourceProjection != CRS.UTM))
             {
                 return new();
             }
