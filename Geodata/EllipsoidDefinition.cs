@@ -84,6 +84,11 @@ namespace Carto.Geodata
             }
         }
 
+        public override readonly string ToString()
+        {
+            return $"Ellipsoid({a}, {rf})";
+        }
+
         public static bool operator ==(EllipsoidDefinition left, EllipsoidDefinition right)
         {
             return left.Equals(right);

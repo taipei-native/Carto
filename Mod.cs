@@ -1,9 +1,9 @@
 ﻿using Carto.Systems;
+using Carto.Utils;
 using Colossal.IO.AssetDatabase;
 using Colossal.Logging;
 using Game;
 using Game.Modding;
-using Game.SceneFlow;
 
 namespace Carto
 {
@@ -28,9 +28,9 @@ namespace Carto
             Instance.Settings.RegisterInOptionsUI();
             AssetDatabase.global.LoadSettings(nameof(Carto), Instance.Settings, new Settings(this));
 
-            // Append locales to the existing ones.
-            // （將語系檔案添加至既有的檔案。）
-            // GameManager.instance.localizationManager.AddSource("en-US", new LocaleEN(m_Setting));
+            // Load the locales to the game.
+            // （載入語系檔案至遊戲中。）
+            LocaleUtils.Load();
 
             // Register system instances into the game.
             // （將系統實例註冊在遊戲中。）

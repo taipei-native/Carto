@@ -1,4 +1,5 @@
 using Carto.Systems;
+using Colossal.Localization;
 using Colossal.Logging;
 using Game;
 using Game.City;
@@ -6,6 +7,7 @@ using Game.Prefabs;
 using Game.SceneFlow;
 using Game.Simulation;
 using Game.UI;
+using System.Reflection;
 using Unity.Entities;
 
 namespace Carto
@@ -28,6 +30,12 @@ namespace Carto
         /// （目前的遊戲模式。）
         /// </summary>
         public static GameMode GameMode => GameManager.instance.gameMode;
+
+        /// <summary>
+        /// The manager of the localization data.
+        /// （語系資料的管理者。）
+        /// </summary>
+        public static LocalizationManager Localization => GameManager.instance.localizationManager;
 
         /// <summary>
         /// The system querying map data.
@@ -77,6 +85,12 @@ namespace Carto
         /// （搜尋區域的系統。）
         /// </summary>
         public static AreaSystem Area => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<AreaSystem>();
+
+        /// <summary>
+        /// The assembly of the Carto mod.
+        /// （Carto 的程式組件。）
+        /// </summary>
+        public static Assembly Assembly => Assembly.GetExecutingAssembly();
 
         /// <summary>
         /// The dedicated logger documenting the information, warnings, and errors.

@@ -97,6 +97,12 @@ namespace Carto.Geodata
             return transform.Length > 0;
         }
 
+        public override readonly string ToString()
+        {
+            string transformString = transform.Length == 0 ? string.Empty : string.Join(" ", transform);
+            return $"Projection - Ellipsoid [{ellipsoid}], Origin [{origin.longitude}, {origin.latitude}], Scale Factor [{scaleFactor}], Shift [{shift.easting}, {shift.northing}], Transform [{transformString}]";
+        }
+
         public static bool operator ==(ProjectionDefinition left, ProjectionDefinition right)
         {
             return left.Equals(right);

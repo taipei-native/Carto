@@ -1,4 +1,3 @@
-using Carto.Geodata;
 using Carto.IO;
 using Colossal.Logging;
 using Game.Areas;
@@ -7,6 +6,7 @@ using Game.Net;
 using Game.Prefabs;
 using Game.Routes;
 using Game.Zones;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -305,6 +305,23 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Retrieve the embedded JSON resource as a dictionary.
+        /// （獲得代表嵌入 JSON 資源的字典。）
+        /// </summary>
+        /// <param name="resourceName">The resource's name.（資源的名稱。）</param>
+        /// <param name="jsonConverter">The custom JSON converter.（客製化的 JSON 轉換器。）</param>
+        /// <returns>The JSON object as a dictionary of strings.（由字串組成的字典表示的 JSON 物件。）</returns>
+        public static Dictionary<string, string> GetJsonResource(string resourceName, JsonConverter jsonConverter = null)
+        {
+            using Stream stream = Instance.Assembly.GetManifestResourceStream(resourceName) ?? throw new FileNotFoundException(resourceName);
+            using StreamReader streamReader = new(stream);
+            using JsonReader reader = new JsonTextReader(streamReader);
+            JsonSerializer serializer = new();
+            if (jsonConverter is not null) serializer.Converters.Add(jsonConverter);
+            return serializer.Deserialize<Dictionary<string, string>>(reader) ?? new();
+        }
+
+        /// <summary>
         /// Get the OS platform the game is running on.
         /// （獲得遊戲運行的作業系統平臺。）
         /// </summary>
@@ -366,6 +383,136 @@ namespace Carto.Utils
         {
             if (count < 0) throw new ArgumentOutOfRangeException("count", "The count should be larger or equal to 0. 數量應大於等於 0。");
             writer.Write(new byte[count]);
+        }
+
+        /// <summary>
+        /// Trim the numerical user-input string.
+        /// （裁減使用者輸入的數值字串。）
+        /// </summary>
+        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <returns>The trimmed string.（裁剪後的字串。）</returns>
+        private static string TrimNumericInput(string text)
+        {
+            text = text.Trim();
+            return string.IsNullOrEmpty(text) ? "0" : text;
+        }
+
+        /// <summary>
+        /// Try to retrieve the latitude value from the user input.
+        /// （嘗試從使用者輸入值中獲得緯度。）
+        /// </summary>
+        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="latitude">The converted latitude.（轉換的緯度。）</param>
+        /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
+        public static Error TryGetLatitude(string text, out double latitude)
+        {
+            latitude = 0;
+            if (!double.TryParse(TrimNumericInput(text), out double _latitude)) return Error.Nan;
+            double absLatitude = Math.Abs(_latitude);
+            if (absLatitude > 90) return Error.Latitude;
+            latitude = _latitude;
+            return Error.None;
+        }
+
+        /// <summary>
+        /// Try to retrieve the length value from the user input.
+        /// （嘗試從使用者輸入值中獲得長度。）
+        /// </summary>
+        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="length">The converted length.（轉換的長度。）</param>
+        /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
+        public static Error TryGetLength(string text, out double length)
+        {
+            length = 0;
+            if (!double.TryParse(TrimNumericInput(text), out double _length)) return Error.Nan;
+            if (length <= 0) return Error.Negative;
+            length = _length;
+            return Error.None;
+        }
+
+        /// <summary>
+        /// Try to retrieve the longitude value from the user input.
+        /// （嘗試從使用者輸入值中獲得經度。）
+        /// </summary>
+        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="longitude">The converted longitude.（轉換的經度。）</param>
+        /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
+        public static Error TryGetLongitude(string text, out double longitude)
+        {
+            longitude = 0;
+            if (!double.TryParse(TrimNumericInput(text), out double _longitude)) return Error.Nan;
+            double absLatitude = Math.Abs(_longitude);
+            if (absLatitude > 180) return Error.Longitude;
+            longitude = _longitude;
+            return Error.None;
+        }
+
+        /// <summary>
+        /// Try to retrieve the numerical value from the user input.
+        /// （嘗試從使用者輸入值中獲得數值。）
+        /// </summary>
+        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="number">The converted number.（轉換的數值。）</param>
+        /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
+        public static Error TryGetNumber(string text, out double number)
+        {
+            number = 0;
+            if (!double.TryParse(TrimNumericInput(text), out double _number)) return Error.Nan;
+            number = _number;
+            return Error.None;
+        }
+
+        /// <summary>
+        /// Try to retrieve the Helmert Transform parameters from the user input.
+        /// （嘗試從使用者輸入值中獲得赫爾默特轉換參數。）
+        /// </summary>
+        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="transform">The Helmert Transform parameters.（赫爾默特轉換參數。）</param>
+        /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
+        public static Error TryGetTransform(string text, out double[] transform)
+        {
+            text = text.Trim();
+            if (string.IsNullOrWhiteSpace(text) || text == string.Empty)
+            {
+                transform = new double[0] { };
+                return Error.None;
+            }
+
+            string[] parts = text.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 3 && parts.Length != 7)
+            {
+                transform = new double[0] { };
+                return Error.TransformLength;
+            }
+
+            transform = new double[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (!double.TryParse(parts[i], out double param))
+                {
+                    return Error.Transform;
+                }
+
+                transform[i] = param;
+            }
+
+            return Error.None;
+        }
+
+        /// <summary>
+        /// Try to retrieve the UTM zone number from the user input.
+        /// （嘗試從使用者輸入值中獲得 UTM 分區代號。）
+        /// </summary>
+        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="zone">The UTM zone number.（UTM 分區代號。）</param>
+        /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
+        public static Error TryGetUTMZone(string text, out int zone)
+        {
+            zone = 0;
+            if (!int.TryParse(TrimNumericInput(text), out int _zone)) return Error.Nan;
+            if ((zone < 1) || (zone > 60)) return Error.UTMZone;
+            zone = _zone;
+            return Error.None;
         }
 
         /// <summary>

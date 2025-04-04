@@ -3,6 +3,31 @@ using System;
 namespace Carto.IO
 {
     /// <summary>
+    /// The coordinate reference systems.
+    /// （坐標參考系統。）
+    /// </summary>
+    public enum CRS
+    {
+        /// <summary>
+        /// See <see cref="Geodata.CRS.TransverseMercator"/>.
+        /// （請見 <see cref="Geodata.CRS.TransverseMercator"/>。）
+        /// </summary>
+        TransverseMercator,
+
+        /// <summary>
+        /// See <see cref="Geodata.CRS.UTM"/>.
+        /// （請見 <see cref="Geodata.CRS.UTM"/>。）
+        /// </summary>
+        UTM,
+
+        /// <summary>
+        /// See <see cref="Geodata.CRS.WGS84"/>.
+        /// （請見 <see cref="Geodata.CRS.WGS84"/>。）
+        /// </summary>
+        WGS84
+    }
+    
+    /// <summary>
     /// The reference ellipsoids of popular datums.
     /// （受歡迎的大地基準的參考橢球體。）
     /// </summary>
@@ -45,6 +70,67 @@ namespace Carto.IO
         Custom
     }
     
+    /// <summary>
+    /// The classification of user's input error.
+    /// （對使用者輸入錯誤的分類。）
+    /// </summary>
+    public enum Error
+    {
+        /// <summary>
+        /// No error.
+        /// （沒有錯誤。）
+        /// </summary>
+        None,
+
+        /// <summary>
+        /// The latitude value is invalid.
+        /// （無效的緯度值。）
+        /// </summary>
+        Latitude,
+
+        /// <summary>
+        /// The longitude value is invalid.
+        /// （無效的經度值。）
+        /// </summary>
+        Longitude,
+
+        /// <summary>
+        /// The value is not a number.
+        /// （輸入值不是數字。）
+        /// </summary>
+        Nan,
+
+        /// <summary>
+        /// The value is a negative number.
+        /// （輸入值是負數。）
+        /// </summary>
+        Negative,
+
+        /// <summary>
+        /// Share violation on the exporting files.
+        /// （存取輸出檔案遭拒。）
+        /// </summary>
+        ShareViolation,
+
+        /// <summary>
+        /// The Helmert Transform parameters are invalid.
+        /// （無效的赫爾默特轉換參數。）
+        /// </summary>
+        Transform,
+
+        /// <summary>
+        /// The length of Helmert Transform parameter is invalid.
+        /// （赫爾默特轉換參數的長度無效。）
+        /// </summary>
+        TransformLength,
+
+        /// <summary>
+        /// The zone value is invalid.
+        /// （無效的分區值。）
+        /// </summary>
+        UTMZone
+    }
+
     /// <summary>
     /// Carto's classification of exportable objects.
     /// （Carto 對可輸出物體的分類。）

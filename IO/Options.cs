@@ -109,7 +109,7 @@ namespace Carto.IO
         /// The coordinate reference system (CRS) of source coordinates.<br/>
         /// （來源坐標的坐標參考系統。）
         /// </summary>
-        public CRS SourceProjection { get; set; } = CRS.UTM;
+        public Geodata.CRS SourceProjection { get; set; } = Geodata.CRS.UTM;
 
         /// <summary>
         /// The custom source projection defined by the user.
@@ -142,7 +142,7 @@ namespace Carto.IO
         /// The coordinate reference system (CRS) of target coordinates.<br/>
         /// （目標的坐標參考系統。）
         /// </summary>
-        public CRS TargetProjection { get; set; } = CRS.UTM;
+        public Geodata.CRS TargetProjection { get; set; } = Geodata.CRS.UTM;
 
         /// <summary>
         /// The custom target projection defined by the user.
@@ -386,9 +386,9 @@ namespace Carto.IO
         /// <returns>The coordinate in Transverse Mercator.（橫麥卡托的坐標。）</returns>
         public Coord GetTMCoord()
         {
-            if ((SourceProjection != CRS.TransverseMercator) && (SourceProjection != CRS.UTM))
+            if ((SourceProjection != Geodata.CRS.TransverseMercator) && (SourceProjection != Geodata.CRS.UTM))
             {
-                return Transform.Apply(SourceCoordinates, SourceProjection, CRS.UTM, SourceProjectionDefinition, new());
+                return Transform.Apply(SourceCoordinates, SourceProjection, Geodata.CRS.UTM, SourceProjectionDefinition, new());
             }
             else
             {
@@ -401,11 +401,11 @@ namespace Carto.IO
         /// （獲得橫麥卡托投影。）
         /// </summary>
         /// <returns>The Transverse Mercator projection.（橫麥卡托投影。）</returns>
-        public CRS GetTMProjection()
+        public Geodata.CRS GetTMProjection()
         {
-            if ((SourceProjection != CRS.TransverseMercator) && (SourceProjection != CRS.UTM))
+            if ((SourceProjection != Geodata.CRS.TransverseMercator) && (SourceProjection != Geodata.CRS.UTM))
             {
-                return CRS.UTM;
+                return Geodata.CRS.UTM;
             }
             else
             {
@@ -420,7 +420,7 @@ namespace Carto.IO
         /// <returns>The definition of the Transverse Mercator projection.（橫麥卡托投影的定義。）</returns>
         public ProjectionDefinition GetTMProjectionDefinition()
         {
-            if ((SourceProjection != CRS.TransverseMercator) && (SourceProjection != CRS.UTM))
+            if ((SourceProjection != Geodata.CRS.TransverseMercator) && (SourceProjection != Geodata.CRS.UTM))
             {
                 return new();
             }

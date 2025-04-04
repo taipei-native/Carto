@@ -320,7 +320,7 @@ namespace Carto.IO
                 format = format,
                 hasCustomEllipsoid = options.TargetEllipsoid == Ellipsoid.Custom,
                 hasTransform = options.TargetProjectionDefinition.HasTransform(),
-                isUTM = options.TargetProjection == CRS.UTM,
+                isUTM = options.TargetProjection == Geodata.CRS.UTM,
                 nodata = nodata,
                 projectionCode = Epsg.UserDefined,
                 sampleFormat = sample,

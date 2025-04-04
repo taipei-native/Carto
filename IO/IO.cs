@@ -205,55 +205,7 @@ namespace Carto.IO
         public static void Export()
         {
             // Export options.（輸出設定。）
-            Options options = new()
-            {
-                AssetPack = true,
-                Created = DateTime.Now,
-                Display = new Dictionary<(Property, System), bool>
-                {
-                    { (Property.Category, System.Building), true },
-                    { (Property.Category, System.Net), true },
-                    { (Property.Category, System.POI), false },
-                    { (Property.Object, System.Unknown), false },
-                    { (Property.Zoning, System.Unknown), true }
-                },
-                Elevation = false,
-                Features = Feature.District | Feature.MapTile,
-                FileName = "OPZ_{Feature}",
-                GeoTiffFormat = GeoTiffFormat.Float32,
-                Homeless = true,
-                Minimized = true,
-                Properties = new Dictionary<System, HashSet<Property>>
-                {
-                    { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
-                    //{ System.Building, new() { Property.Age, Property.Brand, Property.Theme, Property.Zoning } }
-                },
-                RasterFormat = FileFormat.GeoTIFF,
-                RasterKinds = RasterKind.WorldDepth | RasterKind.WorldElevation | RasterKind.Depth | RasterKind.Elevation,
-                SeparateResident = false,
-                SourceCoordinates = new Coord(new double3(327700, 2736000, 0)),
-                SourceProjection = CRS.TransverseMercator,
-                SourceProjectionDefinition = new ProjectionDefinition
-                (
-                    EllipsoidTable[Ellipsoid.GRS80],
-                    (121, 0), (250000, 0), 0.9999, new double[0]
-                ),
-                StatisticsMapTile = true,
-                Systems = System.Area,
-                TargetEllipsoid = Ellipsoid.GRS80,
-                TargetProjection = CRS.TransverseMercator,
-                TargetProjectionDefinition = new ProjectionDefinition
-                (
-                    EllipsoidTable[Ellipsoid.GRS80],
-                    (121, 0), (250000, 0), 0.9999, new double[0]
-                ),
-                Taxable = false,
-                VectorFormat = FileFormat.Shapefile,
-                VectorKinds = new Dictionary<System, VectorKind>
-                {
-                    { System.Area, VectorKind.Boundary }
-                }
-            };
+            Options options = Instance.Settings.GetOptions();
             options.Initialize();
 
             try

@@ -456,7 +456,7 @@ namespace Carto.Systems
                 Task writerThread = Task.Run(() =>
                 {
                     Coord referenceCoord = options.GetTMCoord();
-                    CRS referenceProjection = options.GetTMProjection();
+                    Geodata.CRS referenceProjection = options.GetTMProjection();
                     ProjectionDefinition referenceProjectionDefinition = options.GetTMProjectionDefinition();
                     
                     for (int i = 0; i < areaStats.Length; i++)
@@ -474,7 +474,7 @@ namespace Carto.Systems
                         for (int j = 0; j < areaNodes.Length; j++)
                         {
                             Coord coord = new(referenceCoord.Double3 + areaNodes[j], referenceCoord);
-                            transformedAreaNodes[j] = Transform.Apply(coord, referenceProjection, CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3;
+                            transformedAreaNodes[j] = Transform.Apply(coord, referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3;
                         }
 
                         GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { transformedAreaNodes }), Shape.Polygon, options.Elevation);
@@ -604,7 +604,7 @@ namespace Carto.Systems
                 Task writerThread = Task.Run(() =>
                 {
                     Coord referenceCoord = options.GetTMCoord();
-                    CRS referenceProjection = options.GetTMProjection();
+                    Geodata.CRS referenceProjection = options.GetTMProjection();
                     int enumeratorIndex = 0;
                     int shapeId = Shapefile.GetShapeType(VectorKind.Boundary, options.Elevation);
                     NativeParallelHashMap<Entity, NativeArray<float3>>.Enumerator enumerator = nodeEntityMap.GetEnumerator();

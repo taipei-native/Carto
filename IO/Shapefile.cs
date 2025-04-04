@@ -941,7 +941,7 @@ namespace Carto.IO
             Coord center = Transform.Apply(options.SourceCoordinates, options.SourceProjection, options.TargetProjection, options.SourceProjectionDefinition, options.TargetProjectionDefinition);
             switch (options.TargetProjection)
             {
-                case CRS.TransverseMercator:
+                case Geodata.CRS.TransverseMercator:
                     ProjectionDefinition projection = options.TargetProjectionDefinition;
                     EllipsoidDefinition ellipsoid = projection.ellipsoid;
                     writer.Write("PROJCS[\"User Defined Transverse Mercator\",GEOGCS[\"User Defined GCS\",DATUM[\"User Defined Datum\",SPHEROID[\"");
@@ -992,7 +992,7 @@ namespace Carto.IO
                     writer.Write($"AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"{Epsg.UserDefined}\"]]");
                     break;
 
-                case CRS.UTM:
+                case Geodata.CRS.UTM:
                     writer.Write("PROJCS[\"WGS_1984_UTM_Zone_");
                     writer.Write(center.zone);
                     writer.Write(center.hemisphere == Hemisphere.North ? "N" : "S");
@@ -1007,7 +1007,7 @@ namespace Carto.IO
                     writer.Write("PARAMETER[\"Latitude_Of_Origin\",0.0],UNIT[\"Meter\",1.0]]");
                     break;
 
-                case CRS.WGS84:
+                case Geodata.CRS.WGS84:
                     writer.Write("GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],");
                     writer.Write("PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]");
                     break;
