@@ -164,6 +164,12 @@ namespace Carto.IO
         public bool Taxable { get; set; } = false;
 
         /// <summary>
+        /// Whether to export unzoned zoning cells.
+        /// （是否要輸出未分區的單元。）
+        /// </summary>
+        public bool Unzoned { get; set; } = false;
+
+        /// <summary>
         /// The format of the target vector file.
         /// （目標向量檔案的格式。）
         /// </summary>

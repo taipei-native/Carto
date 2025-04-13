@@ -15,6 +15,39 @@ namespace Carto.Utils
     public static class CommonUtils
     {
         /// <summary>
+        /// Copy a <see cref="NativeList{T}"/> to an array.
+        /// （將一個 <see cref="NativeList{T}"/> 複製為陣列。）
+        /// </summary>
+        /// <typeparam name="T">The type of list's items.（列表內物件的型別。）</typeparam>
+        /// <param name="list">The input list.（輸入的列表。）</param>
+        /// <returns>The copied array.（複製的陣列。）</returns>
+        public static T[] Copy<T>(ref NativeList<T> list) where T : unmanaged
+        {
+            T[] array = new T[list.Length];
+            for (int i = 0; i < list.Length; i++)
+            {
+                array[i] = list[i];
+            }
+            return array;
+        }
+
+        /// <summary>
+        /// Copy a <see cref="NativeList{T}"/> of <see cref="NativeText"/>s to an array.
+        /// （將一個由 <see cref="NativeText"/> 組成的 <see cref="NativeList{T}"/> 複製為陣列。）
+        /// </summary>
+        /// <param name="list">The input list.（輸入的列表。）</param>
+        /// <returns>The copied array.（複製的陣列。）</returns>
+        public static string[] Copy(ref NativeList<NativeText> list)
+        {
+            string[] array = new string[list.Length];
+            for (int i = 0; i < list.Length; i++)
+            {
+                array[i] = list[i].ToString();
+            }
+            return array;
+        }
+        
+        /// <summary>
         /// Try disposing of an object that implements <see cref="IDisposable"/>.
         /// （嘗試丟棄一個實作 <see cref="IDisposable"/> 介面的物件。）
         /// </summary>
@@ -168,6 +201,40 @@ namespace Carto.Utils
                 NativeArray<TValue> values = hashmap.GetValueArray(Allocator.Temp);
                 Dispose(ref values, true);
                 hashmap.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeQueue{T}"/>.
+        /// （嘗試丟棄一個 <see cref="NativeQueue{T}"/>。）
+        /// </summary>
+        /// <typeparam name="T">The type of queue's items.（佇列內物件的型別。）</typeparam>
+        /// <param name="queue">The input queue.（輸入的佇列。）</param>
+        public static void Dispose<T>(ref NativeQueue<T> queue) where T : unmanaged
+        {
+            if (queue.IsCreated)
+            {
+                while (queue.Count > 0)
+                {
+                    T item = queue.Dequeue();
+                    DisposeHelper(ref item);
+                }
+
+                queue.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Try disposing of a <see cref="NativeReference{T}"/>.
+        /// （嘗試丟棄一個 <see cref="NativeReference{T}"/>。）
+        /// </summary>
+        /// <typeparam name="T">The type of reference's value.（參考值的型別。。）</typeparam>
+        /// <param name="reference">The input reference.（輸入的參考。）</param>
+        public static void Dispose<T>(ref NativeReference<T> reference) where T : unmanaged
+        {
+            if (reference.IsCreated)
+            {
+                reference.Dispose();
             }
         }
 

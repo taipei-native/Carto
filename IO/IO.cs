@@ -193,6 +193,15 @@ namespace Carto.IO
             { Property.Width, 4 }
         };
 
+        /// <summary>
+        /// The array sorted by each <see cref="ZoningCategory"/>'s display order.
+        /// （根據每個 <see cref="ZoningCategory"/> 顯示順序排序的陣列。）
+        /// </summary>
+        public static readonly ZoningCategory[] ZoningDisplayOrder = new ZoningCategory[]
+        {
+            ZoningCategory.Commercial, ZoningCategory.Office, ZoningCategory.Industrial, ZoningCategory.Residential, ZoningCategory.None
+        };
+
         public static void OnReport(string file, int progress)
         {
 
@@ -235,6 +244,7 @@ namespace Carto.IO
                     }
 
                     bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
+                    bool zoningHasBoundary = options.Has(System.Zoning, VectorKind.Boundary);
 
                     // Write vector data.（寫入向量資料。）
                     switch (options.VectorFormat)
@@ -242,7 +252,10 @@ namespace Carto.IO
                         case FileFormat.GeoJSON:
                             if (useZoning)
                             {
-
+                                if (zoningHasBoundary)
+                                {
+                                    GeoJson.Write(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundaryFeatures, OnReport);
+                                }
                             }
                             if (useBuilding)
                             {

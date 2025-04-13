@@ -37,6 +37,7 @@ namespace Carto
             updateSystem.UpdateBefore<AreaSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<RasterSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<SharedDataCollectionSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.UpdateBefore<ZoningSystem>(SystemUpdatePhase.GameSimulation);
 
             _log.Info("Mod instance loaded. 模組實例載入完成。");
         }

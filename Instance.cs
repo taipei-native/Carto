@@ -115,5 +115,11 @@ namespace Carto
         /// （收集多種系統所需之共享資料的系統。）
         /// </summary>
         public static SharedDataCollectionSystem Shared => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SharedDataCollectionSystem>();
+
+        /// <summary>
+        /// The system that searches zoning blocks.
+        /// （搜尋分區的系統。）
+        /// </summary>
+        public static ZoningSystem Zoning => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<ZoningSystem>();
     }
 }

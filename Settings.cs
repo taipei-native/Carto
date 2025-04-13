@@ -4,7 +4,6 @@ using Game.Modding;
 using Game.Settings;
 using System;
 using System.Collections.Generic;
-using Unity.Mathematics;
 
 namespace Carto
 {
@@ -258,11 +257,12 @@ namespace Carto
                 FileName = "OPZ_{Feature}",
                 GeoTiffFormat = IO.GeoTiffFormat.Float32,
                 Homeless = true,
-                Minimized = true,
+                Minimized = false,
                 Properties = new Dictionary<IO.System, HashSet<IO.Property>>
                 {
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
                     //{ IO.System.Building, new() { IO.Property.Age, IO.Property.Brand, IO.Property.Theme, IO.Property.Zoning } }
+                    { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,
                 RasterKinds = IO.RasterKind.WorldDepth | IO.RasterKind.WorldElevation | IO.RasterKind.Depth | IO.RasterKind.Elevation,
@@ -271,15 +271,17 @@ namespace Carto
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,
                 StatisticsMapTile = true,
-                Systems = IO.System.Area,
+                Systems = IO.System.Zoning,
                 TargetEllipsoid = ellipsoid,
                 TargetProjection = targetCRS,
                 TargetProjectionDefinition = projectionDefinition,
                 Taxable = false,
-                VectorFormat = IO.FileFormat.Shapefile,
+                Unzoned = false,
+                VectorFormat = IO.FileFormat.GeoJSON,
                 VectorKinds = new Dictionary<IO.System, IO.VectorKind>
                 {
-                    { IO.System.Area, IO.VectorKind.Boundary }
+                    { IO.System.Area, IO.VectorKind.Boundary },
+                    { IO.System.Zoning, IO.VectorKind.Boundary }
                 }
             };
         }
