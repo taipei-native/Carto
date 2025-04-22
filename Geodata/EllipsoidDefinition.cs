@@ -63,6 +63,11 @@ namespace Carto.Geodata
             eSquare = f * (2 - f);
         }
 
+        /// <summary>
+        /// The 'second' eccentricity of the ellipsoid.（橢球體的第二偏心率。）
+        /// </summary>
+        public readonly double SecondESquare => (a * a - b * b) / (b * b);
+
         public override readonly bool Equals(object obj)
         {
             return obj is EllipsoidDefinition other && Equals(other);

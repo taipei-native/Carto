@@ -102,6 +102,7 @@ namespace Carto.Geodata
             */
 
             // Constants（常數）
+            double ep = projection.ellipsoid.SecondESquare;
             double es = projection.ellipsoid.eSquare;
             double lat;
             double lat0 = projection.origin.latitude / 180 * Math.PI;
@@ -122,7 +123,7 @@ namespace Carto.Geodata
                 double cphi = Math.Cos(phi);
                 double sphi = Math.Sin(phi);
                 double tphi = Math.Abs(cphi) > 1E-10 ? Math.Tan(phi) : 0;
-                double c = es * cphi * cphi;
+                double c = ep * cphi * cphi;
                 double cs = c * c;
                 con = 1 - es * sphi * sphi;
                 double d = x * Math.Sqrt(con) / sf;
@@ -243,6 +244,7 @@ namespace Carto.Geodata
 
             // Constants（常數）
             double a = projection.ellipsoid.a;
+            double ep = projection.ellipsoid.SecondESquare;
             double es = projection.ellipsoid.eSquare;
             double lat = wgs84.latitude / 180 * Math.PI;
             double lat0 = projection.origin.latitude / 180 * Math.PI;
@@ -263,7 +265,7 @@ namespace Carto.Geodata
             double sphi = Math.Sin(lat);
             double al = cphi * dLon;
             double als = al * al;
-            double c = es * cphi * cphi;
+            double c = ep * cphi * cphi;
             double cs = c * c;
             double tphi = Math.Abs(cphi) > 1E-10 ? Math.Tan(lat) : 0;
             double t = tphi * tphi;

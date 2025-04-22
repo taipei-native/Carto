@@ -210,6 +210,10 @@ namespace Carto.Systems
                             Transform.Apply(new(referenceCoordDouble + cell.b, referenceCoord), referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3,
                             Transform.Apply(new(referenceCoordDouble + cell.c, referenceCoord), referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3,
                             Transform.Apply(new(referenceCoordDouble + cell.d, referenceCoord), referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3
+                            //cell.a,
+                            //cell.b,
+                            //cell.c,
+                            //cell.d
                         };
                         GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { transformedCellNodes }), Shape.Polygon, options.Elevation);
 
