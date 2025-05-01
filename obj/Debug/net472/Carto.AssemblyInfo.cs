@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Taipei Native")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f5b08b288137607f105b58456f582098f7e27a67")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1ec668673d93d3df467297fe33107cc495271739")]
 [assembly: System.Reflection.AssemblyProductAttribute("Carto")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Carto")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

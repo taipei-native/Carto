@@ -67,7 +67,7 @@ namespace Carto.Systems
             });
             
             base.OnCreate();
-            _log.Debug("AreaSystem instance created. 區域系統實例創造完成。");
+            _log.Debug("ZoningSystem instance created. 分區系統實例創造完成。");
         }
 
         /// <summary>

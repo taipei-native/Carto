@@ -10,6 +10,36 @@ namespace Carto.Utils
     public static class MathUtils
     {
         /// <summary>
+        /// The inverse hyperbolic cosine.（逆雙曲餘弦函數。）
+        /// </summary>
+        /// <param name="x">The input number.（輸入的數字。）</param>
+        /// <returns>The original angle.（原始角度。）</returns>
+        public static double Acosh(double x)
+        {
+            return Math.Log(x + Math.Sqrt(x * x - 1));
+        }
+
+        /// <summary>
+        /// The inverse hyperbolic sine.（逆雙曲正弦函數。）
+        /// </summary>
+        /// <param name="x">The input number.（輸入的數字。）</param>
+        /// <returns>The original angle.（原始角度。）</returns>
+        public static double Asinh(double x)
+        {
+            return Math.Log(x + Math.Sqrt(x * x + 1));
+        }
+
+        /// <summary>
+        /// The inverse hyperbolic tangent.（逆雙曲正切函數。）
+        /// </summary>
+        /// <param name="x">The input number.（輸入的數字。）</param>
+        /// <returns>The original angle.（原始角度。）</returns>
+        public static double Atanh(double x)
+        {
+            return Math.Log((1 + x) / (1 - x)) / 2;
+        }
+        
+        /// <summary>
         /// Retrieve the digit count of the number.
         /// （獲得數字的位數。）
         /// </summary>
@@ -115,6 +145,59 @@ namespace Carto.Utils
                 decimalParts -= (int)decimalParts;
             }
             return total + (countPoint && (decimalDigits > 0) ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Computes the hypotenuse given two values representing the lengths of the shorter sides in a right-angled triangle.
+        /// （計算給定兩個較短邊長時，直角三角形中斜邊的長度。）
+        /// </summary>
+        /// <param name="x">The value to square and add to <paramref name="y"/>.（要平方並且與  <paramref name="y"/> 相加的數。）</param>
+        /// <param name="y">The value to square and add to <paramref name="x"/>.（要平方並且與  <paramref name="x"/> 相加的數。）</param>
+        /// <returns>The square root of <paramref name="x"/>-squared plus <paramref name="y"/>-squared.（<paramref name="x"/> 平方與 <paramref name="y"/> 平方的總和平方根。）</returns>
+        public static double Hypot(double x, double y)
+        {
+            /*
+                 #  References: （資料來源：）
+
+                    * Microsoft. (2025). Single.cs. Hypot()
+                        https://github.com/dotnet/runtime/blob/main/src/libraries/System.Private.CoreLib/src/System/Single.cs#L1507
+             */
+
+            double result;
+            if (!double.IsInfinity(x) && !double.IsInfinity(y))
+            {
+                double ax = Math.Abs(x);
+                double ay = Math.Abs(y);
+
+                if (ax == 0.0f)
+                {
+                    result = ay;
+                }
+                else if (ay == 0.0)
+                {
+                    result = ax;
+                }
+                else
+                {
+                    double xx = ax;
+                    xx *= xx;
+
+                    double yy = ay;
+                    yy *= yy;
+
+                    result = Math.Sqrt(xx + yy);
+                }
+            }
+            else if (double.IsInfinity(x) || double.IsInfinity(y))
+            {
+                result = double.PositiveInfinity;
+            }
+            else
+            {
+                result = double.NaN;
+            }
+
+            return result;
         }
     }
 }
