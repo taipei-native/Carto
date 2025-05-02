@@ -13,19 +13,19 @@ namespace Carto.Domain
         /// One of the point in the zoning cell.
         /// （分區單元的其中一點。）
         /// </summary>
-        public float3 a;
+        public double3 a;
 
         /// <summary>
         /// One of the point in the zoning cell.
         /// （分區單元的其中一點。）
         /// </summary>
-        public float3 b;
+        public double3 b;
 
         /// <summary>
         /// One of the point in the zoning cell.
         /// （分區單元的其中一點。）
         /// </summary>
-        public float3 c;
+        public double3 c;
         
         /// <summary>
         /// The cell's index in the zoning block.
@@ -37,7 +37,7 @@ namespace Carto.Domain
         /// One of the point in the zoning cell.
         /// （分區單元的其中一點。）
         /// </summary>
-        public float3 d;
+        public double3 d;
 
         /// <summary>
         /// The zoning block entity.

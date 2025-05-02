@@ -81,13 +81,13 @@ namespace Carto.IO
         }
         
         /// <summary>
-        /// Write <see cref="float3"/> to the file.
-        /// （寫出 <see cref="float3"/> 至檔案中。）
+        /// Write <see cref="double3"/> to the file.
+        /// （寫出 <see cref="double3"/> 至檔案中。）
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="value">The value waiting to be written.（等待被寫出的數值。）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        private static void WriteFloat3(JsonTextWriter writer, float3 value, bool writeElevation = false)
+        private static void WriteDouble3(JsonTextWriter writer, double3 value, bool writeElevation = false)
         {
             writer.WriteStartArray();
             writer.WriteValue(value.x);
@@ -97,18 +97,18 @@ namespace Carto.IO
         }
 
         /// <summary>
-        /// Write <see cref="float3"/> array to the file.
-        /// （寫出 <see cref="float3"/> 陣列至檔案中。）
+        /// Write <see cref="double3"/> array to the file.
+        /// （寫出 <see cref="double3"/> 陣列至檔案中。）
         /// </summary>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="array">The value waiting to be written.（等待被寫出的數值。）</param>
         /// <param name="isRing">Whether the array represents a ring or not.（陣列是否為一個環？）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        private static void WriteFloat3Array(JsonTextWriter writer, float3[] array, bool isRing, bool writeElevation = false)
+        private static void WriteDouble3Array(JsonTextWriter writer, double3[] array, bool isRing, bool writeElevation = false)
         {
             writer.WriteStartArray();
-            for (int i = 0; i < array.Length; i++) WriteFloat3(writer, array[i]);
-            if (isRing) WriteFloat3(writer, array[0], writeElevation);
+            for (int i = 0; i < array.Length; i++) WriteDouble3(writer, array[i]);
+            if (isRing) WriteDouble3(writer, array[0], writeElevation);
             writer.WriteEndArray();
         }
 
@@ -134,11 +134,11 @@ namespace Carto.IO
             switch (shape)
             {
                 case Shape.Point:
-                    WriteFloat3(writer, geometry.Inclusions[0][0], writeElevation);
+                    WriteDouble3(writer, geometry.Inclusions[0][0], writeElevation);
                     break;
 
                 case Shape.LineString:
-                    WriteFloat3Array(writer, geometry.Inclusions[0], false, writeElevation);
+                    WriteDouble3Array(writer, geometry.Inclusions[0], false, writeElevation);
                     break;
 
                 case Shape.Polygon:
@@ -171,13 +171,13 @@ namespace Carto.IO
             writer.WriteStartArray();
 
             // Write the exterior ring.（寫出外環。）
-            WriteFloat3Array(writer, geometry.Inclusions[polygonIndex], true, writeElevation);
+            WriteDouble3Array(writer, geometry.Inclusions[polygonIndex], true, writeElevation);
 
             // Write the interior rings, if any exists.（若內環存在，將其寫出。）
             if (geometry.ExclusionIndexTable.TryGetValue(polygonIndex, out int exclusionIndex))
             {
                 for (int j = 0; j < geometry.Exclusions[exclusionIndex].Length; j++)
-                    WriteFloat3Array(writer, geometry.Exclusions[exclusionIndex][j], true, writeElevation);
+                    WriteDouble3Array(writer, geometry.Exclusions[exclusionIndex][j], true, writeElevation);
             }
 
             writer.WriteEndArray();

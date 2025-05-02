@@ -21,22 +21,22 @@ namespace Carto.Geodata
         /// Define the region thats removes area from a polygon.
         /// （定義從多邊形移除面積的部分。）
         /// </summary>
-        public float3[][][] Exclusions { get; set; }
+        public double3[][][] Exclusions { get; set; }
 
         /// <summary>
         /// Define the region that forms area to the polygon.
         /// （定義添加面積至多邊形的部分。）
         /// </summary>
-        public float3[][] Inclusions { get; set; }
+        public double3[][] Inclusions { get; set; }
 
-        public Geometry(float3[][] inclusions)
+        public Geometry(double3[][] inclusions)
         {
             Inclusions = inclusions;
-            Exclusions = new float3[0][][];
+            Exclusions = new double3[0][][];
             ExclusionIndexTable = new Dictionary<int, int> { };
         }
 
-        public Geometry(float3[][] inclusions, float3[][][] exclusions, Dictionary<int, int> exclusionIndexTable)
+        public Geometry(double3[][] inclusions, double3[][][] exclusions, Dictionary<int, int> exclusionIndexTable)
         {
             Inclusions = inclusions;
             Exclusions = exclusions;
@@ -76,7 +76,7 @@ namespace Carto.Geodata
                 pointCounts.Add(Inclusions[i].Length);
                 for (int j = 0;  j < Inclusions[i].Length; j++)
                 {                    
-                    bounds |= Inclusions[i][j];
+                    bounds |= new float3(Inclusions[i][j]);
                 }
             }
             for (int i = 0; i < Exclusions.Length; i++)
@@ -88,7 +88,7 @@ namespace Carto.Geodata
                     pointCounts.Add(Exclusions[i][j].Length);
                     for (int k = 0;  k < Exclusions[i][j].Length; k++)
                     {
-                        bounds |= Exclusions[i][j][k];
+                        bounds |= new float3(Exclusions[i][j][k]);
                     }
                 }
             }

@@ -1,7 +1,6 @@
 using Carto.Domain;
 using Carto.Geodata;
 using Colossal.Logging;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -105,9 +104,9 @@ namespace Carto.IO
         {
             { Ellipsoid.Clrk66, new(6378206.4, 294.978698213898) },
             { Ellipsoid.Evrst37, new(6377276.345, 300.8017) },
-            { Ellipsoid.GRS80, new(Geodata.Ellipsoid.GRS80) },
+            { Ellipsoid.GRS80, new(6378137, 298.257222101) },
             { Ellipsoid.Intl24, new(6378388, 297) },
-            { Ellipsoid.WGS84, new(Geodata.Ellipsoid.WGS84) },
+            { Ellipsoid.WGS84, new(6378137, 298.257223563) },
             { Ellipsoid.Custom, new() }
         };
 

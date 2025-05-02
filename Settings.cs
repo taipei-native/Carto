@@ -186,7 +186,7 @@ namespace Carto
             Geodata.CRS targetCRS = Geodata.CRS.Unknown;
             IO.Ellipsoid ellipsoid = IO.Ellipsoid.WGS84;
             Geodata.ProjectionDefinition projectionDefinition = default;
-            projectionDefinition.transform = new double[0];
+            projectionDefinition.transform = new(new double[0]);
             Dictionary<string, IO.Error> errors = new()
             {
                 { GetOptionLabelLocaleID(nameof(SourceXCoord)), Utils.IOUtils.TryGetNumber(SourceXCoord, out double sourceX) },
@@ -221,21 +221,21 @@ namespace Carto
                     errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSFalseNorthing)), Utils.IOUtils.TryGetNumber(SourceCRSFalseNorthing, out double sourceFalseNorthing));
                     errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSScaleFactor)), Utils.IOUtils.TryGetNumber(SourceCRSScaleFactor, out double sourceScaleFactor));
                     errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSTransform)), Utils.IOUtils.TryGetTransform(SourceCRSTransform, out double[] sourceTransform));
-                    projectionDefinition = new(ellipsoidDefinition, (sourceOriginLongitude, sourceOriginLatitude), (sourceFalseEasting, sourceFalseNorthing), sourceScaleFactor, sourceTransform);
-                    sourceCoordinates = new((sourceX, sourceY));
+                    projectionDefinition = new(ellipsoidDefinition, sourceOriginLongitude, sourceOriginLatitude, sourceFalseEasting, sourceFalseNorthing, sourceScaleFactor, new(sourceTransform));
+                    sourceCoordinates = new(sourceX, sourceY, sourceCRS);
                     break;
 
                 case IO.CRS.UTM:
                     sourceCRS = Geodata.CRS.UTM;
                     targetCRS = sourceCRS;
                     errors.Add(GetOptionLabelLocaleID(nameof(SourceUTMZone)), Utils.IOUtils.TryGetUTMZone(SourceUTMZone, out int sourceUTMZone));
-                    sourceCoordinates = new((sourceX, sourceY, sourceUTMZone, SourceHemisphere));
+                    sourceCoordinates = new(sourceX, sourceY, SourceHemisphere, sourceUTMZone);
                     break;
 
                 case IO.CRS.WGS84:
                     sourceCRS = Geodata.CRS.WGS84;
                     targetCRS = Geodata.CRS.UTM;
-                    sourceCoordinates = new((sourceX, sourceY));
+                    sourceCoordinates = new(sourceX, sourceY, sourceCRS);
                     break;
             }
 

@@ -319,7 +319,7 @@ namespace Carto.IO
                 ellipsoidCode = Epsg.Ellipsoid.GetCode(options.TargetEllipsoid),
                 format = format,
                 hasCustomEllipsoid = options.TargetEllipsoid == Ellipsoid.Custom,
-                hasTransform = options.TargetProjectionDefinition.HasTransform(),
+                hasTransform = options.TargetProjectionDefinition.HasTransform,
                 isUTM = options.TargetProjection == Geodata.CRS.UTM,
                 nodata = nodata,
                 projectionCode = Epsg.UserDefined,

@@ -103,7 +103,7 @@ namespace Carto.IO
         /// The map center's coordinates in Transverse Mercator.
         /// （橫麥卡托投影中的地圖中心坐標。）
         /// </summary>
-        public Coord SourceCoordinates { get; set; } = new Coord((0, 0), 0);
+        public Coord SourceCoordinates { get; set; } = new Coord(0, 0, 0);
 
         /// <summary>
         /// The coordinate reference system (CRS) of source coordinates.<br/>
@@ -117,11 +117,11 @@ namespace Carto.IO
         /// </summary>
         public ProjectionDefinition SourceProjectionDefinition { get; set; } = new
         (
-            new EllipsoidDefinition(Geodata.Ellipsoid.WGS84),
-            (0, 0),
-            (5E6, 0),
+            IO.EllipsoidTable[Ellipsoid.WGS84],
+            0, 0,
+            5E6, 0,
             0.9996,
-            new double[0]
+            new(new double[0])
         );
 
         /// <summary>
@@ -150,11 +150,11 @@ namespace Carto.IO
         /// </summary>
         public ProjectionDefinition TargetProjectionDefinition { get; set; } = new
         (
-            new EllipsoidDefinition(Geodata.Ellipsoid.WGS84),
-            (0, 0),
-            (5E6, 0),
+            IO.EllipsoidTable[Ellipsoid.WGS84],
+            0, 0,
+            5E6, 0,
             0.9996,
-            new double[0]
+            new(new double[0])
         );
 
         /// <summary>

@@ -409,7 +409,7 @@ namespace Carto.Systems
             // Initialize native containers.（初始化原生容器。）
             int areaCount = query.CalculateEntityCount();
             NativeList<AreaStat> areaStats = new(areaCount, Allocator.Persistent);
-            NativeParallelHashMap<Entity, NativeArray<float3>> nodeEntityMap = new(areaCount, Allocator.Persistent);
+            NativeParallelHashMap<Entity, NativeArray<double3>> nodeEntityMap = new(areaCount, Allocator.Persistent);
             NativeParallelMultiHashMap<Entity, int> areaEntityMap = new(buildingStats.Length * 2, Allocator.Persistent);
 
             // Initialize managed containers.（初始化控管容器。）
@@ -437,6 +437,11 @@ namespace Carto.Systems
                 // Collect the boundary of each area.（收集各個區域的邊界。）
                 CollectBoundariesJob collectBoundariesJob = new()
                 {
+                    center = options.GetTMCoord(),
+                    sourceCRS = options.GetTMProjection(),
+                    targetCRS = Geodata.CRS.WGS84,
+                    sourceProjection = options.GetTMProjectionDefinition(),
+                    targetProjection = default,
                     nodeEntityMap = nodeEntityMap.AsParallelWriter()
                 };
                 JobHandle collectBoundariesHandle = collectBoundariesJob.ScheduleParallel(query, default);
@@ -455,15 +460,11 @@ namespace Carto.Systems
                 // Initialize the writer thread.（初始化負責寫出的執行緒。）
                 Task writerThread = Task.Run(() =>
                 {
-                    Coord referenceCoord = options.GetTMCoord();
-                    Geodata.CRS referenceProjection = options.GetTMProjection();
-                    ProjectionDefinition referenceProjectionDefinition = options.GetTMProjectionDefinition();
-                    
                     for (int i = 0; i < areaStats.Length; i++)
                     {
                         AreaStat stat = areaStats[i];
-                        if (!nodeEntityMap.TryGetValue(stat.entity, out NativeArray<float3> areaNodes)) continue;
-                        float3[] transformedAreaNodes = new float3[areaNodes.Length];
+                        if (!nodeEntityMap.TryGetValue(stat.entity, out NativeArray<double3> areaNodes)) continue;
+                        double3[] transformedAreaNodes = new double3[areaNodes.Length];
 
                         // Write feature header.（寫出圖徵檔頭。）
                         writer.WriteStartObject();
@@ -473,11 +474,10 @@ namespace Carto.Systems
                         writer.WritePropertyName("geometry");
                         for (int j = 0; j < areaNodes.Length; j++)
                         {
-                            Coord coord = new(referenceCoord.Double3 + areaNodes[j], referenceCoord);
-                            transformedAreaNodes[j] = Transform.Apply(coord, referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3;
+                            transformedAreaNodes[j] = areaNodes[j];
                         }
 
-                        GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { transformedAreaNodes }), Shape.Polygon, options.Elevation);
+                        GeoJson.WriteGeometry(writer, new Geodata.Geometry(new double3[1][] { transformedAreaNodes }), Shape.Polygon, options.Elevation);
 
                         // Write feature properties.（寫出圖徵）
                         writer.WritePropertyName("properties");
@@ -584,7 +584,7 @@ namespace Carto.Systems
 
             // Initialize native containers.（初始化原生容器。）
             int areaCount = query.CalculateEntityCount();
-            NativeParallelHashMap<Entity, NativeArray<float3>> nodeEntityMap = new(areaCount, Allocator.Persistent);
+            NativeParallelHashMap<Entity, NativeArray<double3>> nodeEntityMap = new(areaCount, Allocator.Persistent);
 
             // Initialize out parameters.（初始化回傳參數。）
             Bounds3 _bounds = new();
@@ -596,6 +596,11 @@ namespace Carto.Systems
             {
                 CollectBoundariesJob collectBoundariesJob = new()
                 {
+                    center = options.GetTMCoord(),
+                    sourceCRS = options.GetTMProjection(),
+                    targetCRS = options.TargetProjection,
+                    sourceProjection = options.GetTMProjectionDefinition(),
+                    targetProjection = options.TargetProjectionDefinition,
                     nodeEntityMap = nodeEntityMap.AsParallelWriter()
                 };
                 JobHandle collectBoundariesHandle = collectBoundariesJob.ScheduleParallel(query, default);
@@ -603,28 +608,24 @@ namespace Carto.Systems
                 
                 Task writerThread = Task.Run(() =>
                 {
-                    Coord referenceCoord = options.GetTMCoord();
-                    Geodata.CRS referenceProjection = options.GetTMProjection();
                     int enumeratorIndex = 0;
                     int shapeId = Shapefile.GetShapeType(VectorKind.Boundary, options.Elevation);
-                    NativeParallelHashMap<Entity, NativeArray<float3>>.Enumerator enumerator = nodeEntityMap.GetEnumerator();
-                    ProjectionDefinition referenceProjectionDefinition = options.GetTMProjectionDefinition();
+                    NativeParallelHashMap<Entity, NativeArray<double3>>.Enumerator enumerator = nodeEntityMap.GetEnumerator();
 
                     if (BitConverter.IsLittleEndian)
                     {
                         while (enumerator.MoveNext())
                         {
                             enumeratorIndex++;
-                            KeyValue<Entity, NativeArray<float3>> feature = enumerator.Current;
-                            float3[] transformedAreaNodes = new float3[feature.Value.Length];
+                            KeyValue<Entity, NativeArray<double3>> feature = enumerator.Current;
+                            double3[] areaNodes = new double3[feature.Value.Length];
 
                             for (int i = 0; i < feature.Value.Length; i++)
                             {
-                                Coord coord = new(referenceCoord.Double3 + feature.Value[i], referenceCoord);
-                                transformedAreaNodes[i] = Transform.Apply(coord, referenceProjection, options.TargetProjection, referenceProjectionDefinition, options.TargetProjectionDefinition).Float3;
+                                areaNodes[i] = feature.Value[i];
                             }
 
-                            Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(new float3[1][] { transformedAreaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(new double3[1][] { areaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
                             _bounds |= featureBounds;
                             _entitySyncList.Add(feature.Key);
                             _indexPairs.Add(indexPair);
@@ -635,16 +636,15 @@ namespace Carto.Systems
                         while (enumerator.MoveNext())
                         {
                             enumeratorIndex++;
-                            KeyValue<Entity, NativeArray<float3>> feature = enumerator.Current;
-                            float3[] transformedAreaNodes = new float3[feature.Value.Length];
+                            KeyValue<Entity, NativeArray<double3>> feature = enumerator.Current;
+                            double3[] areaNodes = new double3[feature.Value.Length];
 
                             for (int i = 0; i < feature.Value.Length; i++)
                             {
-                                Coord coord = new(referenceCoord.Double3 + feature.Value[i], referenceCoord);
-                                transformedAreaNodes[i] = Transform.Apply(coord, referenceProjection, options.TargetProjection, referenceProjectionDefinition, options.TargetProjectionDefinition).Float3;
+                                areaNodes[i] = feature.Value[i];
                             }
 
-                            Shapefile.WriteGeometryBE(writer, enumeratorIndex, shapeId, new(new float3[1][] { transformedAreaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            Shapefile.WriteGeometryBE(writer, enumeratorIndex, shapeId, new(new double3[1][] { areaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
                             _bounds |= featureBounds;
                             _entitySyncList.Add(feature.Key);
                             _indexPairs.Add(indexPair);
@@ -888,24 +888,39 @@ namespace Carto.Systems
         [BurstCompile]
         public partial struct CollectBoundariesJob : IJobEntity
         {
+            [ReadOnly]
+            public Coord center;
+            
+            [ReadOnly]
+            public Geodata.CRS sourceCRS;
+
+            [ReadOnly]
+            public Geodata.CRS targetCRS;
+            
+            [ReadOnly]
+            public ProjectionDefinition sourceProjection;
+
+            [ReadOnly]
+            public ProjectionDefinition targetProjection;
+            
             [WriteOnly]
-            public NativeParallelHashMap<Entity, NativeArray<float3>>.ParallelWriter nodeEntityMap;
+            public NativeParallelHashMap<Entity, NativeArray<double3>>.ParallelWriter nodeEntityMap;
 
             public void Execute(in Area areaComponent, in DynamicBuffer<Node> nodes, Entity area)
             {
-                NativeArray<float3> nodesArray = new(nodes.Length, Allocator.Persistent);
+                NativeArray<double3> nodesArray = new(nodes.Length, Allocator.Persistent);
                 if ((areaComponent.m_Flags & AreaFlags.CounterClockwise) != 0)
                 {
                     for (int i = 0; i < nodes.Length; i++)
                     {
-                        nodesArray[i] = nodes[i].m_Position.xzy;
+                        nodesArray[i] = Transform.Apply(center.Shift(nodes[i].m_Position.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
                     }
                 }
                 else
                 {
                     for (int i = nodes.Length - 1; i > -1; i--)
                     {
-                        nodesArray[i] = nodes[i].m_Position.xzy;
+                        nodesArray[i] = Transform.Apply(center.Shift(nodes[i].m_Position.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
                     }
                 }
 

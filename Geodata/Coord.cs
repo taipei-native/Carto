@@ -1,3 +1,4 @@
+using System;
 using Unity.Mathematics;
 
 namespace Carto.Geodata
@@ -9,10 +10,9 @@ namespace Carto.Geodata
     public struct Coord
     {
         /// <summary>
-        /// The hemisphere where the coordinates located in.
-        /// （坐標所在的半球。）
+        /// The type of CRS of the coordinate.（坐標的坐標參考系統類別。）
         /// </summary>
-        public Hemisphere hemisphere;
+        public CRS crs;
 
         /// <summary>
         /// The x value.
@@ -33,83 +33,147 @@ namespace Carto.Geodata
         public double z;
 
         /// <summary>
+        /// The hemisphere where the coordinate located in.
+        /// （坐標所在的半球。）
+        /// </summary>
+        private readonly Hemisphere _hemisphere;
+
+        /// <summary>
         /// The zone number of UTM projection.
         /// （UTM 投影的區域編號。）
         /// </summary>
-        public int zone;
+        private readonly int _zone;
 
-        public Coord(double3 coordinate)
+        public Coord(double x, double y, CRS crs = CRS.Game)
         {
-            hemisphere = Hemisphere.North;
-            x = coordinate.x;
-            y = coordinate.y;
-            z = coordinate.z;
-            zone = 0;
+            this.crs = crs;
+            this.x = x;
+            this.y = y;
+            z = 0;
+            _hemisphere = (crs == CRS.WGS84) && (y < 0) ? Hemisphere.South : Hemisphere.North;
+            _zone = crs == CRS.WGS84 ? (int)Math.Round(math.floor((x + 180) / 6) + 1) : 0;
         }
 
-        public Coord(double3 coordinate, Coord utmReference)
+        public Coord(double x, double y, double z, CRS crs = CRS.Game)
         {
-            hemisphere = utmReference.hemisphere;
-            x = coordinate.x;
-            y = coordinate.y;
-            z = coordinate.z;
-            zone = utmReference.zone;
+            this.crs = crs;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            _hemisphere = Hemisphere.North;
+            _zone = 0;
         }
 
-        public Coord((double x, double y) coordinate, double height = 0)
+        public Coord(double x, double y, Hemisphere hemisphere, int zone)
         {
-            hemisphere = Hemisphere.North;
-            x = coordinate.x;
-            y = coordinate.y;
-            z = height;
-            zone = 0;
+            crs = CRS.UTM;
+            this.x = x;
+            this.y = y;
+            z = 0;
+            _hemisphere = hemisphere;
+            _zone = zone;
         }
 
-        public Coord((double x, double y) coordinate, Coord utmReference, double height = 0)
+        public Coord(double x, double y, double z, Hemisphere hemisphere, int zone)
         {
-            hemisphere = utmReference.hemisphere;
-            x = coordinate.x;
-            y = coordinate.y;
-            z = height;
-            zone = utmReference.zone;
-        }
-
-        public Coord((double easting, double northing, int zone, Hemisphere hemisphere) coordinate, double height = 0)
-        {
-            hemisphere = coordinate.hemisphere;
-            x = coordinate.easting;
-            y = coordinate.northing;
-            z = height;
-            zone = coordinate.zone;
+            crs = CRS.UTM;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            _hemisphere = hemisphere;
+            _zone = zone;
         }
 
         /// <summary>
-        /// The <see cref="double3"/> representation of the coordinates.<br/>
-        /// （坐標的 <see cref="double3"/> 表示法。）
+        /// The hemisphere where the coordinate located in.
+        /// （坐標所在的半球。）
         /// </summary>
-        public readonly double3 Double3 => new(x, y, z);
+        public readonly Hemisphere Hemisphere
+        {
+            get
+            {
+                return crs switch
+                {
+                    CRS.UTM => _hemisphere,
+                    CRS.WGS84 => y >= 0 ? Hemisphere.North : Hemisphere.South,
+                    _ => throw new NotSupportedException("The CRS other than UTM and WGS84 is not supported. 不支援 UTM 與 WGS84 以外的坐標參考系統。")
+                };
+            }
+        }
 
         /// <summary>
-        /// The <see cref="float3"/> representation of the coordinates.<br/>
-        /// （坐標的 <see cref="float3"/> 表示法。）
+        /// The zone number of UTM projection.
+        /// （UTM 投影的區域編號。）
         /// </summary>
-        public readonly float3 Float3 => new(Double3);
+        public readonly int UTMZone
+        {
+            get
+            {
+                return crs switch
+                {
+                    CRS.UTM => _zone,
+                    CRS.WGS84 => (int)Math.Round(math.floor((x + 180) / 6) + 1),
+                    _ => throw new NotSupportedException("The CRS other than UTM and WGS84 is not supported. 不支援 UTM 與 WGS84 以外的坐標參考系統。")
+                };
+            }
+        }
 
         /// <summary>
-        /// The tuple representation of the coordinates.<br/>
-        /// （坐標的元組表示法。）
+        /// Round the coordinate value.
+        /// （四捨五入坐標值。）
         /// </summary>
-        public readonly (double x, double y) Tuple => (x, y);
+        /// <returns></returns>
+        public readonly Coord Round()
+        {
+            int place = crs == CRS.WGS84 ? 9 : 7;
+            return new(Math.Round(x, place), Math.Round(y, place), z, crs);
+        }
 
         /// <summary>
-        /// The tuple representation of the UTM coordinates.<br/>
-        /// （UTM 坐標的元組表示法。）
+        /// Shift the coordinate.（平移坐標。）
         /// </summary>
-        public readonly (double easting, double northing, int zone, Hemisphere hemisphere) UTMTuple => (x, y, zone, hemisphere);
+        /// <param name="shift">The shift in x and y direction.（X 與 Y 方向的平移量。）</param>
+        /// <returns>The shifted coordinate.（平移後的坐標。）</returns>
+        public readonly Coord Shift(float2 shift)
+        {
+            return new(x + shift.x, y + shift.y, z, _hemisphere, _zone);
+        }
+
+        /// <summary>
+        /// Shift the coordinate.（平移坐標。）
+        /// </summary>
+        /// <param name="shift">The shift in x, y, and z direction.（X、Y 與 Z 方向的平移量。）</param>
+        /// <returns>The shifted coordinate.（平移後的坐標。）</returns>
+        public readonly Coord Shift(float3 shift)
+        {
+            return new(x + shift.x, y + shift.y, z + shift.z, _hemisphere, _zone);
+        }
+
+        /// <summary>
+        /// Shift the coordinate.（平移坐標。）
+        /// </summary>
+        /// <param name="x">The shift in x direction.（X 方向的平移量。）</param>
+        /// <param name="y">The shift in y direction.（Y 方向的平移量。）</param>
+        /// <param name="z">The shift in z direction.（Z 方向的平移量。）</param>
+        /// <returns>The shifted coordinate.（平移後的坐標。）</returns>
+        public readonly Coord Shift(double x, double y, double z)
+        {
+            return new(this.x + x, this.y + y, this.z + z, _hemisphere, _zone);
+        }
+
+        /// <summary>
+        /// Convert the coordinate to <see cref="double3"/>.
+        /// （將坐標轉換為 <see cref="double3"/>。）
+        /// </summary>
+        /// <returns>A double3 instance.（一個 double3 實例。）</returns>
+        public readonly double3 ToDouble3()
+        {
+            return new(x, y, z);
+        }
 
         public override readonly string ToString()
         {
-            return $"Coord({x}, {y}, {z}) - Hemisphere [{hemisphere}], Zone [{zone}]";
+            return $"Coord({x}, {y}, {z}) - CRS [{crs}], Hemisphere [{_hemisphere}], Zone [{_zone}]";
         }
     }
 }

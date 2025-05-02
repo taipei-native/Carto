@@ -215,20 +215,20 @@ namespace Carto.IO
                     // GeoKey 2062 / 0x080E | GeogToWGS84GeoKey（赫爾默特轉換參數）
                     // This is NOT a standard key. It is preserved here to provide datum transformations.
                     // （這不是標準的地理鍵。它被用於提供大地基準間的轉換。）
-                    RegisterGeoKey(2062, projection.transform, _doubleBuffer);
+                    RegisterGeoKey(2062, projection.transform.ToArray(), _doubleBuffer);
                 }
 
                 // GeoKey 3080 / 0x0C08 | ProjNatOriginLongGeoKey（原點經度）
-                RegisterGeoKey(3080, projection.origin.longitude, 1, _doubleBuffer);
+                RegisterGeoKey(3080, projection.origin.x, 1, _doubleBuffer);
 
                 // GeoKey 3081 / 0x0C09 | ProjNatOriginLatGeoKey（原點緯度）
-                RegisterGeoKey(3081, projection.origin.latitude, 1, _doubleBuffer);
+                RegisterGeoKey(3081, projection.origin.y, 1, _doubleBuffer);
 
                 // GeoKey 3082 / 0x0C0A | ProjFalseEastingGeoKey（東距）
-                RegisterGeoKey(3082, projection.shift.easting, 1, _doubleBuffer);
+                RegisterGeoKey(3082, projection.shift.x, 1, _doubleBuffer);
 
                 // GeoKey 3083 / 0x0C0B | ProjFalseNorthingGeoKey（北距）
-                RegisterGeoKey(3083, projection.shift.northing, 1, _doubleBuffer);
+                RegisterGeoKey(3083, projection.shift.y, 1, _doubleBuffer);
 
                 // GeoKey 3092 / 0x0C13 | ProjScaleAtNatOriginGeoKey（原點尺度係數）
                 RegisterGeoKey(3092, projection.scaleFactor, 1, _doubleBuffer);
@@ -260,10 +260,10 @@ namespace Carto.IO
             string projectedCitation;
             if (param.isUTM)
             {
-                string hemisphere = tiepoint.hemisphere == Hemisphere.North ? "N" : "S";
-                int hemisphereCode = tiepoint.hemisphere == Hemisphere.North ? 6 : 7;
-                projectedCitation = $"WGS 84 / UTM zone {tiepoint.zone}{hemisphere}|";
-                param.projectionCode = Convert.ToInt32($"32{hemisphereCode}{tiepoint.zone:00}");
+                string hemisphere = tiepoint.Hemisphere == Hemisphere.North ? "N" : "S";
+                int hemisphereCode = tiepoint.Hemisphere == Hemisphere.North ? 6 : 7;
+                projectedCitation = $"WGS 84 / UTM zone {tiepoint.UTMZone}{hemisphere}|";
+                param.projectionCode = Convert.ToInt32($"32{hemisphereCode}{tiepoint.UTMZone:00}");
             }
             else
             {

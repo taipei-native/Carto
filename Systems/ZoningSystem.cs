@@ -5,7 +5,6 @@ using Colossal.Logging;
 using Game;
 using Game.Common;
 using Game.Tools;
-using Game.UI;
 using Game.Zones;
 using Newtonsoft.Json;
 using System;
@@ -30,12 +29,6 @@ namespace Carto.Systems
         /// See <see cref="Instance.Log"/> for more information.
         /// </summary>
         static readonly ILog _log = Instance.Log;
-
-        /// <summary>
-        /// The system managing names.（管理名稱的系統。）<br/>
-        /// See <see cref="Instance.Name"/> for more information.
-        /// </summary>
-        static readonly NameSystem _name = Instance.Name;
 
         /// <summary>
         /// The system collecting shared data.（收集共享資料的系統。）<br/>
@@ -92,7 +85,6 @@ namespace Carto.Systems
             int count = 0;
 
             // Initialize native containers.（初始化原生容器。）
-            int zoningBlockCount = _zoningBlockQuery.CalculateEntityCount();
             NativeQueue<int> validCellCounts = new(Allocator.Persistent);
             NativeReference<int> cellCount = new(0, Allocator.Persistent);
 
@@ -177,6 +169,11 @@ namespace Carto.Systems
                 CollectZoningCellsJob collectJob = new()
                 {
                     useUnzoned = options.Unzoned,
+                    center = options.GetTMCoord(),
+                    sourceCRS = options.GetTMProjection(),
+                    targetCRS = Geodata.CRS.WGS84,
+                    sourceProjection = options.GetTMProjectionDefinition(),
+                    targetProjection = default,
                     zoningTypes = zoningTypes,
                     zoningTypesIdMap = zoningTypesIdMap,
                     zoningCells = zoningCells.AsParallelWriter(),
@@ -187,11 +184,6 @@ namespace Carto.Systems
                 // Initialize the writer thread.（初始化負責寫出的執行緒。）
                 Task writerThread = Task.Run(() =>
                 {
-                    Coord referenceCoord = options.GetTMCoord();
-                    Geodata.CRS referenceProjection = options.GetTMProjection();
-                    ProjectionDefinition referenceProjectionDefinition = options.GetTMProjectionDefinition();
-                    double3 referenceCoordDouble = referenceCoord.Double3;
-
                     for (int i = 0; i < zoningCells.Length; i++)
                     {
                         ZoningCell cell = zoningCells[i];
@@ -204,18 +196,8 @@ namespace Carto.Systems
 
                         // Write feature geometry.（寫出圖徵幾何圖形。）
                         writer.WritePropertyName("geometry");
-                        float3[] transformedCellNodes = new float3[4]
-                        {
-                            Transform.Apply(new(referenceCoordDouble + cell.a, referenceCoord), referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3,
-                            Transform.Apply(new(referenceCoordDouble + cell.b, referenceCoord), referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3,
-                            Transform.Apply(new(referenceCoordDouble + cell.c, referenceCoord), referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3,
-                            Transform.Apply(new(referenceCoordDouble + cell.d, referenceCoord), referenceProjection, Geodata.CRS.WGS84, referenceProjectionDefinition, new ProjectionDefinition()).Float3
-                            //cell.a,
-                            //cell.b,
-                            //cell.c,
-                            //cell.d
-                        };
-                        GeoJson.WriteGeometry(writer, new Geodata.Geometry(new float3[1][] { transformedCellNodes }), Shape.Polygon, options.Elevation);
+                        double3[] cellNodes = new double3[4] { cell.a, cell.b, cell.c, cell.d };
+                        GeoJson.WriteGeometry(writer, new Geometry(new double3[1][] { cellNodes }), Shape.Polygon, options.Elevation);
 
                         // Write feature properties.（寫出圖徵）
                         writer.WritePropertyName("properties");
@@ -280,6 +262,21 @@ namespace Carto.Systems
             public bool useUnzoned;
 
             [ReadOnly]
+            public Coord center;
+
+            [ReadOnly]
+            public Geodata.CRS sourceCRS;
+
+            [ReadOnly]
+            public Geodata.CRS targetCRS;
+
+            [ReadOnly]
+            public ProjectionDefinition sourceProjection;
+
+            [ReadOnly]
+            public ProjectionDefinition targetProjection;
+
+            [ReadOnly]
             public NativeList<ZoningType> zoningTypes;
 
             [ReadOnly]
@@ -326,11 +323,11 @@ namespace Carto.Systems
 
                             zoningCells.AddNoResize(new ZoningCell
                             {
-                                a = point1.xzy,
-                                b = point2.xzy,
-                                c = point3.xzy,
+                                a = Transform.Apply(center.Shift(point1.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                b = Transform.Apply(center.Shift(point2.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                c = Transform.Apply(center.Shift(point3.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
                                 cellIndex = cellIndex,
-                                d = point4.xzy,
+                                d = Transform.Apply(center.Shift(point4.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
                                 entity = zoningBlock,
                                 zoningTypeIndex = zoningTypeIndex,
                             });
@@ -350,7 +347,7 @@ namespace Carto.Systems
             [WriteOnly]
             public NativeQueue<int>.ParallelWriter validCellCounts;
 
-            public void Execute(in Block blockComponent, in DynamicBuffer<Cell> cells, Entity zoningBlock)
+            public void Execute(in Block blockComponent, in DynamicBuffer<Cell> cells)
             {
                 int count = 0;
                 int xSize = blockComponent.m_Size.x;

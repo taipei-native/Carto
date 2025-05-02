@@ -1,5 +1,6 @@
 using Carto.Utils;
 using System;
+using Unity.Mathematics;
 
 namespace Carto.Geodata
 {
@@ -24,24 +25,6 @@ namespace Carto.Geodata
          */
 
         /// <summary>
-        /// The WGS84 ellipsoid.
-        /// （WGS84 橢球體。）
-        /// </summary>
-        static readonly EllipsoidDefinition _ellipWGS84 = new(Ellipsoid.WGS84);
-
-        /// <summary>
-        /// EPSG: 326xx. The WGS84 / UTM projection in the northern hemisphere.
-        /// （北半球的 WGS84 / UTM 投影。）
-        /// </summary>
-        static readonly ProjectionDefinition _projUTMNorth = new(_ellipWGS84, (0, 0), (5E5, 0), 0.9996, new double[0]);
-
-        /// <summary>
-        /// EPSG: 327xx. The WGS84 / UTM projection in the southern hemisphere.
-        /// （南半球的 WGS84 / UTM 投影。）
-        /// </summary>
-        static readonly ProjectionDefinition _projUTMSouth = new(_ellipWGS84, (0, 0), (5E5, 1E7), 0.9996, new double[0]);
-
-        /// <summary>
         /// A helper function to apply CRS transformation easily.
         /// （用於簡易轉換坐標參考系統的輔助函數。）
         /// </summary>
@@ -51,113 +34,101 @@ namespace Carto.Geodata
         /// <param name="sourceProjection">The source custom Transverse Mercator projection.（使用者自訂的來源橫麥卡托投影。）</param>
         /// <param name="targetProjection">The target custom Transverse Mercator projection.（使用者自訂的目標橫麥卡托投影。）</param>
         /// <returns>The transformed coordinates.（轉換後的坐標。）</returns>
-        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="NotSupportedException"></exception>
         public static Coord Apply(Coord coordinate, CRS sourceCRS, CRS targetCRS, ProjectionDefinition sourceProjection, ProjectionDefinition targetProjection)
         {
             if ((sourceCRS == targetCRS) && (sourceCRS != CRS.TransverseMercator)) return coordinate;
-            if ((sourceCRS == CRS.Unknown) || (sourceCRS == CRS.Game) || (sourceCRS == CRS.PseudoMercator)) throw new ArgumentException("No available conversion from sourceCRS to WGS84. 沒有自 sourceCRS 至 WGS84 的轉換。");
-            if ((targetCRS == CRS.Unknown) || (targetCRS == CRS.Game)) throw new ArgumentException("No available conversion from WGS84 to targetCRS. 沒有自 WGS84 至 targetCRS 的轉換。");
+            if ((sourceCRS == CRS.Unknown) || (sourceCRS == CRS.Game) || (sourceCRS == CRS.PseudoMercator)) throw new NotSupportedException("No available conversion from sourceCRS to WGS84. 沒有自 sourceCRS 至 WGS84 的轉換。");
+            if ((targetCRS == CRS.Unknown) || (targetCRS == CRS.Game)) throw new NotSupportedException("No available conversion from WGS84 to targetCRS. 沒有自 WGS84 至 targetCRS 的轉換。");
 
-            (double x, double y) intermediateCoordinate = coordinate.Tuple;
+            Coord intermediateCoordinate = coordinate;
 
             switch (sourceCRS)
             {
                 case CRS.TransverseMercator:
-                    intermediateCoordinate = TransverseMercatorToWGS84(coordinate.Tuple, sourceProjection);
+                    intermediateCoordinate = TransverseMercatorToWGS84(coordinate, sourceProjection);
                     break;
 
                 case CRS.UTM:
-                    intermediateCoordinate = UTMToWGS84(coordinate.UTMTuple);
+                    intermediateCoordinate = UTMToWGS84(coordinate);
                     break;
 
                 case CRS.WGS84:
                     break;
             }
 
-            if (targetCRS == CRS.WGS84) return new Coord(intermediateCoordinate, coordinate.z);
+            if (targetCRS == CRS.WGS84) return intermediateCoordinate;
 
             return targetCRS switch
             {
-                CRS.PseudoMercator => new Coord(WGS84ToPseudoMercator(intermediateCoordinate), coordinate.z),
-                CRS.TransverseMercator => new Coord(WGS84ToTransverseMercator(intermediateCoordinate, targetProjection), coordinate.z),
-                CRS.UTM => new Coord(WGS84ToUTM(intermediateCoordinate), coordinate.z),
+                CRS.PseudoMercator => WGS84ToPseudoMercator(intermediateCoordinate),
+                CRS.TransverseMercator => WGS84ToTransverseMercator(intermediateCoordinate, targetProjection),
+                CRS.UTM => WGS84ToUTM(intermediateCoordinate),
                 _ => coordinate,
             };
         }
 
         /// <summary>
-        /// Transform any Transverse Mercator coordinates to WGS84 coordinates.
-        /// （將任意橫麥卡托投影坐標轉換為 WGS84 坐標。）
+        /// Convert a Transverse Mercator coordinate to a WGS84 coordinate.
+        /// （將橫麥卡托投影坐標轉換為 WGS84 坐標。）
         /// </summary>
-        /// <param name="tm">The Transverse Mercator coodinates.（橫麥卡托坐標。）</param>
-        /// <param name="projection">The Transverse Mercator projection metadata.（橫麥卡托投影的元資料。）</param>
-        /// <returns>The WGS84 coordinate.（WGS84 坐標。）</returns>
-        public static (double longitude, double latitude) TransverseMercatorToWGS84((double easting, double northing) tm, ProjectionDefinition projection)
+        /// <param name="tm">The Transverse Mercator coordinate.（橫麥卡托坐標。）</param>
+        /// <param name="projection">The definition of the Transverse Mercator projection.（橫麥卡托投影的定義。）</param>
+        /// <returns>The converted WGS84 coordinate.（轉換後的 WGS84 坐標。）</returns>
+        public static Coord TransverseMercatorToWGS84(Coord tm, ProjectionDefinition projection)
         {
             /*
                 # References: （資料來源：）
-            
-                * PROJ4JS contributors. (2025). tmerc.js. inverse()
-                    https://github.com/proj4js/proj4js/blob/master/lib/projections/tmerc.js
-            */
 
-            // Constants（常數）
-            double ep = projection.ellipsoid.SecondESquare;
-            double es = projection.ellipsoid.eSquare;
-            double lat;
-            double lat0 = projection.origin.latitude / 180 * Math.PI;
-            double lon = default;
-            double lon0 = projection.origin.longitude / 180 * Math.PI;
-            double sf = projection.scaleFactor;
-            double x = (tm.easting - projection.shift.easting) / projection.ellipsoid.a;
-            double y = (tm.northing - projection.shift.northing) / projection.ellipsoid.a;
+                * PROJ contributors. (2025). tmerc.cpp. exact_e_inv()
+                    https://github.com/OSGeo/PROJ/blob/master/src/projections/tmerc.cpp#L379
+             */
 
-            // Intermediate Values（中繼值）
-            // Directly multiply the numbers is faster than using Math.Pow() to perform nth power calculations.（直接將數字相乘比起使用 Math.Pow() 進行次方運算更為快速。）
-            double ml0 = DatumUtils.MeridionalDistance(lat0, es);
-            double con = ml0 + y / sf;
-            double phi = DatumUtils.MeridionalDistanceInverse(con, es);
+            // Initial values（初始值）
+            double lon0 = math.radians(projection.origin.x);
 
-            if (Math.Abs(phi) < Math.PI / 2)
+            // Intermediate values（中繼值）
+            double Ce = (tm.x - projection.shift.x) / projection.ellipsoid.a / projection.meridianQuadrant;
+            double Cn = ((tm.y - projection.shift.y) / projection.ellipsoid.a - projection.radiusVector) / projection.meridianQuadrant;
+
+            if (math.abs(Ce) <= 2.623395162778)
             {
-                double cphi = Math.Cos(phi);
-                double sphi = Math.Sin(phi);
-                double tphi = Math.Abs(cphi) > 1E-10 ? Math.Tan(phi) : 0;
-                double c = ep * cphi * cphi;
-                double cs = c * c;
-                con = 1 - es * sphi * sphi;
-                double d = x * Math.Sqrt(con) / sf;
-                double ds = d * d;
-                double t = tphi * tphi;
-                double ts = t * t;
-                con *= tphi;
+                double sinArgR = math.sin(2 * Cn);
+                double cosArgR = math.cos(2 * Cn);
+                double exp2Ce = math.exp(2 * Ce);
+                double halfInvExp2Ce = 0.5 / exp2Ce;
+                double sinhArgI = 0.5 * exp2Ce - halfInvExp2Ce;
+                double coshArgI = 0.5 * exp2Ce + halfInvExp2Ce;
+                double r = DatumUtils.Burst.ClenshawSum(sinArgR, cosArgR, sinhArgI, coshArgI, projection.ellipsoid.coefficientsRC, out double i);
 
-                lat = phi - con * ds / (1 - es) * 0.5 * (1 -
-                      ds / 12 * (5 + 3 * t - 9 * c * t + c - 4 * cs -
-                      ds / 30 * (61 + 90 * t - 252 * c * t + 45 * ts + 46 * c -
-                      ds / 56 * (1385 + 3633 * t + 4095 * ts + 1574 * ts * t))));
+                Ce += i;
+                Cn += r;
 
-                lon = lon0 + d * (1 -
-                      ds / 6 * (1 + 2 * t + c -
-                      ds / 20 * (5 + 28 * t + 24 * ts + 8 * c * t + 6 * c -
-                      ds / 42 * (61 + 662 * t + 1320 * ts + 720 * ts * t)))) / cphi;
-                
-                lon = DatumUtils.ClampLongitude(lon);
-            }
-            else
-            {
-                lat = y / Math.Abs(y) * Math.PI / 2;
+                double sinCn = math.sin(Cn);
+                double cosCn = math.cos(Cn);
+                double sinhCe = math.sinh(Ce);
+                Ce = math.atan2(sinhCe, cosCn);
+                double modulusCe = MathUtils.Hypot(sinhCe, cosCn);
+                double rr = MathUtils.Hypot(sinCn, modulusCe);
+                Cn = math.atan2(sinCn, modulusCe);
+                double lat = math.degrees(DatumUtils.Burst.ConvertAuxiliaryLatitude(Cn, sinCn / rr, modulusCe / rr, projection.ellipsoid.coefficientsCG));
+                double lon = math.degrees(Ce + lon0);
+                Coord wgs84 = new(lon, lat, CRS.WGS84);
+
+                // Datum Transformation（大地基準轉換）
+                if (projection.HasTransform)
+                {
+                    EllipsoidDefinition wgs84Ellipsoid = new(6378137, 298.257223563, true);
+                    wgs84 = DatumUtils.Burst.ConvertToGeocentric(wgs84, projection.ellipsoid);
+                    wgs84 = projection.transform.ConvertToWGS84(wgs84);
+                    wgs84 = DatumUtils.Burst.ConvertFromGeocentric(wgs84, wgs84Ellipsoid);
+                }
+
+                wgs84.z = tm.z;
+                return wgs84;
             }
 
-            if (projection.HasTransform())
-            {
-                (double, double, double) gcc = DatumUtils.GeodeticToGeocentric((lon, lat), projection.ellipsoid);
-                gcc = DatumUtils.GeocentricToWGS84(gcc, projection.transform);
-                (lon, lat) = DatumUtils.GeocentricToGeodetic(gcc, _ellipWGS84);
-            }
-
-            // WGS84 Coordinates（WGS84 坐標）
-            return (Math.Round(lon / Math.PI * 180, 7), Math.Round(lat / Math.PI * 180, 7));
+            return new(double.MaxValue, double.MaxValue, tm.z, CRS.WGS84);
         }
 
         /// <summary>
@@ -166,19 +137,20 @@ namespace Carto.Geodata
         /// </summary>
         /// <param name="utm">The UTM coordinate.（UTM 坐標。）</param>
         /// <returns>The WGS84 coordinate.（WGS84 坐標。）</returns>
-        public static (double longitude, double latitude) UTMToWGS84((double easting, double northing, int zone, Hemisphere hemisphere) utm)
+        public static Coord UTMToWGS84(Coord utm)
         {
             // Constants（常數）
-            double a = _ellipWGS84.a;
-            double e = _ellipWGS84.eSquare;
-            double fE = _projUTMNorth.shift.easting;
-            double fN = (utm.hemisphere == Hemisphere.North) ? _projUTMNorth.shift.northing : _projUTMSouth.shift.northing;
-            double sf = _projUTMNorth.scaleFactor;
+            EllipsoidDefinition wgs84Ellipsoid = new(6378137, 298.257223563, true);
+            double a = wgs84Ellipsoid.a;
+            double e = wgs84Ellipsoid.E1Square;
+            double fE = 5E5;
+            double fN = (utm.Hemisphere == Hemisphere.North) ? 0 : 1E7;
+            double sf = 0.9996;
 
             // Intermediate Values（中繼值）
-            double EST = utm.easting - fE;
-            double NOR = utm.northing - fN;
-            double CLON = (utm.zone - 1) * 6 + 3 - 180;
+            double EST = utm.x - fE;
+            double NOR = utm.y - fN;
+            double CLON = (utm.UTMZone - 1) * 6 + 3 - 180;
             double eI = (1 - Math.Sqrt(1 - e)) / (1 + Math.Sqrt(1 - e));
             double ePrime = e / (1 - e);
             double M = NOR / sf;
@@ -197,9 +169,7 @@ namespace Carto.Geodata
             double LON = CLON + ((D - (1 + 2 * TI + CI) * D * D * D / 6
                                 + (5 - 2 * CI + 28 * TI - 3 * CI * CI + 8 * ePrime + 24 * TI * TI) * D * D * D * D * D / 120) / Math.Cos(latI)) / Math.PI * 180;
 
-            // The latitude distance of 0.000001 degrees near the poles and the longitude distance of 0.000001 degrees at the equator are ≈ 0.11 meters, which is accurate enough.
-            // （兩極附近的0.000001度緯距 ≈ 0.11公尺，而赤道的0.000001度經距 ≈ 0.11公尺，已足夠精準。）
-            return (Math.Round(LON, 7), Math.Round(LAT, 7));
+            return new(LON, LAT, utm.z, CRS.WGS84);
         }
 
         /// <summary>
@@ -208,85 +178,86 @@ namespace Carto.Geodata
         /// </summary>
         /// <param name="wgs84">The WGS84 coordinate.（WGS84 坐標。）</param>
         /// <returns>The Pseudo Mercator coordinate.（偽麥卡托坐標。）</returns>
-        public static (double x, double y) WGS84ToPseudoMercator((double longitude, double latitude) wgs84)
+        public static Coord WGS84ToPseudoMercator(Coord wgs84)
         {
             // Constants（常數）
-            double a = _ellipWGS84.a;
+            double a = 6378137;
 
             // Intermediate Values（中繼值）
-            double LATr = wgs84.latitude / 180 * Math.PI;
-            double LONr = wgs84.longitude / 180 * Math.PI;
+            double LATr = wgs84.y / 180 * Math.PI;
+            double LONr = wgs84.x / 180 * Math.PI;
 
             // Pseudo Mercator Coordinates（偽麥卡托坐標）
             double X = a * LONr;
             double Y = a * Math.Log(Math.Tan(Math.PI / 4 + LATr / 2));
 
-            // The accuracy of 0.00001 meters (0.01 milimeters) is good enough.
-            //（0.00001公尺（0.01毫米）的準確度已經足夠好了。）
-            return (Math.Round(X, 6), Math.Round(Y, 6));
+            return new(X, Y, wgs84.z, CRS.PseudoMercator);
         }
 
         /// <summary>
-        /// Transform WGS84 coordinates to any Transverse Mercator coordinates.
-        /// （將 WGS84 坐標轉換為任意橫麥卡托投影坐標。）
+        /// Convert a WGS84 coordinate to a Transverse Mercator coordinate.
+        /// （將 WGS84 坐標轉換為橫麥卡托投影坐標。）
         /// </summary>
         /// <param name="wgs84">The WGS84 coordinate.（WGS84 坐標。）</param>
-        /// <param name="projection">The Transverse Mercator projection metadata.（橫麥卡托投影的元資料。）</param>
-        /// <returns>The Transverse Mercator coodinates.（橫麥卡托坐標。）</returns>
-        public static (double easting, double northing) WGS84ToTransverseMercator((double longitude, double latitude) wgs84, ProjectionDefinition projection)
+        /// <param name="projection">The definition of the Transverse Mercator projection.（橫麥卡托投影的定義。）</param>
+        /// <returns>The converted Transverse Mercator coordinate.（轉換後的橫麥卡托投影坐標。）</returns>
+        public static Coord WGS84ToTransverseMercator(Coord wgs84, ProjectionDefinition projection)
         {
             /*
                 # References: （資料來源：）
-            
-                * PROJ4JS contributors. (2025). tmerc.js. forward()
-                    https://github.com/proj4js/proj4js/blob/master/lib/projections/tmerc.js
-            */
 
-            // Constants（常數）
-            double a = projection.ellipsoid.a;
-            double ep = projection.ellipsoid.SecondESquare;
-            double es = projection.ellipsoid.eSquare;
-            double lat = wgs84.latitude / 180 * Math.PI;
-            double lat0 = projection.origin.latitude / 180 * Math.PI;
-            double lon = wgs84.longitude / 180 * Math.PI;
-            double lon0 = projection.origin.longitude / 180 * Math.PI;
-            double sf = projection.scaleFactor;
+                * PROJ contributors. (2025). tmerc.cpp. exact_e_fwd()
+                    https://github.com/OSGeo/PROJ/blob/master/src/projections/tmerc.cpp#L293
+             */
 
-            if (projection.HasTransform())
+            // Datum Transformation（大地基準轉換）
+            if (projection.HasTransform)
             {
-                (double, double, double) gcc = DatumUtils.GeodeticToGeocentric((lon, lat), _ellipWGS84);
-                gcc = DatumUtils.GeocentricFromWGS84(gcc, projection.transform);
-                (lon, lat) = DatumUtils.GeocentricToGeodetic(gcc, projection.ellipsoid);
+                EllipsoidDefinition wgs84Ellipsoid = new(6378137, 298.257223563, true);
+                wgs84 = DatumUtils.Burst.ConvertToGeocentric(wgs84, wgs84Ellipsoid);
+                wgs84 = projection.transform.ConvertFromWGS84(wgs84);
+                wgs84 = DatumUtils.Burst.ConvertFromGeocentric(wgs84, projection.ellipsoid);
             }
 
-            // Intermediate Values（中繼值）
-            double dLon = DatumUtils.ClampLongitude(lon - lon0);
-            double cphi = Math.Cos(lat);
-            double sphi = Math.Sin(lat);
-            double al = cphi * dLon;
-            double als = al * al;
-            double c = ep * cphi * cphi;
-            double cs = c * c;
-            double tphi = Math.Abs(cphi) > 1E-10 ? Math.Tan(lat) : 0;
-            double t = tphi * tphi;
-            double ts = t * t;
-            al /= Math.Sqrt(1 - es * sphi * sphi);
-            double ml = DatumUtils.MeridionalDistance(lat, es);
-            double ml0 = DatumUtils.MeridionalDistance(lat0, es);
+            // Initial values（初始值）
+            double lat = math.radians(wgs84.y);
+            double lon = math.radians(wgs84.x);
+            double lon0 = math.radians(projection.origin.x);
 
-            // TM Coordinates （TM 坐標）
-            double x = a * (sf * al * (1 +
-                       als / 6 * (1 - t + c +
-                       als / 20 * (5 - 18 * t + ts + 14 * c - 58 * t * c +
-                       als / 42 * (61 + 179 * ts - ts * t - 479 * t))))) + projection.shift.easting;
+            // Intermediate values（中繼值）
+            double Ce = lon - lon0;
+            double Cn = DatumUtils.Burst.ConvertAuxiliaryLatitude(lat, projection.ellipsoid.coefficientsGC);
+            double sinCe = math.sin(Ce);
+            double cosCe = math.cos(Ce);
+            double sinCn = math.sin(Cn);
+            double cosCn = math.cos(Cn);
+            double cosCecosCn = cosCe * cosCn;
+            Cn = math.atan2(sinCn, cosCecosCn);
 
-            double y = a * (sf * (ml - ml0 +
-                       sphi * dLon * al / 2 * (1 +
-                       als / 12 * (5 - t + 9 * c + 4 * cs +
-                       als / 30 * (61 + ts - 58 * t + 270 * c - 330 * t * c +
-                       als / 56 * (1385 + 543 * ts - ts * t - 3111 * t)))))) + projection.shift.northing;
+            double invDenomTanCe = 1.0 / MathUtils.Hypot(sinCn, cosCecosCn);
+            double twoInvDenomTanCe2 = 2 * invDenomTanCe * invDenomTanCe;
+            double tanCe = sinCe * cosCn * invDenomTanCe;
+            Ce = MathUtils.Asinh(tanCe);
 
-            return (x, y);
+            double tmp = cosCecosCn * twoInvDenomTanCe2;
+            double sinArgR = sinCn * tmp;
+            double cosArgR = cosCecosCn * tmp - 1;
+            double sinhArgI = 2 * tanCe * invDenomTanCe;
+            double coshArgI = twoInvDenomTanCe2 - 1;
+            double r = DatumUtils.Burst.ClenshawSum(sinArgR, cosArgR, sinhArgI, coshArgI, projection.ellipsoid.coefficientsCR, out double i);
+            Ce += i;
+            Cn += r;
+
+            if (math.abs(Ce) <= 2.623395162778)
+            {
+                double x = projection.meridianQuadrant * Ce * projection.ellipsoid.a + projection.shift.x;
+                double y = (projection.meridianQuadrant * Cn + projection.radiusVector) * projection.ellipsoid.a + projection.shift.y;
+                return new(x, y, wgs84.z, CRS.TransverseMercator);
+            }
+            else
+            {
+                return new(double.MaxValue, double.MaxValue, wgs84.z, CRS.TransverseMercator);
+            }
         }
 
         /// <summary>
@@ -295,20 +266,21 @@ namespace Carto.Geodata
         /// </summary>
         /// <param name="wgs84">The WGS84 coordinate.（WGS84 坐標。）</param>
         /// <returns>The UTM coordinate.（UTM 坐標。）</returns>
-        public static (double easting, double northing, int zone, Hemisphere hemisphere) WGS84ToUTM((double longitude, double latitude) wgs84)
+        public static Coord WGS84ToUTM(Coord wgs84)
         {
             // Constants（常數）
-            double a = _ellipWGS84.a;
-            double e = _ellipWGS84.eSquare;
-            double fE = _projUTMNorth.shift.easting;
-            double fN = (wgs84.latitude >= 0) ? _projUTMNorth.shift.northing : _projUTMSouth.shift.northing;
-            Hemisphere hemisphere = (wgs84.latitude >= 0) ? Hemisphere.North : Hemisphere.South;
-            double sf = _projUTMNorth.scaleFactor;
+            EllipsoidDefinition wgs84Ellipsoid = new(6378137, 298.257223563, true);
+            double a = wgs84Ellipsoid.a;
+            double e = wgs84Ellipsoid.E1Square;
+            double fE = 5E5;
+            double fN = (wgs84.y >= 0) ? 0 : 1E7;
+            Hemisphere hemisphere = (wgs84.y >= 0) ? Hemisphere.North : Hemisphere.South;
+            double sf = 0.9996;
 
             // Intermediate Values（中繼值）
-            double LATr = wgs84.latitude / 180 * Math.PI;
-            double LONr = wgs84.longitude / 180 * Math.PI;
-            double ZONE = Math.Truncate((wgs84.longitude + 180) / 6) + 1;
+            double LATr = wgs84.y / 180 * Math.PI;
+            double LONr = wgs84.x / 180 * Math.PI;
+            double ZONE = Math.Truncate((wgs84.x + 180) / 6) + 1;
             double CLON = (ZONE - 1) * 6 + 3 - 180;
             double CLONr = CLON / 180 * Math.PI;
             double ePrime = e / (1 - e);
@@ -325,7 +297,7 @@ namespace Carto.Geodata
                                                        + (5 - T + 9 * C + 4 * C * C) * A * A * A * A / 24
                                                        + (61 - 58 * T + T * T + 600 * C - 330 * ePrime) * A * A * A * A * A * A / 720)) + fN;
 
-            return (X, Y, (int)ZONE, hemisphere);
+            return new(X, Y, wgs84.z, hemisphere, (int)ZONE);
         }
     }
 }

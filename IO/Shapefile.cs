@@ -899,13 +899,13 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="value">The value waiting to be written.（等待被寫入的數值。）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        private static void WritePointBE(BinaryWriter writer, float3 value, bool writeElevation)
+        private static void WritePointBE(BinaryWriter writer, double3 value, bool writeElevation)
         {
-            writer.Write(IOUtils.GetFlippedBytes((double)value.x));
-            writer.Write(IOUtils.GetFlippedBytes((double)value.y));
+            writer.Write(IOUtils.GetFlippedBytes(value.x));
+            writer.Write(IOUtils.GetFlippedBytes(value.y));
             if (writeElevation)
             {
-                writer.Write(IOUtils.GetFlippedBytes((double)value.z));
+                writer.Write(IOUtils.GetFlippedBytes(value.z));
                 IOUtils.SkipBytes(writer, 8);
             }
         }
@@ -917,13 +917,13 @@ namespace Carto.IO
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="value">The value waiting to be written.（等待被寫入的數值。）</param>
         /// <param name="writeElevation">Whether to write the elevation or not.（是否要寫出高程？）</param>
-        private static void WritePointLE(BinaryWriter writer, float3 value, bool writeElevation)
+        private static void WritePointLE(BinaryWriter writer, double3 value, bool writeElevation)
         {
-            writer.Write(BitConverter.GetBytes((double)value.x));
-            writer.Write(BitConverter.GetBytes((double)value.y));
+            writer.Write(BitConverter.GetBytes(value.x));
+            writer.Write(BitConverter.GetBytes(value.y));
             if (writeElevation)
             {
-                writer.Write(BitConverter.GetBytes((double)value.z));
+                writer.Write(BitConverter.GetBytes(value.z));
                 IOUtils.SkipBytes(writer, 8);
             }
         }
@@ -952,7 +952,7 @@ namespace Carto.IO
                     writer.Write(ellipsoid.rf.ToString(format, invariant));
                     writer.Write("],TOWGS84[");
                     
-                    switch (projection.transform.Length)
+                    switch (projection.transform.paramCount)
                     {
                         case 3:
                             for (int i = 0; i < 3; i++)
@@ -979,30 +979,30 @@ namespace Carto.IO
                     writer.Write($"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"{Epsg.Meridian.Greenwich}\"]],UNIT[\"Degree\",0.0174532925199433,");
                     writer.Write($"AUTHORITY[\"EPSG\",\"{Epsg.Uom.Degree}\"]],AUTHORITY[\"EPSG\",\"{Epsg.UserDefined}\"]],");
                     writer.Write("PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"Latitude_Of_Origin\",");
-                    writer.Write(projection.origin.latitude.ToString(format, invariant));
+                    writer.Write(projection.origin.y.ToString(format, invariant));
                     writer.Write("],PARAMETER[\"Central_Meridian\",");
-                    writer.Write(projection.origin.longitude.ToString(format, invariant));
+                    writer.Write(projection.origin.x.ToString(format, invariant));
                     writer.Write("],PARAMETER[\"Scale_Factor\",");
                     writer.Write(projection.scaleFactor.ToString(format, invariant));
                     writer.Write("],PARAMETER[\"False_Easting\",");
-                    writer.Write(projection.shift.easting.ToString(format, invariant));
+                    writer.Write(projection.shift.x.ToString(format, invariant));
                     writer.Write("],PARAMETER[\"False_Northing\",");
-                    writer.Write(projection.shift.northing.ToString(format, invariant));
+                    writer.Write(projection.shift.y.ToString(format, invariant));
                     writer.Write($"],UNIT[\"Metre\",1.0,AUTHORITY[\"EPSG\",\"{Epsg.Uom.Metre}\"]],");
                     writer.Write($"AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"{Epsg.UserDefined}\"]]");
                     break;
 
                 case Geodata.CRS.UTM:
                     writer.Write("PROJCS[\"WGS_1984_UTM_Zone_");
-                    writer.Write(center.zone);
-                    writer.Write(center.hemisphere == Hemisphere.North ? "N" : "S");
+                    writer.Write(center.UTMZone);
+                    writer.Write(center.Hemisphere == Hemisphere.North ? "N" : "S");
                     writer.Write("\",GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",");
                     writer.Write("SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],");
                     writer.Write("UNIT[\"Degree\",0.0174532925199433]],PROJECTION[\"Transverse_Mercator\"],");
                     writer.Write("PARAMETER[\"False_Easting\",500000.0],PARAMETER[\"False_Northing\",");
-                    writer.Write(center.hemisphere == Hemisphere.North ? "0" : "10000000");
+                    writer.Write(center.Hemisphere == Hemisphere.North ? "0" : "10000000");
                     writer.Write(".0],PARAMETER[\"Central_Meridian\",");
-                    writer.Write((center.zone - 1) * 6 + 3 - 180);
+                    writer.Write((center.UTMZone - 1) * 6 + 3 - 180);
                     writer.Write(".0],PARAMETER[\"Scale_Factor\",0.9996],");
                     writer.Write("PARAMETER[\"Latitude_Of_Origin\",0.0],UNIT[\"Meter\",1.0]]");
                     break;
