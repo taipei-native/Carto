@@ -272,7 +272,10 @@ namespace Carto.IO
                         case FileFormat.Shapefile:
                             if (useZoning)
                             {
-
+                                if (zoningHasBoundary)
+                                {
+                                    Shapefile.Write<ZoningCell>(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundarySHP, Instance.Zoning.WriteBoundaryDBF, OnReport);
+                                }
                             }
                             if (useBuilding)
                             {
@@ -282,7 +285,7 @@ namespace Carto.IO
                             {
                                 if (areaHasBoundary)
                                 {
-                                    Shapefile.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, Instance.Area.WriteBoundaryDBF, OnReport);
+                                    Shapefile.Write<Entity>(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, Instance.Area.WriteBoundaryDBF, OnReport);
                                 }
                             }
                             break;

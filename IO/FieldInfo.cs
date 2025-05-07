@@ -2,6 +2,10 @@ using System;
 
 namespace Carto.IO
 {
+    /// <summary>
+    /// The length and type information of a field from a DBF file.
+    /// （DBF 檔案欄位的長度與型別資訊。）
+    /// </summary>
     public struct FieldInfo : IEquatable<FieldInfo>
     {
         /// <summary>

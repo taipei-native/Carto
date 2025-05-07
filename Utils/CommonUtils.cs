@@ -15,18 +15,18 @@ namespace Carto.Utils
     public static class CommonUtils
     {
         /// <summary>
-        /// Copy a <see cref="NativeList{T}"/> to an array.
-        /// （將一個 <see cref="NativeList{T}"/> 複製為陣列。）
+        /// Copy a <see cref="NativeList{T}"/> to a managed list.
+        /// （將一個 <see cref="NativeList{T}"/> 複製為列表。）
         /// </summary>
         /// <typeparam name="T">The type of list's items.（列表內物件的型別。）</typeparam>
         /// <param name="list">The input list.（輸入的列表。）</param>
-        /// <returns>The copied array.（複製的陣列。）</returns>
-        public static T[] Copy<T>(ref NativeList<T> list) where T : unmanaged
+        /// <returns>The copied list.（複製的列表。）</returns>
+        public static List<T> Copy<T>(ref NativeList<T> list) where T : unmanaged
         {
-            T[] array = new T[list.Length];
+            List<T> array = new();
             for (int i = 0; i < list.Length; i++)
             {
-                array[i] = list[i];
+                array.Add(list[i]);
             }
             return array;
         }

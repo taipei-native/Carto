@@ -3,6 +3,7 @@ using Carto.Geodata;
 using Carto.Utils;
 using Colossal.Mathematics;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -141,23 +142,25 @@ namespace Carto.IO
         /// The delegate of the WriteDBF() methods implemented in each system.
         /// （在各個系統實作的 WriteDBF() 方法的委派。）
         /// </summary>
+        /// <typeparam name="T">The type of the sync targets.（同步對象的型別。）</typeparam>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
-        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
+        /// <param name="syncList">The reference of synchronization.（同步的參考。）</param>
         /// <param name="fieldMap">The map between the property and the field lengths.（屬性與欄位長度的映射表。）</param>
-        public delegate void WriteDBFMethod(BinaryWriter writer, Options options, HashSet<Property> validatedFields, List<Entity> entitySyncList, out Dictionary<Property, FieldInfo> fieldMap);
+        public delegate void WriteDBFMethod<T>(BinaryWriter writer, Options options, HashSet<Property> validatedFields, List<T> syncList, out Dictionary<Property, FieldInfo> fieldMap);
 
         /// <summary>
         /// The delegate of the WriteSHP() methods implemented in each system.
         /// （在各個系統實作的 WriteSHP() 方法的委派。）
         /// </summary>
+        /// <typeparam name="T">The type of the sync targets.（同步對象的型別。）</typeparam>
         /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
         /// <param name="bounds">The bounding box.（定界框。）</param>
-        /// /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
-        public delegate void WriteSHPMethod(BinaryWriter writer, Options options, out List<IndexPair> indexPairs, out Bounds3 bounds, out List<Entity> entitySyncList);
+        /// <param name="syncList">The reference of synchronization.（同步的參考。）</param>
+        public delegate void WriteSHPMethod<T>(BinaryWriter writer, Options options, out List<IndexPair> indexPairs, out Bounds3 bounds, out List<T> syncList);
 
         /// <summary>
         /// Combine the <see cref="FieldInfo"/> created by jobs and those created manually into a single dictionary.<br/>
@@ -406,13 +409,14 @@ namespace Carto.IO
         /// Write the ESRI Shapefile.
         /// （寫出 ESRI Shapefile。）
         /// </summary>
+        /// <typeparam name="T">The type of the sync targets.（同步對象的型別。）</typeparam>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="systemName">The exporting system's name.（輸出系統的名稱。）</param>
         /// <param name="vectorKind">The classification of exported vector objects.（對輸出向量物體的分類。）</param>
         /// <param name="writeSHPMethod">The WriteSHP() method implemented in each system.（各系統實作的 WriteSHP() 方法。）</param>
         /// <param name="writeDBFMethod">The WriteDBF() method implemented in each system.（各系統實作的 WriteDBF() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public static void Write(Options options, System systemName, VectorKind vectorKind, WriteSHPMethod writeSHPMethod, WriteDBFMethod writeDBFMethod, Action<string, int> onReportMethod)
+        public static void Write<T>(Options options, System systemName, VectorKind vectorKind, WriteSHPMethod<T> writeSHPMethod, WriteDBFMethod<T> writeDBFMethod, Action<string, int> onReportMethod)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (options == null) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
@@ -423,7 +427,7 @@ namespace Carto.IO
             string shxPath = Path.ChangeExtension(filePath, "shx");
             Bounds3 bounds;
             int shape = GetShapeType(vectorKind, options.Elevation);
-            List<Entity> syncList;
+            List<T> syncList;
             List<IndexPair> indexPairs;
 
             // The shapefile is a format composed by at least three sidecar files - which means multiple files have to be generated.

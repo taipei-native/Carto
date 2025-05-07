@@ -271,13 +271,13 @@ namespace Carto
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,
                 StatisticsMapTile = true,
-                Systems = IO.System.Zoning,
+                Systems = IO.System.Area | IO.System.Zoning,
                 TargetEllipsoid = ellipsoid,
                 TargetProjection = targetCRS,
                 TargetProjectionDefinition = projectionDefinition,
                 Taxable = false,
                 Unzoned = false,
-                VectorFormat = IO.FileFormat.GeoJSON,
+                VectorFormat = IO.FileFormat.Shapefile,
                 VectorKinds = new Dictionary<IO.System, IO.VectorKind>
                 {
                     { IO.System.Area, IO.VectorKind.Boundary },

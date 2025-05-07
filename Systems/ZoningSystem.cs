@@ -2,6 +2,7 @@ using Carto.Domain;
 using Carto.Geodata;
 using Carto.IO;
 using Colossal.Logging;
+using Colossal.Mathematics;
 using Game;
 using Game.Common;
 using Game.Tools;
@@ -9,6 +10,7 @@ using Game.Zones;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
@@ -130,6 +132,140 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Write boundary attributes to the designated file.
+        /// （寫出邊界屬性至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="cellSyncList">The list of zoning cells, which is the reference of synchronization.（分區單元的列表，作為同步的參考。）</param>
+        /// <param name="fieldMap">The map between the property and the fields.（屬性與欄位的映射表。）</param>
+        public void WriteBoundaryDBF(BinaryWriter writer, Options options, HashSet<Property> validatedFields, List<ZoningCell> cellSyncList, out Dictionary<Property, FieldInfo> fieldMap)
+        {
+            bool hasName = options.Contains(Property.Name, IO.System.Zoning) && validatedFields.Contains(Property.Name);
+            bool hasColor = options.Contains(Property.Color, IO.System.Zoning) && validatedFields.Contains(Property.Color);
+            bool hasDensity = options.Contains(Property.Density, IO.System.Zoning) && validatedFields.Contains(Property.Density);
+            bool hasObject = options.Contains(Property.Object, IO.System.Zoning) && validatedFields.Contains(Property.Object);
+            bool hasTheme = options.Contains(Property.Theme, IO.System.Zoning) && validatedFields.Contains(Property.Theme);
+            bool hasZoning = options.Contains(Property.Zoning, IO.System.Zoning) && validatedFields.Contains(Property.Zoning);
+
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeList<ZoningType> zoningTypes = ref _shared.ZoningTypes;
+            ref NativeList<NativeText> zoningTypesNames = ref _shared.ZoningTypesNames;
+
+            // Validate native containers integrity.（驗證原生容器的完整性。）
+            Utils.CommonUtils.ValidateIntegrity(ref zoningTypes);
+            Utils.CommonUtils.ValidateIntegrity(ref zoningTypesNames);
+
+            // Initialize managed containers.（初始化控管容器。）
+            List<Theme> themes = _shared.Themes;
+            List<ZoningType> zoningTypesManaged = Utils.CommonUtils.Copy(ref zoningTypes);
+            string[] zoningTypesNamesManaged = Utils.CommonUtils.Copy(ref zoningTypesNames);
+            Dictionary<Property, FieldInfo> _fieldMap = new();
+
+            // Initiate static field info.（初始化靜態欄位資訊。）
+            FieldInfo colorField = new("#ZZZZZZ");
+            FieldInfo objectField = new("Zoning");
+
+            try
+            {
+                // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
+                if (hasName)
+                {
+                    FieldInfo nameField = new(0, 0, false, FieldType.String);
+
+                    for (int i = 0; i < zoningTypesNamesManaged.Length; i++)
+                    {
+                        nameField += new FieldInfo(zoningTypesNamesManaged[i]);
+                    }
+
+                    _fieldMap.Add(Property.Name, nameField);
+                }
+
+                if (hasColor)
+                {
+                    _fieldMap.Add(Property.Color, colorField);
+                }
+
+                if (hasObject)
+                {
+                    _fieldMap.Add(Property.Object, objectField);
+                }
+
+                if (hasDensity || hasTheme || hasZoning)
+                {
+                    FieldInfo densityField = new(0, 0, false, FieldType.String);
+                    FieldInfo themeField = new(0, 0, false, FieldType.String);
+                    FieldInfo zoningField = new(0, 0, false, FieldType.String);
+
+                    for (int i = 0; i < cellSyncList.Count; i++)
+                    {
+                        ZoningType zoningType = zoningTypesManaged[cellSyncList[i].zoningTypeIndex];
+                        densityField += new FieldInfo(zoningType.density.ToString("G"));
+                        themeField += new FieldInfo(themes[zoningType.theme].name);
+
+                        ZoningCategory category = options.Display[(Property.Zoning, IO.System.Unknown)] ? zoningType.category : Utils.CommonUtils.GetFirstMatch(zoningType.category, IO.IO.ZoningDisplayOrder);
+                        zoningField += new FieldInfo(category.ToString("G"));
+                    }
+
+                    _fieldMap.Add(Property.Density, densityField);
+                    _fieldMap.Add(Property.Theme, themeField);
+                    _fieldMap.Add(Property.Zoning, zoningField);
+                }
+
+                // Initialize the writer thread.（初始化負責寫出的執行緒。）
+                Task writerThread = Task.Run(() =>
+                {
+                    for (int i = 0; i < cellSyncList.Count; i++)
+                    {
+                        ZoningCell cell = cellSyncList[i];
+                        int typeIndex = cell.zoningTypeIndex;
+                        if ((typeIndex < 0) || (typeIndex >= zoningTypesManaged.Count)) continue;
+
+                        ZoningType zoningType = zoningTypesManaged[typeIndex];
+                        writer.Write((byte)32);
+
+                        if (hasName && _fieldMap.TryGetValue(Property.Name, out FieldInfo nameField))
+                        {
+                            Shapefile.WriteRecord(writer, nameField, zoningTypesNamesManaged[typeIndex]);
+                        }
+                        if (hasColor)
+                        {
+                            Shapefile.WriteRecord(writer, colorField, $"#{UnityEngine.ColorUtility.ToHtmlStringRGB(zoningType.color)}");
+                        }
+                        if (hasDensity && _fieldMap.TryGetValue(Property.Density, out FieldInfo densityField))
+                        {
+                            Shapefile.WriteRecord(writer, densityField, zoningType.density.ToString("G"));
+                        }
+                        if (hasObject)
+                        {
+                            Shapefile.WriteRecord(writer, objectField, Feature.Zoning.ToString("G"));
+                        }
+                        if (hasTheme && _fieldMap.TryGetValue(Property.Theme, out FieldInfo themeField))
+                        {
+                            Shapefile.WriteRecord(writer, themeField, themes[zoningType.theme].name);
+                        }
+                        if (hasZoning && _fieldMap.TryGetValue(Property.Zoning, out FieldInfo zoningField))
+                        {
+                            ZoningCategory category = options.Display[(Property.Zoning, IO.System.Unknown)] ? zoningType.category : Utils.CommonUtils.GetFirstMatch(zoningType.category, IO.IO.ZoningDisplayOrder);
+                            Shapefile.WriteRecord(writer, zoningField, category.ToString("G"));
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                fieldMap = _fieldMap;
+                Instance.Shared.Dispose(DisposePhase.AfterZoningSystem);
+            }
+        }
+
+        /// <summary>
         /// Write boundary features (geometries and properties) to the designated file.
         /// （寫出邊界圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
@@ -161,7 +297,7 @@ namespace Carto.Systems
 
             // Initialize managed containers.（初始化控管容器。）
             List<Theme> themes = _shared.Themes;
-            ZoningType[] zoningTypesManaged = Utils.CommonUtils.Copy(ref zoningTypes);
+            List<ZoningType> zoningTypesManaged = Utils.CommonUtils.Copy(ref zoningTypes);
             string[] zoningTypesNamesManaged = Utils.CommonUtils.Copy(ref zoningTypesNames);
 
             try
@@ -188,7 +324,7 @@ namespace Carto.Systems
                     {
                         ZoningCell cell = zoningCells[i];
                         int typeIndex = cell.zoningTypeIndex;
-                        if ((typeIndex < 0) || (typeIndex >= zoningTypesManaged.Length)) continue;
+                        if ((typeIndex < 0) || (typeIndex >= zoningTypesManaged.Count)) continue;
 
                         // Write feature header.（寫出圖徵檔頭。）
                         writer.WriteStartObject();
@@ -248,6 +384,99 @@ namespace Carto.Systems
             {
                 Utils.CommonUtils.Dispose(ref zoningCells);
                 Instance.Shared.Dispose(DisposePhase.AfterZoningSystem);
+            }
+        }
+
+        /// <summary>
+        /// Write boundary geometries to the designated file.
+        /// （寫出邊界幾何至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
+        /// <param name="bounds">The bounding box.（定界框。）</param>
+        /// <param name="cellSyncList">The list of zoning cells, which is the reference of synchronization.（分區單元的列表，作為同步的參考。）</param>
+        public void WriteBoundarySHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds, out List<ZoningCell> cellSyncList)
+        {
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeList<ZoningType> zoningTypes = ref _shared.ZoningTypes;
+            ref NativeParallelHashMap<ushort, int> zoningTypesIdMap = ref _shared.ZoningTypesIdMap;
+
+            // Validate native containers integrity.（驗證原生容器的完整性。）
+            Utils.CommonUtils.ValidateIntegrity(ref zoningTypes);
+            Utils.CommonUtils.ValidateIntegrity(ref zoningTypesIdMap);
+
+            // Initialize native containers.（初始化原生容器。）
+            int zoningCellsMaxCount = GetZonableCellsCount();
+            NativeList<ZoningCell> zoningCells = new(zoningCellsMaxCount, Allocator.Persistent);
+
+            // Initialize out parameters.（初始化回傳參數。）
+            Bounds3 _bounds = new();
+            _bounds.Reset();
+            List<ZoningCell> _cellSyncList = new();
+            List<Shapefile.IndexPair> _indexPairs = new();
+
+            try
+            {
+                CollectZoningCellsJob collectJob = new()
+                {
+                    useUnzoned = options.Unzoned,
+                    center = options.GetTMCoord(),
+                    sourceCRS = options.GetTMProjection(),
+                    targetCRS = options.TargetProjection,
+                    sourceProjection = options.GetTMProjectionDefinition(),
+                    targetProjection = options.TargetProjectionDefinition,
+                    zoningTypes = zoningTypes,
+                    zoningTypesIdMap = zoningTypesIdMap,
+                    zoningCells = zoningCells.AsParallelWriter()
+                };
+                JobHandle collectHandle = collectJob.ScheduleParallel(_zoningBlockQuery, default);
+                collectHandle.Complete();
+
+                _log.Info(zoningCells.Length);
+
+                // Copy cell data to managed list.（複製單元資料至受控管的陣列。）
+                _cellSyncList = Utils.CommonUtils.Copy(ref zoningCells);
+
+                Task writerThread = Task.Run(() =>
+                {
+                    int shapeId = Shapefile.GetShapeType(VectorKind.Boundary, options.Elevation);
+
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        for (int i = 0; i < _cellSyncList.Count; i++)
+                        {
+                            ZoningCell cell = _cellSyncList[i];
+                            double3[] cellNodes = new double3[4] { cell.a, cell.b, cell.c, cell.d };
+                            Shapefile.WriteGeometryLE(writer, i + 1, shapeId, new(new double3[1][] { cellNodes }), out Shapefile.IndexPair indexPair, out Bounds3 bounds);
+                            _bounds |= bounds;
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < _cellSyncList.Count; i++)
+                        {
+                            ZoningCell cell = _cellSyncList[i];
+                            double3[] cellNodes = new double3[4] { cell.a, cell.b, cell.c, cell.d };
+                            Shapefile.WriteGeometryBE(writer, i + 1, shapeId, new(new double3[1][] { cellNodes }), out Shapefile.IndexPair indexPair, out Bounds3 bounds);
+                            _bounds |= bounds;
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref zoningCells);
+                indexPairs = _indexPairs;
+                bounds = _bounds;
+                cellSyncList = _cellSyncList;
             }
         }
 

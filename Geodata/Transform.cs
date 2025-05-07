@@ -19,6 +19,9 @@ namespace Carto.Geodata
             * Manchuk, J. G., & Deutsch, C. V. (2009). Conversion of Latitude and Longitude to UTM Coordinates. Centre for Computational Geostatistics Report 11, 410.
               University of Alberta, Canada.
                 https://www.ccgalberta.com/ccgresources/report11/2009-410_converting_latlon_to_utm.pdf
+
+            * PROJ contributors (2025). PROJ coordinate transformation software library. Open Source Geospatial Foundation.
+                https://proj.org/. doi: 10.5281/zenodo.5884394
             
             * Snyder J.P. (1987). Map projections – a working manual. U.S. Geological Survey Professional Paper 1395, 385 pages
                 https://pubs.usgs.gov/pp/1395/report.pdf
