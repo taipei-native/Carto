@@ -241,7 +241,8 @@ namespace Carto
 
             // TODO: Implement the function to stop error user input
 
-            return new() {
+            return new()
+            {
                 AssetPack = true,
                 Created = DateTime.Now,
                 Display = new Dictionary<(IO.Property, IO.System), bool>
@@ -282,7 +283,8 @@ namespace Carto
                 {
                     { IO.System.Area, IO.VectorKind.Boundary },
                     { IO.System.Zoning, IO.VectorKind.Boundary }
-                }
+                },
+                ZccColor = true
             };
         }
     }

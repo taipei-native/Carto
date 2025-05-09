@@ -14,6 +14,7 @@ using Game.Simulation;
 using Game.Tools;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -40,6 +41,12 @@ namespace Carto.Systems
         /// See <see cref="Instance.Terrain"/> for more information.
         /// </summary>
         static readonly TerrainSystem _terrain = Instance.Terrain;
+
+        /// <summary>
+        /// The assembly of Zone Color Changer mod.（Zone Color Changer 模組組件。）<br/>
+        /// See <see cref="Instance.Zcc"/> for more information.
+        /// </summary>
+        static readonly ZoneColorChanger _zcc = Instance.Zcc;
 
         /// <summary>
         /// The query to collect all asset pack prefabs.
@@ -341,6 +348,7 @@ namespace Carto.Systems
         /// </summary>
         public void Dispose()
         {
+            _zcc.Dispose();
             Utils.CommonUtils.Dispose(ref _brandsEntityMap);
             Utils.CommonUtils.Dispose(ref _buildingStats);
             Utils.CommonUtils.Dispose(ref _worldElevation);
@@ -711,6 +719,9 @@ namespace Carto.Systems
             int zoningTypeCount = _zoningPrefabQuery.CalculateEntityCount();
             NativeParallelHashSet<Entity> zoningTypePool = new(zoningTypeCount, Allocator.TempJob);
 
+            // Initialize managed containers.（初始化控管容器。）
+            Dictionary<string, UnityEngine.Color> vanillaColorMap = new();
+
             // Reset output containers.（重置輸出容器。）
             Utils.CommonUtils.Reset(ref entityMap, zoningTypeCount);
             Utils.CommonUtils.Reset(ref idMap, zoningTypeCount);
@@ -746,6 +757,21 @@ namespace Carto.Systems
                 // Prepare themes / asset packs information.（準備建築風格／資產包資訊。）
                 GetThemes(options);
 
+                // Prepare the vanilla zone color map if the Zone Color Changer mod presents.（若 Zone Color Changer 模組出現，則準備原版分區顏色映射表。）
+                bool vanillaColorAccessible = false;
+                bool groupThemes = false;
+                if (!options.ZccColor && _zcc.TryGet())
+                {
+                    if (_zcc.TryGetColorMap(out vanillaColorMap, out groupThemes))
+                    {
+                        vanillaColorAccessible = true;
+                    }
+                    else
+                    {
+                        _log.Warn($"Couldn't access the vanilla zone colors from {_zcc}. The latest verified version is {_zcc.VerifiedVersion}. 無法由 {_zcc} 存取原版分區色彩。最新的已驗證版本為 {_zcc.VerifiedVersion}。");
+                    }
+                }
+
                 // Add the data that can only be retrieved in the main thread.（添加只能在主執行緒取得的資料。）
                 for (int index = 0; index < zoningTypeCount; index++)
                 {
@@ -759,7 +785,16 @@ namespace Carto.Systems
                         continue;
                     }
 
-                    zoningType.color = zonePrefabData.m_Color;
+                    string zoningTypeName = Instance.Prefab.GetPrefabName(zoningType.entity);
+                    string zccName = groupThemes ? Regex.Replace(zoningTypeName, "^[A-Z]{2,3} ", string.Empty) : zoningTypeName;
+                    if (vanillaColorAccessible && vanillaColorMap.TryGetValue(zccName, out UnityEngine.Color zoningVanillaColor))
+                    {
+                        zoningType.color = zoningVanillaColor;
+                    }
+                    else
+                    {
+                        zoningType.color = zonePrefabData.m_Color;
+                    }
 
                     if (zonePrefabData.Has<AssetPackItem>())
                     {
@@ -779,7 +814,7 @@ namespace Carto.Systems
 
                     entityMap.TryAdd(zoningType.entity, index);
                     idMap.TryAdd(zoningType.id, index);
-                    names.Add(new NativeText(Instance.Prefab.GetPrefabName(zoningType.entity), Allocator.Persistent));
+                    names.Add(new NativeText(Utils.LocaleUtils.Translate($"Assets.NAME[{zoningTypeName}]"), Allocator.Persistent));
                 }
             }
             catch (Exception ex)

@@ -159,13 +159,13 @@ namespace Carto.IO
 
         /// <summary>
         /// Whether to export taxable income. If false, the gross income are exported.<br/>
-        /// （是否要輸出應納稅所得。若為否，則輸出總所得。）
+        /// （是否要輸出應納稅所得？若為否，則輸出總所得。）
         /// </summary>
         public bool Taxable { get; set; } = false;
 
         /// <summary>
         /// Whether to export unzoned zoning cells.
-        /// （是否要輸出未分區的單元。）
+        /// （是否要輸出未分區的單元？）
         /// </summary>
         public bool Unzoned { get; set; } = false;
 
@@ -180,6 +180,12 @@ namespace Carto.IO
         /// （即將輸出的向量圖形。）
         /// </summary>
         public Dictionary<System, VectorKind> VectorKinds { get; set; }
+
+        /// <summary>
+        /// Whether to use the zone color from the Zone Color Changer mod.
+        /// （是否要使用 Zone Color Changer 模組的分區顏色？）
+        /// </summary>
+        public bool ZccColor { get; set; } = true;
 
         /// <summary>
         /// Check whether a property exist in any system.

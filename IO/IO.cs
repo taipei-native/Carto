@@ -228,6 +228,8 @@ namespace Carto.IO
                 bool useZoning = options.Systems.HasFlag(System.Zoning);
                 bool useVector = useArea || useBuilding || useNet || usePOI || useRoute || useZoning;
 
+                // TODO: Check file sharing violation.
+
                 if (useVector)
                 {
                     // Collect vector shared data.（收集向量共享資料。）

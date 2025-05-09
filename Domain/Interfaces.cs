@@ -1,7 +1,52 @@
+using System.Reflection;
 using Unity.Entities;
 
 namespace Carto.Domain
 {
+    /// <summary>
+    /// The interface for the accessor of external assemblies (mostly from other mods.)
+    /// （存取外部組件（主要來自其他模組）的介面。）
+    /// </summary>
+    public interface IAssembly
+    {        
+        /// <summary>
+        /// Whether accessing the assembly is posible or not.
+        /// （是否可以存取組件？）
+        /// </summary>
+        public bool Accessible { get; }
+        
+        /// <summary>
+        /// The external assembly object.
+        /// （外部組件物件。）
+        /// </summary>
+        public Assembly Assembly { get; }
+
+        /// <summary>
+        /// The assembly version that its compatibility has been verified.<br/>
+        /// （已驗證過無衝突的組件版本。）
+        /// </summary>
+        public string VerifiedVersion { get; }
+
+        /// <summary>
+        /// The version of the assembly.
+        /// （組件的版本。）
+        /// </summary>
+        public string Version { get; }
+
+        /// <summary>
+        /// Try to dispose the assembly object.
+        /// （嘗試丟棄組件物件。）
+        /// </summary>
+        public void Dispose();
+
+        /// <summary>
+        /// Try to retrieve the assembly.
+        /// （嘗試取得組件。）
+        /// </summary>
+        /// <param name="verbose">Whether to log messages.（是否要記錄訊息。）</param>
+        public bool TryGet(bool verbose = true);
+    }
+
     /// <summary>
     /// The interface for all struct with `Stat` prefix.
     /// （所有具 `Stat` 後綴結構的介面。）

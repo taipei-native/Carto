@@ -433,8 +433,6 @@ namespace Carto.Systems
                 JobHandle collectHandle = collectJob.ScheduleParallel(_zoningBlockQuery, default);
                 collectHandle.Complete();
 
-                _log.Info(zoningCells.Length);
-
                 // Copy cell data to managed list.（複製單元資料至受控管的陣列。）
                 _cellSyncList = Utils.CommonUtils.Copy(ref zoningCells);
 
@@ -541,9 +539,9 @@ namespace Carto.Systems
                         //            （分區單元與其他位於相同位置的單元重疊。）
                         if (IsZonableCell(cell))
                         {
-                            if (!zoningTypesIdMap.TryGetValue(cell.m_Zone.m_Index, out int zoningTypeIndex)) return;
-                            if ((zoningTypeIndex < 0) || (zoningTypeIndex >= zoningTypes.Length)) return;
-                            if (!useUnzoned && (zoningTypes[zoningTypeIndex].category == ZoningCategory.None)) return;
+                            if (!zoningTypesIdMap.TryGetValue(cell.m_Zone.m_Index, out int zoningTypeIndex)) continue;
+                            if ((zoningTypeIndex < 0) || (zoningTypeIndex >= zoningTypes.Length)) continue;
+                            if (!useUnzoned && (zoningTypes[zoningTypeIndex].category == ZoningCategory.None)) continue;
 
                             float3 point1 = cornerPoint + j * xUnitVector + i * yUnitVector;
                             float3 point2 = cornerPoint + j * xUnitVector + (i + 1) * yUnitVector;

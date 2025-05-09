@@ -1,8 +1,10 @@
+using Carto.Domain;
 using Carto.Systems;
 using Colossal.Localization;
 using Colossal.Logging;
 using Game;
 using Game.City;
+using Game.Modding;
 using Game.Prefabs;
 using Game.SceneFlow;
 using Game.Simulation;
@@ -36,6 +38,12 @@ namespace Carto
         /// （語系資料的管理者。）
         /// </summary>
         public static LocalizationManager Localization => GameManager.instance.localizationManager;
+
+        /// <summary>
+        /// The manager of the mod assemblies.
+        /// （模組組件的管理者。）
+        /// </summary>
+        public static ModManager Mod => GameManager.instance.modManager;
 
         /// <summary>
         /// The system querying map data.
@@ -115,6 +123,12 @@ namespace Carto
         /// （收集多種系統所需之共享資料的系統。）
         /// </summary>
         public static SharedDataCollectionSystem Shared => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SharedDataCollectionSystem>();
+
+        /// <summary>
+        /// The wrapper of the assembly of Zone Color Changer mod developed by TDW.<br/>
+        /// （由 TDW 開發的 Zone Color Changer 模組組件的包裝器。）
+        /// </summary>
+        public static ZoneColorChanger Zcc { get; } = new();
 
         /// <summary>
         /// The system that searches zoning blocks.
