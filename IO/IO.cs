@@ -78,14 +78,14 @@ namespace Carto.IO
         public static readonly Feature[] FeatureDisplayOrder = new Feature[]
         {
             // Group A: Area（A 組：區域）
-            Feature.District, Feature.MapTile, Feature.Extractor, Feature.Landfill, Feature.Surface,
+            Feature.District, Feature.MapTile,
 
             // Group B: Networks（B 組：網路）
             Feature.Runway, Feature.Taxiway, Feature.Road, Feature.Track, Feature.Pathway,
             Feature.Waterway, Feature.Cable, Feature.Pipe, Feature.Fence,
 
             // Group C: Buildings（C 組：建築）
-            Feature.Building,
+            Feature.Building, Feature.Extractor, Feature.Landfill,
 
             // Group D: Routes（D 組：路線）
             Feature.RoutePassenger, Feature.RouteCargo,
@@ -96,7 +96,10 @@ namespace Carto.IO
             // Group F: Zonings（F 組：分區）
             Feature.Zoning,
 
-            // Group G: Fallback value（G 組：後備值）
+            // Group G: Surfaces（G 組：表面）
+            Feature.Surface,
+
+            // Group H: Fallback value（H 組：後備值）
             Feature.None
         };
 
@@ -245,6 +248,7 @@ namespace Carto.IO
                     }
 
                     bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
+                    bool buildingHasBoundary = options.Has(System.Building, VectorKind.Boundary);
                     bool zoningHasBoundary = options.Has(System.Zoning, VectorKind.Boundary);
 
                     // Write vector data.（寫入向量資料。）
@@ -260,7 +264,10 @@ namespace Carto.IO
                             }
                             if (useBuilding)
                             {
-
+                                if (buildingHasBoundary)
+                                {
+                                    GeoJson.Write(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundaryFeatures, OnReport);
+                                }
                             }
                             if (useArea)
                             {

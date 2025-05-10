@@ -254,7 +254,7 @@ namespace Carto
                     { (IO.Property.Zoning, IO.System.Unknown), true }
                 },
                 Elevation = false,
-                Features = IO.Feature.District | IO.Feature.MapTile,
+                Features = IO.Feature.District | IO.Feature.MapTile | IO.Feature.Building | IO.Feature.Extractor | IO.Feature.Landfill,
                 FileName = "OPZ_{Feature}",
                 GeoTiffFormat = IO.GeoTiffFormat.Float32,
                 Homeless = true,
@@ -262,7 +262,7 @@ namespace Carto
                 Properties = new Dictionary<IO.System, HashSet<IO.Property>>
                 {
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
-                    //{ IO.System.Building, new() { IO.Property.Age, IO.Property.Brand, IO.Property.Theme, IO.Property.Zoning } }
+                    { IO.System.Building, new() { IO.Property.Age, IO.Property.Brand, IO.Property.Theme, IO.Property.Zoning } },
                     { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,
@@ -272,16 +272,17 @@ namespace Carto
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,
                 StatisticsMapTile = true,
-                Systems = IO.System.Area | IO.System.Zoning,
+                Systems = IO.System.Area | IO.System.Building,
                 TargetEllipsoid = ellipsoid,
                 TargetProjection = targetCRS,
                 TargetProjectionDefinition = projectionDefinition,
                 Taxable = false,
-                Unzoned = false,
-                VectorFormat = IO.FileFormat.Shapefile,
+                Unzoned = true,
+                VectorFormat = IO.FileFormat.GeoJSON,
                 VectorKinds = new Dictionary<IO.System, IO.VectorKind>
                 {
                     { IO.System.Area, IO.VectorKind.Boundary },
+                    { IO.System.Building, IO.VectorKind.Boundary },
                     { IO.System.Zoning, IO.VectorKind.Boundary }
                 },
                 ZccColor = true

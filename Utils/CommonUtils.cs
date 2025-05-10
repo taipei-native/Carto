@@ -15,6 +15,23 @@ namespace Carto.Utils
     public static class CommonUtils
     {
         /// <summary>
+        /// Add the elements from a <see cref="NativeList{T}"/> to a managed list.
+        /// （將一個 <see cref="NativeList{T}"/> 的元素加入至列表中。）
+        /// </summary>
+        /// <typeparam name="T">The type of list's items.（列表內物件的型別。）</typeparam>
+        /// <param name="destination">The managed list.（控管列表。）</param>
+        /// <param name="source">The unmanaged list.（未控管列表。）</param>
+        public static void AddTo<T>(List<T> destination, ref NativeList<T> source) where T : unmanaged
+        {
+            if (!source.IsCreated || source.Length == 0) return;
+            destination.Capacity += source.Length;
+            for (int i = 0; i < source.Length; i++)
+            {
+                destination.Add(source[i]);
+            }
+        }
+        
+        /// <summary>
         /// Copy a <see cref="NativeList{T}"/> to a managed list.
         /// （將一個 <see cref="NativeList{T}"/> 複製為列表。）
         /// </summary>
@@ -23,12 +40,9 @@ namespace Carto.Utils
         /// <returns>The copied list.（複製的列表。）</returns>
         public static List<T> Copy<T>(ref NativeList<T> list) where T : unmanaged
         {
-            List<T> array = new();
-            for (int i = 0; i < list.Length; i++)
-            {
-                array.Add(list[i]);
-            }
-            return array;
+            List<T> mList = new();
+            AddTo(mList, ref list);
+            return mList;
         }
 
         /// <summary>

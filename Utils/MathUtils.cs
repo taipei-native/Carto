@@ -1,5 +1,7 @@
+using Colossal.Mathematics;
 using System;
 using System.Globalization;
+using Unity.Mathematics;
 
 namespace Carto.Utils
 {
@@ -38,7 +40,29 @@ namespace Carto.Utils
         {
             return Math.Log((1 + x) / (1 - x)) / 2;
         }
-        
+
+        /// <summary>
+        /// Count the number of points required to interpolate a circle with the maximum difference distance under the threshold.
+        /// （計算內插一個圓所需的點數，其中內插結果與圓弧的最大距離不超過設定的閾值。）
+        /// </summary>
+        /// <param name="radius">The radius of the circle.（圓的半徑。）</param>
+        /// <param name="threshold">The maximum distance between interpolation result and the arc.（圓弧與內插結果間的最大距離。）</param>
+        /// <returns></returns>
+        public static int CountInterpolationPoints(float radius, float threshold = 0.2f)
+        {
+            /*
+                Given a circular arc with radius `r` and the maximum distance between the chord with same endpoints
+                as the arc `d`, the central angle `θ` is defined as 4 * arcsin(sqrt(d / 2r)). This could be found by
+                writing `d` as r * versin(θ/2), or 2r * sin^2(θ/4).
+                （給定一個半徑為`r`的圓弧 和 弧與共享端點的弦之間的最大距離`d`，其圓心角`θ`被定義為 4 * arcsin(sqrt(d / 2r))。
+                　這可以由`d`推導出來：r * versin(θ/2)，或是 2r * sin^2(θ/4)。）
+            */
+
+            float angle = 4 * math.asin(math.sqrt(threshold / 2 / radius));
+            int pointsCount = (int)math.ceil(2 * math.PI_DBL / angle);
+            return pointsCount > 6 ? pointsCount : 6;
+        }
+
         /// <summary>
         /// Retrieve the digit count of the number.
         /// （獲得數字的位數。）
@@ -198,6 +222,29 @@ namespace Carto.Utils
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Check whether the corner of <paramref name="quad"/> is in counterclockwise order.
+        /// （確認 <paramref name="quad"/> 的角落是否以逆時針順序排列。）
+        /// </summary>
+        /// <param name="quad">The input polygon.（輸入多邊形。）</param>
+        /// <returns>True if the order is counterclockwise.（若為真，則其順序為逆時針。）</returns>
+        public static bool IsCounterclockwise(Quad3 quad)
+        {
+            float3 a = quad.a;
+            float3 b = quad.b;
+            float3 c = quad.c;
+            float3 d = quad.d;
+
+            /*
+                Utilize the Shoelace formula to calculate the signed area of a simple polygon (a polygon that has no holes and doesn't intersect itself.)
+                If the area is positive, the link a -> b -> c -> d -> a is a clockwise ring; otherwise, the link is in counterclockwise order.
+                （使用測量員公式計算簡單多邊形（沒有洞，且不和自身相交的多邊形）帶正負號的面積。
+                  如果面積是正數，表示 a -> b -> c -> d -> a 的連結為順時針方向的環，反之則為逆時鐘順序。）
+             */
+            float area = (b.x - a.x) * (b.z + a.z) + (c.x - b.x) * (c.z + b.z) + (d.x - c.x) * (d.z + c.z) + (a.x - d.x) * (a.z + d.z);
+            return area < 0;
         }
     }
 }

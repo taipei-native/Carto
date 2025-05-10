@@ -101,6 +101,12 @@ namespace Carto
         public static Assembly Assembly => Assembly.GetExecutingAssembly();
 
         /// <summary>
+        /// The system that searches buildings.
+        /// （搜尋建築的系統。）
+        /// </summary>
+        public static BuildingSystem Building => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<BuildingSystem>();
+
+        /// <summary>
         /// The dedicated logger documenting the information, warnings, and errors.
         /// （記錄執行時資訊、警告或錯誤的記錄器。）
         /// </summary>

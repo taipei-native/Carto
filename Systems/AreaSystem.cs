@@ -380,10 +380,19 @@ namespace Carto.Systems
         public void WriteBoundaryFeatures(JsonTextWriter writer, Options options, Action<string, int> onReportMethod)
         {
             Feature featureFlag = options.Features;
-            if (!featureFlag.HasFlag(Feature.District)) _filters.Add(ComponentType.ReadOnly<District>());
-            if (!featureFlag.HasFlag(Feature.MapTile)) _filters.Add(ComponentType.ReadOnly<MapTile>());
-            _queryDesc.None = _filters.ToArray();
-            EntityQuery query = GetEntityQuery(_queryDesc);
+            bool useDistrict = featureFlag.HasFlag(Feature.District);
+            bool useMapTile = featureFlag.HasFlag(Feature.MapTile);
+
+            // Build feature queries.（建立圖徵查詢。）
+            List<ComponentType> filters = new(_filters);
+            EntityQueryDesc queryDesc = new()
+            {
+                All = _queryDesc.All
+            };
+            if (!useDistrict) filters.Add(ComponentType.ReadOnly<District>());
+            if (!useMapTile) filters.Add(ComponentType.ReadOnly<MapTile>());
+            queryDesc.None = filters.ToArray();
+            EntityQuery query = GetEntityQuery(queryDesc);
 
             bool hasName = options.Contains(Property.Name, IO.System.Area);
             bool hasAge = options.Contains(Property.Age, IO.System.Area);
@@ -437,6 +446,7 @@ namespace Carto.Systems
                 // Collect the boundary of each area.（收集各個區域的邊界。）
                 CollectBoundariesJob collectBoundariesJob = new()
                 {
+                    affliatedArea = false,
                     center = options.GetTMCoord(),
                     sourceCRS = options.GetTMProjection(),
                     targetCRS = Geodata.CRS.WGS84,
@@ -464,20 +474,14 @@ namespace Carto.Systems
                     {
                         AreaStat stat = areaStats[i];
                         if (!nodeEntityMap.TryGetValue(stat.entity, out NativeArray<double3> areaNodes)) continue;
-                        double3[] transformedAreaNodes = new double3[areaNodes.Length];
 
                         // Write feature header.（寫出圖徵檔頭。）
                         writer.WriteStartObject();
                         GeoJson.WritePropertyPair(writer, "type", "Feature");
-                        
+
                         // Write feature geometry.（寫出圖徵幾何圖形。）
                         writer.WritePropertyName("geometry");
-                        for (int j = 0; j < areaNodes.Length; j++)
-                        {
-                            transformedAreaNodes[j] = areaNodes[j];
-                        }
-
-                        GeoJson.WriteGeometry(writer, new Geodata.Geometry(new double3[1][] { transformedAreaNodes }), Shape.Polygon, options.Elevation);
+                        GeoJson.WriteGeometry(writer, new Geodata.Geometry(ref areaNodes), Shape.Polygon, options.Elevation);
 
                         // Write feature properties.（寫出圖徵）
                         writer.WritePropertyName("properties");
@@ -577,10 +581,19 @@ namespace Carto.Systems
         public void WriteBoundarySHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds, out List<Entity> entitySyncList)
         {
             Feature featureFlag = options.Features;
-            if (!featureFlag.HasFlag(Feature.District)) _filters.Add(ComponentType.ReadOnly<District>());
-            if (!featureFlag.HasFlag(Feature.MapTile)) _filters.Add(ComponentType.ReadOnly<MapTile>());
-            _queryDesc.None = _filters.ToArray();
-            EntityQuery query = GetEntityQuery(_queryDesc);
+            bool useDistrict = featureFlag.HasFlag(Feature.District);
+            bool useMapTile = featureFlag.HasFlag(Feature.MapTile);
+
+            // Build feature queries.（建立圖徵查詢。）
+            List<ComponentType> filters = new(_filters);
+            EntityQueryDesc queryDesc = new()
+            {
+                All = _queryDesc.All
+            };
+            if (!useDistrict) filters.Add(ComponentType.ReadOnly<District>());
+            if (!useMapTile) filters.Add(ComponentType.ReadOnly<MapTile>());
+            queryDesc.None = filters.ToArray();
+            EntityQuery query = GetEntityQuery(queryDesc);
 
             // Initialize native containers.（初始化原生容器。）
             int areaCount = query.CalculateEntityCount();
@@ -596,6 +609,7 @@ namespace Carto.Systems
             {
                 CollectBoundariesJob collectBoundariesJob = new()
                 {
+                    affliatedArea = false,
                     center = options.GetTMCoord(),
                     sourceCRS = options.GetTMProjection(),
                     targetCRS = options.TargetProjection,
@@ -618,14 +632,7 @@ namespace Carto.Systems
                         {
                             enumeratorIndex++;
                             KeyValue<Entity, NativeArray<double3>> feature = enumerator.Current;
-                            double3[] areaNodes = new double3[feature.Value.Length];
-
-                            for (int i = 0; i < feature.Value.Length; i++)
-                            {
-                                areaNodes[i] = feature.Value[i];
-                            }
-
-                            Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(new double3[1][] { areaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(ref feature.Value), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
                             _bounds |= featureBounds;
                             _entitySyncList.Add(feature.Key);
                             _indexPairs.Add(indexPair);
@@ -637,14 +644,7 @@ namespace Carto.Systems
                         {
                             enumeratorIndex++;
                             KeyValue<Entity, NativeArray<double3>> feature = enumerator.Current;
-                            double3[] areaNodes = new double3[feature.Value.Length];
-
-                            for (int i = 0; i < feature.Value.Length; i++)
-                            {
-                                areaNodes[i] = feature.Value[i];
-                            }
-
-                            Shapefile.WriteGeometryBE(writer, enumeratorIndex, shapeId, new(new double3[1][] { areaNodes }), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            Shapefile.WriteGeometryBE(writer, enumeratorIndex, shapeId, new(ref feature.Value), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
                             _bounds |= featureBounds;
                             _entitySyncList.Add(feature.Key);
                             _indexPairs.Add(indexPair);
@@ -889,6 +889,15 @@ namespace Carto.Systems
         public partial struct CollectBoundariesJob : IJobEntity
         {
             [ReadOnly]
+            public bool affliatedArea;
+
+            [ReadOnly]
+            public ComponentLookup<Owner> ownerLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Storage> storageLookup;
+
+            [ReadOnly]
             public Coord center;
             
             [ReadOnly]
@@ -908,6 +917,14 @@ namespace Carto.Systems
 
             public void Execute(in Area areaComponent, in DynamicBuffer<Node> nodes, Entity area)
             {
+                if (affliatedArea)
+                {
+                    if (ownerLookup.TryGetComponent(area, out Owner ownerComponent))
+                    {
+                        if (!storageLookup.TryGetComponent(area, out _) && ownerLookup.TryGetComponent(ownerComponent.m_Owner, out _)) return;
+                    }
+                }
+                
                 NativeArray<double3> nodesArray = new(nodes.Length, Allocator.Persistent);
                 if ((areaComponent.m_Flags & AreaFlags.CounterClockwise) != 0)
                 {

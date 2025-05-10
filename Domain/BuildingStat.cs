@@ -1,3 +1,4 @@
+using Carto.IO;
 using Game.Economy;
 using System;
 using Unity.Entities;
@@ -62,6 +63,18 @@ namespace Carto.Domain
         /// （建築的升級進度。）
         /// </summary>
         public int level;
+
+        /// <summary>
+        /// The main building entity of the affliated area.
+        /// （附屬區域的主建築實體。）
+        /// </summary>
+        public Entity mainBuilding;
+
+        /// <summary>
+        /// The feature classification.
+        /// （圖徵分類。）
+        /// </summary>
+        public Feature objectType;
 
         /// <summary>
         /// The merchandise sold by the companies in the building.
@@ -129,7 +142,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Building ({entity.Index}:{entity.Version}) - Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Labor [{labor}], Level [{level}], Product [{product}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
+            return $"Building ({entity.Index}:{entity.Version}) - Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Labor [{labor}], Level [{level}], MainBuilding [{mainBuilding.Index}:{mainBuilding.Version}], ObjectType [{objectType}], Product [{product}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
         }
     }
 }

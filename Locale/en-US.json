@@ -47,5 +47,7 @@
     "Options.Option.SourceCRSScaleFactor": "Scale Factor",
     "Options.Description.SourceCRSScaleFactor": "A scale factor applied to distances from the origin. Typically slightly less than 1.",
     "Options.Option.SourceCRSTransform": "Transform Parameters",
-    "Options.Description.SourceCRSTransform": "Helmert Transform parameters for converting the current datum to WGS84. Enter values separated by spaces."
+    "Options.Description.SourceCRSTransform": "Helmert Transform parameters for converting the current datum to WGS84. Enter values separated by spaces.",
+    "Assets.NAME[Unzoned]": "Unzoned",
+    "Assets.THEME[Carto Generic]": "Generic"
 }

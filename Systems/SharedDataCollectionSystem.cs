@@ -497,7 +497,7 @@ namespace Carto.Systems
                 prefabData = new(),
                 theme = 0
             });
-            zoningsNames.Add(new("Empty", Allocator.Persistent)); 
+            zoningsNames.Add(new("Unzoned", Allocator.Persistent)); 
 
             // Reset output containers.（重置輸出容器。）
             int buildingEntityCount = _buildingQuery.CalculateEntityCount();
@@ -631,7 +631,7 @@ namespace Carto.Systems
             Utils.CommonUtils.Reset<Dictionary<PrefabBase, int>, PrefabBase, int>(ref prefabMap);
 
             // Add the fallback theme.（添加後備建築風格。）
-            themes.Add(new() { entity = Entity.Null, name = "Carto Generic" });
+            themes.Add(new() { entity = Entity.Null, name = Utils.LocaleUtils.TryTranslate("Assets.THEME[Carto Generic]", out string genericTheme) ? genericTheme : "Generic" });
 
             // Collect building themes.（收集建築風格。）
             NativeArray<Entity> themeEntities = _themePrefabQuery.ToEntityArray(Allocator.Temp);
@@ -641,10 +641,11 @@ namespace Carto.Systems
                 if (Instance.Prefab.TryGetPrefab(themePrefabs[i], out PrefabBase themePrefab))
                 {
                     Entity theme = themeEntities[i];
+                    string themePrefabName = Instance.Prefab.GetPrefabName(theme);
                     Theme data = new()
                     {
                         entity = theme,
-                        name = Instance.Prefab.GetPrefabName(theme),
+                        name = Utils.LocaleUtils.TryTranslate($"Assets.THEME[{themePrefabName}]", out string themeUiName) ? themeUiName : themePrefabName
                     };
                     themes.Add(data);
                     prefabMap.Add(themePrefab, themes.Count - 1);
@@ -661,10 +662,11 @@ namespace Carto.Systems
                     if (Instance.Prefab.TryGetPrefab(assetPackPrefabs[i], out PrefabBase assetPackPrefab))
                     {
                         Entity assetPack = assetPacks[i];
+                        string assetPackPrefabName = Instance.Prefab.GetPrefabName(assetPack);
                         Theme data = new()
                         {
                             entity = assetPack,
-                            name = Instance.Prefab.GetPrefabName(assetPack)
+                            name = Utils.LocaleUtils.TryTranslate($"Assets.NAME[{assetPackPrefabName}]", out string assetPackUiName) ? assetPackUiName : assetPackPrefabName
                         };
                         themes.Add(data);
                         prefabMap.Add(assetPackPrefab, themes.Count - 1);
@@ -814,7 +816,7 @@ namespace Carto.Systems
 
                     entityMap.TryAdd(zoningType.entity, index);
                     idMap.TryAdd(zoningType.id, index);
-                    names.Add(new NativeText(Utils.LocaleUtils.Translate($"Assets.NAME[{zoningTypeName}]"), Allocator.Persistent));
+                    names.Add(new NativeText(Utils.LocaleUtils.TryTranslate($"Assets.NAME[{zoningTypeName}]", out string zoningTypeUiName) ? zoningTypeUiName : zoningTypeName, Allocator.Persistent));
                 }
             }
             catch (Exception ex)
@@ -927,7 +929,10 @@ namespace Carto.Systems
                     company = 0,
                     employee = 0,
                     household = 0,
+                    labor = 0,
                     level = 0,
+                    mainBuilding = Entity.Null,
+                    objectType = Feature.Building,
                     product = Resource.NoResource,
                     profit = 0,
                     residentFemale = 0,
@@ -1061,6 +1066,8 @@ namespace Carto.Systems
 
                 if (spawnableDataLookup.TryGetComponent(prefabRef.m_Prefab, out SpawnableBuildingData spawnableData))
                 {
+                    stat.level = spawnableData.m_Level;
+                    
                     if (zoningEntityMap.TryGetValue(spawnableData.m_ZonePrefab, out int zoningIndex))
                     {
                         stat.zoning = zoningIndex;

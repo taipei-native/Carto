@@ -1,6 +1,7 @@
 using Colossal.Mathematics;
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Mathematics;
 
 namespace Carto.Geodata
@@ -42,6 +43,13 @@ namespace Carto.Geodata
             Exclusions = exclusions;
             ExclusionIndexTable = exclusionIndexTable;
             ValidateTable();
+        }
+
+        public Geometry(ref NativeArray<double3> inclusions)
+        {
+            Inclusions = new double3[1][] { inclusions.ToArray() };
+            Exclusions = new double3[0][][];
+            ExclusionIndexTable = new Dictionary<int, int> { };
         }
 
         /// <summary>
