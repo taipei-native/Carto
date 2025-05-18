@@ -510,7 +510,7 @@ namespace Carto.Utils
         {
             zone = 0;
             if (!int.TryParse(TrimNumericInput(text), out int _zone)) return Error.Nan;
-            if ((zone < 1) || (zone > 60)) return Error.UTMZone;
+            if ((_zone < 1) || (_zone > 60)) return Error.UTMZone;
             zone = _zone;
             return Error.None;
         }

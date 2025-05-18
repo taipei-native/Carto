@@ -8,6 +8,7 @@ using Game.Citizens;
 using Game.Common;
 using Game.Companies;
 using Game.Economy;
+using Game.Net;
 using Game.Objects;
 using Game.Prefabs;
 using Game.Simulation;
@@ -85,6 +86,18 @@ namespace Carto.Systems
         static EntityQuery _economyParameterQuery;
 
         /// <summary>
+        /// The query to collect all lane prefabs.
+        /// （收集所有車道網路預製模板的查詢。）
+        /// </summary>
+        static EntityQuery _lanePrefabQuery;
+
+        /// <summary>
+        /// The query to collect all network entities.
+        /// （收集所有網路實體的查詢。）
+        /// </summary>
+        static EntityQuery _networkQuery;
+
+        /// <summary>
         /// The query to collect all spawnable building prefabs.
         /// （收集所有自長建築預製模板的查詢。）
         /// </summary>
@@ -140,7 +153,29 @@ namespace Carto.Systems
         /// See <see cref="BuildingStats"/>.
         /// </summary>
         private NativeList<BuildingStat> _buildingStats;
-         
+
+        /// <summary>
+        /// The list of all network's statistics in the savegame.
+        /// （遊戲存檔內所有網路的統計數據。）
+        /// </summary>
+        public ref NativeList<NetworkStat> NetworkStats => ref _networkStats;
+
+        /// <summary>
+        /// See <see cref="NetworkStats"/>.
+        /// </summary>
+        private NativeList<NetworkStat> _networkStats;
+
+        /// <summary>
+        /// The map between network entities and their index in <see cref="NetworkStats"/>.
+        /// （網路實體與其在 <see cref="NetworkStats"/> 索引值的映射表。）
+        /// </summary>
+        public ref NativeParallelHashMap<Entity, int> NetworkStatsEntityMap => ref _networkStatsEntityMap;
+
+        /// <summary>
+        /// See <see cref="NetworkStatsEntityMap"/>.
+        /// </summary>
+        private NativeParallelHashMap<Entity, int> _networkStatsEntityMap;
+
         /// <summary>
         /// The list of in-game themes' / asset packs' information.
         /// （遊戲內建築風格／資產包資訊的列表。）
@@ -288,6 +323,34 @@ namespace Carto.Systems
                 }
             });
 
+            _lanePrefabQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<NetLaneData>()
+                },
+                None = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<SecondaryLaneData>()
+                }
+            });
+
+            _networkQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Composition>(),
+                    ComponentType.ReadOnly<Curve>(),
+                    ComponentType.ReadOnly<Edge>(),
+                    ComponentType.ReadOnly<Game.Net.SubLane>()
+                },
+                None = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Deleted>(),
+                    ComponentType.ReadOnly<Temp>()
+                }
+            });
+
             _spawnableBuildingPrefabQuery = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
@@ -351,6 +414,8 @@ namespace Carto.Systems
             _zcc.Dispose();
             Utils.CommonUtils.Dispose(ref _brandsEntityMap);
             Utils.CommonUtils.Dispose(ref _buildingStats);
+            Utils.CommonUtils.Dispose(ref _networkStats);
+            Utils.CommonUtils.Dispose(ref _networkStatsEntityMap);
             Utils.CommonUtils.Dispose(ref _worldElevation);
             Utils.CommonUtils.Dispose(ref _zoningTypes);
             Utils.CommonUtils.Dispose(ref _zoningTypesEntityMap);
@@ -390,6 +455,11 @@ namespace Carto.Systems
                     // Manually call the dispose for AfterZoningSystem, in case of the situation that the system is not used.
                     // （手動呼叫 AfterZoningSystem 的拋棄指令，以避免該系統並未被使用。）
                     Dispose(DisposePhase.AfterZoningSystem);
+                    break;
+
+                case DisposePhase.AfterNetworkRelated:
+                    Utils.CommonUtils.Dispose(ref _networkStats);
+                    Utils.CommonUtils.Dispose(ref _networkStatsEntityMap);
                     break;
 
                 case DisposePhase.AfterTerrainRelated:
@@ -594,6 +664,63 @@ namespace Carto.Systems
                 Utils.CommonUtils.Dispose(ref dividendEntityMap);
                 Utils.CommonUtils.Dispose(ref sexEntityMap);
                 Dispose(DisposePhase.AfterBuildingStats); // brandsEntityMap
+            }
+        }
+
+        /// <summary>
+        /// Retrieve network entities' statistical data.
+        /// （獲取網路實體的統計資料。）
+        /// </summary>
+        /// <param name="options">The export options.（檔案輸出選項。）</param>
+        public void GetNetworkStats(Options options)
+        {
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeParallelHashMap<Entity, int> entityMap = ref _networkStatsEntityMap;
+            ref NativeList<NetworkStat> stats = ref _networkStats;
+
+            // Initialize native containers.（初始化原生容器。）
+            int lanePrefabCount = _lanePrefabQuery.CalculateEntityCount();
+            int networkCount = _networkQuery.CalculateEntityCount();
+            NativeParallelHashMap<Entity, Domain.Lane> lanesEntityMap = new(lanePrefabCount, Allocator.Persistent);
+            NativeParallelHashSet<Entity> utilityLanes = new(lanePrefabCount, Allocator.Persistent);
+
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset(ref entityMap, networkCount);
+            Utils.CommonUtils.Reset(ref stats, networkCount);
+
+            try
+            {
+                CollectLanesJob collectLanesJob = new()
+                {
+                    carLaneDataLookup = GetComponentLookup<CarLaneData>(),
+                    parkingLaneDataLookup = GetComponentLookup<ParkingLaneData>(),
+                    trackLaneDataLookup = GetComponentLookup<TrackLaneData>(),
+                    utilityLaneDataLookup = GetComponentLookup<UtilityLaneData>(),
+                    entityMap = lanesEntityMap.AsParallelWriter(),
+                    utilityLanes = utilityLanes.AsParallelWriter()
+                };
+                JobHandle collectLanesHandle = collectLanesJob.ScheduleParallel(_lanePrefabQuery, default);
+                collectLanesHandle.Complete();
+
+                CollectNetworkStatsJob collectNetworkStatsJob = new()
+                {
+                    lanesEntityMap = lanesEntityMap,
+                    entityMap = entityMap.AsParallelWriter(),
+                    list = stats.AsParallelWriter()
+                };
+                JobHandle collectNetworkStatsHandle = collectNetworkStatsJob.ScheduleParallel(_networkQuery, default);
+                collectNetworkStatsHandle.Complete();
+
+
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref lanesEntityMap);
+                Utils.CommonUtils.Dispose(ref utilityLanes);
             }
         }
 
@@ -846,7 +973,13 @@ namespace Carto.Systems
             
             [ReadOnly]
             public bool taxableIncomeOnly;
-            
+
+            [ReadOnly]
+            public bool useAddress;
+
+            [ReadOnly]
+            public BufferLookup<AggregateElement> aggregateElementBufferLookup;
+
             [ReadOnly]
             public BufferLookup<HouseholdCitizen> citizenBufferLookup;
 
@@ -857,10 +990,22 @@ namespace Carto.Systems
             public BufferLookup<Renter> renterBufferLookup;
 
             [ReadOnly]
+            public ComponentLookup<Aggregated> aggregatedLookup;
+
+            [ReadOnly]
             public ComponentLookup<Citizen> citizenLookup;
 
             [ReadOnly]
             public ComponentLookup<CompanyData> companyDataLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Composition> compositionLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Curve> curveLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Edge> edgeLookup;
 
             [ReadOnly]
             public ComponentLookup<HealthProblem> healthProblemLookup;
@@ -872,10 +1017,16 @@ namespace Carto.Systems
             public ComponentLookup<Household> householdLookup;
 
             [ReadOnly]
+            public ComponentLookup<NetCompositionData> netCompositionDataLookup;
+
+            [ReadOnly]
             public ComponentLookup<PrefabRef> prefabRefLookup;
 
             [ReadOnly]
             public ComponentLookup<IndustrialProcessData> processLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Roundabout> roundaboutLookup;
 
             [ReadOnly]
             public ComponentLookup<SpawnableBuildingData> spawnableDataLookup;
@@ -885,6 +1036,9 @@ namespace Carto.Systems
 
             [ReadOnly]
             public ComponentLookup<TravelPurpose> travelPurposeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Objects.Transform> transformLookup;
 
             [ReadOnly]
             public ComponentLookup<Worker> workerLookup;
@@ -916,7 +1070,7 @@ namespace Carto.Systems
             [WriteOnly]
             public NativeList<BuildingStat>.ParallelWriter list;
 
-            public void Execute(in PrefabRef prefabRef, Entity building)
+            public void Execute(in Building buildingComponent, in PrefabRef prefabRef, Entity building)
             {
                 // Whether the first shop is recorded or not.（第一間商店是否被記錄了？）
                 bool isFirstShop = true;
@@ -924,6 +1078,7 @@ namespace Carto.Systems
                 BuildingStat stat = new()
                 {
                     entity = building,
+                    address = Address.Null,
                     age = 0f,
                     brand = 0,
                     company = 0,
@@ -1074,6 +1229,13 @@ namespace Carto.Systems
                     }
                 }
 
+                if (useAddress)
+                {
+                    // This is the Unity job version of the vanilla `BuildingUtils.GetAddress` method.（原始遊戲 `BuildingUtils.GetAddress` 的 Unity 工作版本。）
+                    Entity curve = buildingComponent.m_RoadEdge;
+                    float curvePosition = buildingComponent.m_CurvePosition;
+                }
+
                 list.AddNoResize(stat);
             }
 
@@ -1132,6 +1294,217 @@ namespace Carto.Systems
                 if (cash <= 0 || employee.Length <= 0) return;
                 hashmap.TryAdd(company, cash / (8 * employee.Length));
             }
+        }
+
+        /// <summary>
+        /// The job to collect network lane's information.
+        /// （收集車道資訊的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CollectLanesJob : IJobEntity
+        {
+            [ReadOnly]
+            public ComponentLookup<CarLaneData> carLaneDataLookup;
+
+            [ReadOnly]
+            public ComponentLookup<ParkingLaneData> parkingLaneDataLookup;
+
+            [ReadOnly]
+            public ComponentLookup<TrackLaneData> trackLaneDataLookup;
+
+            [ReadOnly]
+            public ComponentLookup<UtilityLaneData> utilityLaneDataLookup;
+            
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, Domain.Lane>.ParallelWriter entityMap;
+
+            [WriteOnly]
+            public NativeParallelHashSet<Entity>.ParallelWriter utilityLanes;
+
+            public void Execute(in NetLaneData netLaneData, Entity lane)
+            {
+                Domain.Lane laneStruct = new()
+                {
+                    entity = lane,
+                    category = NetworkCategory.None
+                };
+
+                if (!parkingLaneDataLookup.TryGetComponent(lane, out ParkingLaneData _))
+                {
+                    LaneFlags laneGeneralFlag = netLaneData.m_Flags;
+                    
+                    if ((laneGeneralFlag & LaneFlags.OnWater) != 0)
+                    {
+                        laneStruct.category |= NetworkCategory.Waterway;
+                    }
+
+                    if ((laneGeneralFlag & LaneFlags.PublicOnly) != 0)
+                    {
+                        laneStruct.category |= NetworkCategory.Bus;
+                    }
+
+                    if (carLaneDataLookup.TryGetComponent(lane, out CarLaneData carLaneData))
+                    {
+                        RoadTypes roadTypes = carLaneData.m_RoadTypes;
+
+                        if ((roadTypes & RoadTypes.Watercraft) != 0) laneStruct.category |= NetworkCategory.Waterway;
+                    }
+
+                    if (trackLaneDataLookup.TryGetComponent(lane, out TrackLaneData trackLaneData))
+                    {
+                        TrackTypes trackTypes = trackLaneData.m_TrackTypes;
+
+                        if ((trackTypes & TrackTypes.Train) != 0)  laneStruct.category |= NetworkCategory.Train;
+                        if ((trackTypes & TrackTypes.Tram) != 0)   laneStruct.category |= NetworkCategory.Tram;
+                        if ((trackTypes & TrackTypes.Subway) != 0) laneStruct.category |= NetworkCategory.Subway;
+                    }
+
+                    if (utilityLaneDataLookup.TryGetComponent(lane, out UtilityLaneData utilityLaneData))
+                    {
+                        UtilityTypes utilityTypes = utilityLaneData.m_UtilityTypes;
+
+                        if ((utilityTypes != UtilityTypes.None) && ((utilityTypes & UtilityTypes.Catenary) == 0))
+                        {
+                            if ((utilityTypes & UtilityTypes.Fence) != 0)           laneStruct.category |= NetworkCategory.Fence;
+                            if ((utilityTypes & UtilityTypes.HighVoltageLine) != 0) laneStruct.category |= NetworkCategory.HighCable;
+                            if ((utilityTypes & UtilityTypes.LowVoltageLine) != 0)  laneStruct.category |= NetworkCategory.LowCable;
+                            if ((utilityTypes & UtilityTypes.SewagePipe) != 0)      laneStruct.category |= NetworkCategory.SewagePipe;
+                            if ((utilityTypes & UtilityTypes.StormwaterPipe) != 0)  laneStruct.category |= NetworkCategory.StormPipe;
+                            if ((utilityTypes & UtilityTypes.WaterPipe) != 0)       laneStruct.category |= NetworkCategory.WaterPipe;
+                            utilityLanes.Add(lane);
+                        }
+                    }
+                }
+
+                entityMap.TryAdd(lane, laneStruct);
+            }
+        }
+
+        /// <summary>
+        /// The job to collect network statistics.
+        /// （收集網路統計資料的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CollectNetworkStatsJob : IJobEntity
+        {
+            [ReadOnly]
+            public ComponentLookup<NetCompositionData> netCompositionDataLookup;
+
+            [ReadOnly]
+            public ComponentLookup<PathwayComposition> pathwayCompositionLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Road> roadLookup;
+
+            [ReadOnly]
+            public ComponentLookup<RoadComposition> roadCompositionLookup;
+
+            [ReadOnly]
+            public ComponentLookup<TaxiwayComposition> taxiwayCompositionLookup;
+
+            [ReadOnly]
+            public ComponentLookup<TrackComposition> trackCompositionLookup;
+
+            [ReadOnly]
+            public ComponentLookup<WaterwayComposition> waterwayCompositionLookup;
+            
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, Domain.Lane> lanesEntityMap;
+            
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter entityMap;
+
+            [WriteOnly]
+            public NativeList<NetworkStat>.ParallelWriter list;
+
+            public void Execute(in Composition composition, in Curve curve, in EdgeGeometry edgeGeometry, in DynamicBuffer<Game.Net.SubLane> subLanes, Entity network)
+            {
+                NetworkStat stat = new()
+                {
+                    entity = network,
+                    capacity = 0,
+                    category = NetworkCategory.None,
+                    direction = Direction.None,
+                    discharge = 0,
+                    elevation = ((edgeGeometry.m_Bounds.max + edgeGeometry.m_Bounds.min) / 2).y,
+                    form = Form.Normal,
+                    length = curve.m_Length,
+                    limit = 0,
+                    load = 0,
+                    volume = 0,
+                    width = 0
+                };
+
+                bool hasHighwayRule = false;
+                bool hasRunwayFlag = false;
+                Entity networkComposition = composition.m_Edge;
+
+                if (networkComposition != Entity.Null)
+                {
+                    // If there are multiple compositions present, the priority of speed limit value would be pathway < waterway < taxiway < track < road.
+                    //（若出現多種配置，優先順序為路徑 < 航路 < 滑行道 < 軌道 < 道路。）
+                    
+                    if (pathwayCompositionLookup.TryGetComponent(networkComposition, out PathwayComposition pathwayComposition))
+                    {
+                        stat.direction = Direction.Both;
+                        stat.limit = RoundSpeedLimit(pathwayComposition.m_SpeedLimit);
+                    }
+
+                    if (waterwayCompositionLookup.TryGetComponent(networkComposition, out WaterwayComposition waterwayComposition))
+                    {
+                        stat.limit = RoundSpeedLimit(waterwayComposition.m_SpeedLimit);
+                    }
+
+                    if (taxiwayCompositionLookup.TryGetComponent(networkComposition, out TaxiwayComposition taxiwayComposition))
+                    {
+                        TaxiwayFlags taxiwayFlags = taxiwayComposition.m_Flags;
+                        if (taxiwayFlags == TaxiwayFlags.Airspace) return;  // Exporting air space is not supported.（不支援輸出空域。）
+                        hasRunwayFlag = (taxiwayFlags & TaxiwayFlags.Runway) != 0;
+                        stat.limit = RoundSpeedLimit(taxiwayComposition.m_SpeedLimit);
+                    }
+
+                    if (trackCompositionLookup.TryGetComponent(networkComposition, out TrackComposition trackComposition))
+                    {
+                        stat.limit = RoundSpeedLimit(trackComposition.m_SpeedLimit);
+                    }
+                    
+                    if (roadCompositionLookup.TryGetComponent(networkComposition, out RoadComposition roadComposition))
+                    {
+                        hasHighwayRule = (roadComposition.m_Flags & Game.Prefabs.RoadFlags.UseHighwayRules) != 0;
+                        stat.limit = RoundSpeedLimit(roadComposition.m_SpeedLimit);
+                    }
+
+                    if (netCompositionDataLookup.TryGetComponent(networkComposition, out NetCompositionData netCompositiondata))
+                    {
+                        // The network direction.（網路方向。）
+                        CompositionState state = netCompositiondata.m_State;
+                        if ((state & CompositionState.HasForwardRoadLanes)   != 0) stat.direction |= Direction.Forward;
+                        if ((state & CompositionState.HasForwardTrackLanes)  != 0) stat.direction |= Direction.Forward;
+                        if ((state & CompositionState.HasBackwardRoadLanes)  != 0) stat.direction |= Direction.Backward;
+                        if ((state & CompositionState.HasBackwardTrackLanes) != 0) stat.direction |= Direction.Backward;
+
+                        // The network form.（網路形式。）
+                        CompositionFlags.General generalCompositions = netCompositiondata.m_Flags.m_General;
+                        if ((generalCompositions & CompositionFlags.General.Elevated) != 0) stat.form = Form.Elevated;
+                        if ((generalCompositions & CompositionFlags.General.Tunnel)   != 0) stat.form = Form.Tunnel;
+
+                        stat.width = netCompositiondata.m_Width;
+                    }
+                }
+
+                // Calculate the traffic volume.（計算交通流量。）
+                // According to `Game.UI.InGame.RoadSection`, the volume data is calculated every 6 hours.
+                // The x, y, z, and w property represent the distance / duration at 00:00, 06:00, 12:00 and 18:00.
+                // Carto use the traffic volume at noon to show the traffic in peak hour.
+                // （根據 `Game.UI.InGame.RoadSection`，流量每 6 小時計算一次，其中 x、y、z、w 屬性分別代表 00:00、06:00、12:00、18:00 的距離／持續時間。）
+                // （為展示尖峰時間的車流量，Carto 使用中午的數據。）
+                if (roadLookup.TryGetComponent(network, out Road roadComponent))
+                {
+                    stat.volume = (roadComponent.m_TrafficFlowDistance0.z + roadComponent.m_TrafficFlowDistance1.z) * 8f / 3f;
+                }
+            }
+
+            private readonly float RoundSpeedLimit(float input) => (float)(Math.Round(input * 2 / 5.0) * 5.0);
         }
 
         /// <summary>

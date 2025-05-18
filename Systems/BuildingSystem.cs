@@ -178,6 +178,8 @@ namespace Carto.Systems
 
             // Create alias for fields.（創造欄位的別名。）
             ref NativeList<BuildingStat> buildingStats = ref _shared.BuildingStats;
+            ref NativeList<ZoningType> zoningTypes = ref _shared.ZoningTypes;
+            ref NativeList<NativeText> zoningTypesNames = ref _shared.ZoningTypesNames;
 
             // Validate native containers integrity.（驗證原生容器的完整性。）
             Utils.CommonUtils.ValidateIntegrity(ref buildingStats, true);
@@ -194,6 +196,9 @@ namespace Carto.Systems
             // Initialize managed containers.（初始化控管容器。）
             List<string> buildingAssets = new();
             List<BuildingStat> buildingStatsManaged = new();
+            List<Theme> themes = _shared.Themes;
+            List<ZoningType> zoningTypesManaged = Utils.CommonUtils.Copy(ref zoningTypes);
+            string[] zoningTypesNamesManaged = Utils.CommonUtils.Copy(ref zoningTypesNames);
 
             try
             {

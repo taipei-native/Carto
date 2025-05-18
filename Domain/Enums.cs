@@ -3,6 +3,37 @@ using System;
 namespace Carto.Domain
 {
     /// <summary>
+    /// The direction of the network.
+    /// （網路的方向。）
+    /// </summary>
+    [Flags]
+    public enum Direction
+    {
+        /// <summary>
+        /// The fallback value for unknown or unregistered direction.（用於未知或未註冊方向的後備值。）
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// The network can be traveled from the start node.
+        /// （網路由起點節點出發。）
+        /// </summary>
+        Forward = 1,
+
+        /// <summary>
+        /// The network can be traveled from the end node.
+        /// （網路由迄點節點出發。）
+        /// </summary>
+        Backward = 2,
+
+        /// <summary>
+        /// The network can be traveled both ways.
+        /// （網路由起點或訖點出發。）
+        /// </summary>
+        Both = 3
+    }
+
+    /// <summary>
     /// The specific phase to dipose native containers.
     /// （丟棄原生容器的特定階段。）
     /// </summary>
@@ -27,6 +58,12 @@ namespace Carto.Domain
         AfterBuildingStats,
 
         /// <summary>
+        /// Dispose containers no longer needed after <see cref="Systems.BuildingSystem"/>'s or <see cref="Systems.NetworkSystem"/>'s operation.<br/>
+        /// （丟棄在 <see cref="Systems.BuildingSystem"/> 或 <see cref="Systems.NetworkSystem"/> 操作後不再需要的容器。）
+        /// </summary>
+        AfterNetworkRelated,
+
+        /// <summary>
         /// Dispose containers no longer needed after terrain related operations in <see cref="Systems.RasterSystem"/>.<br/>
         /// （丟棄在 <see cref="Systems.RasterSystem"/> 與地形相關操作執行後不再需要的容器。）
         /// </summary>
@@ -38,7 +75,135 @@ namespace Carto.Domain
         /// </summary>
         AfterZoningSystem
     }
-    
+
+    /// <summary>
+    /// The form of the network.
+    /// （網路的形式。）
+    /// </summary>
+    public enum Form
+    {
+        /// <summary>
+        /// The ground level network.
+        /// （地面網路。）
+        /// </summary>
+        Normal,
+
+        /// <summary>
+        /// The bridge.
+        /// （橋梁。）
+        /// </summary>
+        Elevated,
+
+        /// <summary>
+        /// The underground tunnel.
+        /// （地下隧道。）
+        /// </summary>
+        Tunnel
+    }
+
+    /// <summary>
+    /// The network types in the game.
+    /// （遊戲內的網路類別。）
+    /// </summary>
+    [Flags]
+    public enum NetworkCategory
+    {
+        /// <summary>
+        /// The fallback value for unknown or unregistered network type.（用於未知或未註冊網路類別的後備值。）
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// The small road.（小路。）
+        /// </summary>
+        Small = 1 << 0,
+
+        /// <summary>
+        /// The medium road.（中路。）
+        /// </summary>
+        Medium = 1 << 1,
+
+        /// <summary>
+        /// The large road.（大路。）
+        /// </summary>
+        Large = 1 << 2,
+
+        /// <summary>
+        /// The highway.（公路／高速公路。）
+        /// </summary>
+        Highway = 1 << 3,
+        
+        /// <summary>
+        /// The road with bus lane.（有公車專用道的道路。）
+        /// </summary>
+        Bus = 1 << 4,
+
+        /// <summary>
+        /// The tram tracks.（電車軌道。）
+        /// </summary>
+        Tram = 1 << 5,
+
+        /// <summary>
+        /// The subway tracks.（捷運軌道。）
+        /// </summary>
+        Subway = 1 << 6,
+
+        /// <summary>
+        /// The train tracks.（火車軌道。）
+        /// </summary>
+        Train = 1 << 7,
+
+        /// <summary>
+        /// The passage reserved for pedestrians.（路徑，保留給行人通行的通道。）
+        /// </summary>
+        Pathway = 1 << 8,
+
+        /// <summary>
+        /// The road that connects aprons, hangers and terminals to the runway.（滑行道。）
+        /// </summary>
+        Taxiway = 1 << 9,
+
+        /// <summary>
+        /// The road reserved for aircrafts' taking off & landing purposes.（跑道。）
+        /// </summary>
+        Runway = 1 << 10,
+
+        /// <summary>
+        /// The path ships travel along to.（航道。）
+        /// </summary>
+        Waterway = 1 << 11,
+
+        /// <summary>
+        /// The wires that carries low voltage electricity.（低壓電纜線。）
+        /// </summary>
+        LowCable = 1 << 12,
+
+        /// <summary>
+        /// The wires that carries low voltage electricity.（高壓電纜線。）
+        /// </summary>
+        HighCable = 1 << 13,
+
+        /// <summary>
+        /// The tube that carries fresh water.（自來水道。）
+        /// </summary>
+        WaterPipe = 1 << 14,
+
+        /// <summary>
+        /// The tube that carries sewage water.（汙水下水道。）
+        /// </summary>
+        SewagePipe = 1 << 15,
+
+        /// <summary>
+        /// The tube that carries storm water.（雨水下水道。）
+        /// </summary>
+        StormPipe = 1 << 16,
+
+        /// <summary>
+        /// The man-made barriers.（圍籬。）
+        /// </summary>
+        Fence = 1 << 17
+    }
+
     /// <summary>
     /// The basic zoning types in the game.
     /// （遊戲內的基本分區類別。）

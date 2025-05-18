@@ -759,37 +759,37 @@ namespace Carto.IO
         Unknown = 0,
 
         /// <summary>
-        /// AreaSystem.
+        /// <see cref="Systems.AreaSystem"/>.
         /// </summary>
         Area = 1,
 
         /// <summary>
-        /// BuildingSystem.
+        /// <see cref="Systems.BuildingSystem"/>.
         /// </summary>
         Building = 2,
 
         /// <summary>
-        /// NetSystem.
+        /// <see cref="Systems.NetworkSystem"/>.
         /// </summary>
-        Net = 4,
-        
+        Network = 4,
+
         /// <summary>
-        /// POISystem.
+        /// <see cref="Systems.POISystem"/>.
         /// </summary>
         POI = 8,
 
         /// <summary>
-        /// RasterSystem.
+        /// <see cref="Systems.RasterSystem"/>.
         /// </summary>
         Raster = 16,
 
         /// <summary>
-        /// RouteSystem.
+        /// <see cref="Systems.RouteSystem"/>.
         /// </summary>
         Route = 32,
 
         /// <summary>
-        /// ZoningSystem.
+        /// <see cref="Systems.ZoningSystem"/>.
         /// </summary>
         Zoning = 64
     }

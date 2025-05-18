@@ -23,6 +23,12 @@ namespace Carto.Domain
         public Entity entity;
 
         /// <summary>
+        /// The address of the building.
+        /// （建築的地址。）
+        /// </summary>
+        public Address address;
+
+        /// <summary>
         /// The total age of the residents in the building in days.
         /// （建築內居民以天數計算的年齡總和。）
         /// </summary>
@@ -142,7 +148,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Building ({entity.Index}:{entity.Version}) - Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Labor [{labor}], Level [{level}], MainBuilding [{mainBuilding.Index}:{mainBuilding.Version}], ObjectType [{objectType}], Product [{product}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
+            return $"Building ({entity.Index}:{entity.Version}) - Address [{address}], Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Labor [{labor}], Level [{level}], MainBuilding [{mainBuilding.Index}:{mainBuilding.Version}], ObjectType [{objectType}], Product [{product}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
         }
     }
 }

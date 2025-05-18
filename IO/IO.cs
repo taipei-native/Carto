@@ -31,7 +31,7 @@ namespace Carto.IO
             { System.Unknown, new() { } },
             { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
             { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zoning } },
-            { System.Net, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
+            { System.Network, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
             { System.Route, new() { Property.Name, Property.Object, Property.Length, Property.Model, Property.Passenger, Property.Stop, Property.Transport, Property.Vehicle} },
             { System.Zoning, new() { Property.Name, Property.Object, Property.Color, Property.Density, Property.Theme, Property.Zoning} }
@@ -136,7 +136,7 @@ namespace Carto.IO
             { Property.Area, typeof(float) },
             { Property.Asset, typeof(string) },
             { Property.Brand, typeof(string) },
-            { Property.Capacity, typeof(int) },
+            { Property.Capacity, typeof(float) },
             { Property.Category, typeof(string) },
             { Property.Color, typeof(string) },
             { Property.Company, typeof(int) },
@@ -224,27 +224,58 @@ namespace Carto.IO
                 // Shorthanded variables to determine whther to run any system.（縮寫變數，用於決定是否執行任何系統。）
                 bool useArea = options.Systems.HasFlag(System.Area);
                 bool useBuilding = options.Systems.HasFlag(System.Building);
-                bool useNet = options.Systems.HasFlag(System.Net);
+                bool useNetwork = options.Systems.HasFlag(System.Network);
                 bool usePOI = options.Systems.HasFlag (System.POI);
                 bool useRaster = options.Systems.HasFlag(System.Raster);
                 bool useRoute = options.Systems.HasFlag(System.Route);
                 bool useZoning = options.Systems.HasFlag(System.Zoning);
-                bool useVector = useArea || useBuilding || useNet || usePOI || useRoute || useZoning;
+                bool useVector = useArea || useBuilding || useNetwork || usePOI || useRoute || useZoning;
 
                 // TODO: Check file sharing violation.
 
                 if (useVector)
                 {
+                    /* 
+                     *  The dependency graph:（依賴性關係圖：）
+                     *  
+                     *  SharedDataCollectionSystem Exposed Property           Systems
+                     *  ....................................................................
+                     *  Themes ──── ZoningTypes  ┬─────────── ZoningSystem
+                     *                               └┐                  ┌ AreaSystem
+                     *  Brands ────────────┼─ BuildingStats  ┼ BuildingSystem
+                     *                               ┌┘                  └ POISystem
+                     *  NetworkStats ────────┴─────────── NetworkSystem
+                     *                                                        RouteSystem
+                     *  
+                     *  The actual requirements and execution order:（實際需求與執行順序：)
+                     *  
+                     *  1. ZoningSystem   - Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
+                     *  2. NetworkSystem  - NetworkStats
+                     *  3. BuildingSystem - Brands, BuildingStats, Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
+                     *  4. POISystem      - Brands, BuildingStats
+                     *  5. AreaSystem     - BuildingStats
+                     *  6. RouteSystem    - (No dependency)
+                     */
+
                     // Collect vector shared data.（收集向量共享資料。）
-                    if (useArea || useBuilding)
+                    if (useArea || useBuilding || usePOI)
                     {
                         // Retrieve building statistics.（獲取建築的統計資料。）
                         Instance.Shared.GetBuildingStats(options);
                     }
-                    else if (useZoning)
+                    else
                     {
-                        // Retrieve zoning types information.（獲取分區類別的資訊。）
-                        Instance.Shared.GetZoningTypes(options);
+                        if (useNetwork)
+                        {
+                            // Retrieve network statistics.（獲取網路的統計資料。）
+                            // Instance.Shared.GetNetworkStats(options);
+                        }
+
+                        if (useZoning)
+                        {
+                            // Retrieve zoning types information.（獲取分區類別的資訊。）
+                            Instance.Shared.GetZoningTypes(options);
+                        }
                     }
 
                     bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
@@ -262,12 +293,20 @@ namespace Carto.IO
                                     GeoJson.Write(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundaryFeatures, OnReport);
                                 }
                             }
+                            if (useNetwork)
+                            {
+
+                            }
                             if (useBuilding)
                             {
                                 if (buildingHasBoundary)
                                 {
                                     GeoJson.Write(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundaryFeatures, OnReport);
                                 }
+                            }
+                            if (usePOI)
+                            {
+
                             }
                             if (useArea)
                             {
@@ -286,7 +325,15 @@ namespace Carto.IO
                                     Shapefile.Write<ZoningCell>(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundarySHP, Instance.Zoning.WriteBoundaryDBF, OnReport);
                                 }
                             }
+                            if (useNetwork)
+                            {
+
+                            }
                             if (useBuilding)
+                            {
+
+                            }
+                            if (usePOI)
                             {
 
                             }

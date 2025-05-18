@@ -34,6 +34,12 @@ namespace Carto
         public const string ProjectionUTMGroup = "ProjectionUTMGroup";
 
         [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
+        public IO.FileFormat ExportVectorFormat { get; set; } = IO.FileFormat.Shapefile;
+
+        [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
+        public IO.GeoTiffFormat ExportGeoTiffFormat { get; set; } = IO.GeoTiffFormat.Int16;
+
+        [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
         [SettingsUIButton]
         [SettingsUIDisableByCondition(typeof(Settings), nameof(IsInGameOrEditor), invert: true)]
         public bool ExportButton
@@ -248,15 +254,15 @@ namespace Carto
                 Display = new Dictionary<(IO.Property, IO.System), bool>
                 {
                     { (IO.Property.Category, IO.System.Building), true },
-                    { (IO.Property.Category, IO.System.Net), true },
+                    { (IO.Property.Category, IO.System.Network), true },
                     { (IO.Property.Category, IO.System.POI), false },
                     { (IO.Property.Object, IO.System.Unknown), false },
                     { (IO.Property.Zoning, IO.System.Unknown), true }
                 },
                 Elevation = false,
-                Features = IO.Feature.District | IO.Feature.MapTile | IO.Feature.Building | IO.Feature.Extractor | IO.Feature.Landfill,
+                Features = IO.Feature.District | IO.Feature.MapTile | IO.Feature.Building | IO.Feature.Extractor | IO.Feature.Landfill | IO.Feature.Zoning,
                 FileName = "OPZ_{Feature}",
-                GeoTiffFormat = IO.GeoTiffFormat.Float32,
+                GeoTiffFormat = ExportGeoTiffFormat,
                 Homeless = true,
                 Minimized = false,
                 Properties = new Dictionary<IO.System, HashSet<IO.Property>>
@@ -272,13 +278,13 @@ namespace Carto
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,
                 StatisticsMapTile = true,
-                Systems = IO.System.Area | IO.System.Building,
+                Systems = IO.System.Area | IO.System.Building | IO.System.Zoning | IO.System.Raster,
                 TargetEllipsoid = ellipsoid,
                 TargetProjection = targetCRS,
                 TargetProjectionDefinition = projectionDefinition,
                 Taxable = false,
                 Unzoned = true,
-                VectorFormat = IO.FileFormat.GeoJSON,
+                VectorFormat = ExportVectorFormat,
                 VectorKinds = new Dictionary<IO.System, IO.VectorKind>
                 {
                     { IO.System.Area, IO.VectorKind.Boundary },
