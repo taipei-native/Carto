@@ -20,6 +20,12 @@ namespace Carto.Domain
         /// </summary>
         public NetworkCategory category;
 
+        /// <summary>
+        /// Whether the lane is an utility lane.
+        /// （車道是否為公共車道。）
+        /// </summary>
+        public readonly bool IsUtilityLane => ((NetworkCategory.LowCable | NetworkCategory.HighCable | NetworkCategory.WaterPipe | NetworkCategory.SewagePipe | NetworkCategory.StormPipe | NetworkCategory.Fence) & category) != 0;
+
         public override readonly string ToString()
         {
             return $"Lane({entity.Index}:{entity.Version}) - Category [{category}]";

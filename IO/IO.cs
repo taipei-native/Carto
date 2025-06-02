@@ -268,7 +268,7 @@ namespace Carto.IO
                         if (useNetwork)
                         {
                             // Retrieve network statistics.（獲取網路的統計資料。）
-                            // Instance.Shared.GetNetworkStats(options);
+                             Instance.Shared.GetNetworkStats(options);
                         }
 
                         if (useZoning)

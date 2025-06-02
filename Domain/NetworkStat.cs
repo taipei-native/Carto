@@ -50,10 +50,28 @@ namespace Carto.Domain
         public float elevation;
 
         /// <summary>
+        /// The curve position where the sub lane ends.
+        /// （子車道結束的曲線位置。）
+        /// </summary>
+        public float end;
+
+        /// <summary>
+        /// The index of the roundabout at the end of the network.
+        /// （網路結束處圓環的索引值。）
+        /// </summary>
+        public int endRoundaboutIndex;
+
+        /// <summary>
         /// The form of the network.
         /// （網路的形式。）
         /// </summary>
         public Form form;
+
+        /// <summary>
+        /// Whether this `NetworkStat` represents a roundabout or not.
+        /// （這個 `NetworkStat` 是否為一個圓環？）
+        /// </summary>
+        public bool isRoundabout;
 
         /// <summary>
         /// The length of the network.
@@ -74,6 +92,18 @@ namespace Carto.Domain
         public float load;
 
         /// <summary>
+        /// The curve position where the sub lane starts.
+        /// （子車道開始的曲線位置。）
+        /// </summary>
+        public float start;
+
+        /// <summary>
+        /// The index of the roundabout at the start of the network.
+        /// （網路開始處圓環的索引值。）
+        /// </summary>
+        public int startRoundaboutIndex;
+
+        /// <summary>
         /// The traffic volume of the network.
         /// （網路的交通流量。）
         /// </summary>
@@ -84,6 +114,18 @@ namespace Carto.Domain
         /// （網路的寬度。）
         /// </summary>
         public float width;
+
+        /// <summary>
+        /// Whether the network ends at a roundabout.
+        /// （網路是否停止在一個圓環？）
+        /// </summary>
+        public readonly bool HasEndRoundabout => endRoundaboutIndex >= 0;
+
+        /// <summary>
+        /// Whether the network starts at a roundabout.
+        /// （網路是否開始在一個圓環？）
+        /// </summary>
+        public readonly bool HasStartRoundabout => startRoundaboutIndex >= 0;
 
         public override readonly string ToString()
         {

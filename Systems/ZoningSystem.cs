@@ -88,22 +88,17 @@ namespace Carto.Systems
 
             // Initialize native containers.（初始化原生容器。）
             NativeQueue<int> validCellCounts = new(Allocator.Persistent);
-            NativeReference<int> cellCount = new(0, Allocator.Persistent);
 
             try
             {
-                CountZonableCellsJob countJob = new() {
+                CountZonableCellsJob countJob = new()
+                {
                     validCellCounts = validCellCounts.AsParallelWriter(),
                 };
                 JobHandle countHandle = countJob.ScheduleParallel(_zoningBlockQuery, default);
                 countHandle.Complete();
 
-                SumQueueContentsJob sumJob = new() {
-                    validCellCounts = validCellCounts,
-                    cellCount = cellCount
-                };
-                JobHandle sumHandle = sumJob.Schedule();
-                sumHandle.Complete();
+                count = Utils.CommonUtils.Sum(ref validCellCounts);
             }
             catch (Exception ex)
             {
@@ -111,8 +106,6 @@ namespace Carto.Systems
             }
             finally
             {
-                count = cellCount.Value;
-                Utils.CommonUtils.Dispose(ref cellCount);
                 Utils.CommonUtils.Dispose(ref validCellCounts);
             }
 
@@ -590,30 +583,6 @@ namespace Carto.Systems
                 }
 
                 validCellCounts.Enqueue(count);
-            }
-        }
-
-        /// <summary>
-        /// The job to sum up the count calculated in <see cref="CountZonableCellsJob"/>.
-        /// （將 <see cref="CountZonableCellsJob"/> 計算的數量相加的工作。 ） 
-        /// </summary>
-        [BurstCompile]
-        public partial struct SumQueueContentsJob : IJob
-        {
-            [ReadOnly]
-            public NativeQueue<int> validCellCounts;
-
-            [WriteOnly]
-            public NativeReference<int> cellCount;
-
-            public void Execute()
-            {
-                int count = 0;
-                while (validCellCounts.TryDequeue(out int individualCount))
-                {
-                    count += individualCount;
-                }
-                cellCount.Value = count;
             }
         }
     }

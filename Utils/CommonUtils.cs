@@ -3,8 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 
 namespace Carto.Utils
 {
@@ -521,12 +523,44 @@ namespace Carto.Utils
             hashmap = new(capacity, allocator);
         }
 
+        /// <summary>
+        /// Try to retrieve the last item in the collection.
+        /// （嘗試獲得集合中的最後一個物件。）
+        /// </summary>
+        /// <typeparam name="T">The type of the collection's items.（集合內物件的型別。）</typeparam>
+        /// <param name="collection">The input collection.（輸入的集合。）</param>
+        /// <param name="lastItem">The last item in the collection.（集合內的最後一個物件。）</param>
+        /// <returns>Whether the last item is retrievable.（最後一個物件是否可被取得。）</returns>
         public static bool TryGetLast<T>(IList<T> collection, out T lastItem)
         {
             lastItem = default;
             if ((collection == null) || collection.Count == 0) return false;
             lastItem = collection[collection.Count - 1];
             return true;
+        }
+
+        /// <summary>
+        /// Sum up the numbers in the queue.
+        /// （將佇列內的數字加總。）
+        /// </summary>
+        /// <param name="queue">The input queue.（輸入的佇列。）</param>
+        /// <returns>The sum of the numbers in the queue.（佇列內的數字總和。）</returns>
+        public static int Sum(ref NativeQueue<int> queue)
+        {
+            int count = 0;
+            if (!queue.IsCreated) return count;
+            NativeReference<int> counter = new(Allocator.TempJob);
+            SumQueueContentsJob sumJob = new()
+            {
+                queue = queue,
+                result = counter
+            };
+            JobHandle sumHandle = sumJob.Schedule();
+            sumHandle.Complete();
+
+            count = counter.Value;
+            Dispose(ref counter);
+            return count;
         }
 
         /// <summary>
@@ -592,6 +626,30 @@ namespace Carto.Utils
             if (!omitLength && hashmap.Count() == 0)
             {
                 throw new InvalidOperationException("The hashmap is empty. 映射表為空。");
+            }
+        }
+
+        /// <summary>
+        /// The job to sum up the numbers in the queue.
+        /// （將佇列內數字相加的工作。 ） 
+        /// </summary>
+        [BurstCompile]
+        private partial struct SumQueueContentsJob : IJob
+        {
+            [ReadOnly]
+            public NativeQueue<int> queue;
+
+            [WriteOnly]
+            public NativeReference<int> result;
+
+            public void Execute()
+            {
+                int count = 0;
+                while (queue.TryDequeue(out int individualCount))
+                {
+                    count += individualCount;
+                }
+                result.Value = count;
             }
         }
     }

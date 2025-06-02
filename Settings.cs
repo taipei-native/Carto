@@ -260,7 +260,8 @@ namespace Carto
                     { (IO.Property.Zoning, IO.System.Unknown), true }
                 },
                 Elevation = false,
-                Features = IO.Feature.District | IO.Feature.MapTile | IO.Feature.Building | IO.Feature.Extractor | IO.Feature.Landfill | IO.Feature.Zoning,
+                //Features = IO.Feature.District | IO.Feature.MapTile | IO.Feature.Building | IO.Feature.Extractor | IO.Feature.Landfill | IO.Feature.Zoning,
+                Features = IO.Feature.Cable | IO.Feature.Fence | IO.Feature.Pathway | IO.Feature.Pipe | IO.Feature.Road | IO.Feature.Runway | IO.Feature.Taxiway | IO.Feature.Track | IO.Feature.Waterway,
                 FileName = "OPZ_{Feature}",
                 GeoTiffFormat = ExportGeoTiffFormat,
                 Homeless = true,
@@ -278,7 +279,7 @@ namespace Carto
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,
                 StatisticsMapTile = true,
-                Systems = IO.System.Area | IO.System.Building | IO.System.Zoning | IO.System.Raster,
+                Systems = IO.System.Network, //IO.System.Area | IO.System.Building | IO.System.Zoning | IO.System.Raster,
                 TargetEllipsoid = ellipsoid,
                 TargetProjection = targetCRS,
                 TargetProjectionDefinition = projectionDefinition,
@@ -289,6 +290,7 @@ namespace Carto
                 {
                     { IO.System.Area, IO.VectorKind.Boundary },
                     { IO.System.Building, IO.VectorKind.Boundary },
+                    { IO.System.Network, IO.VectorKind.Centerline },
                     { IO.System.Zoning, IO.VectorKind.Boundary }
                 },
                 ZccColor = true
