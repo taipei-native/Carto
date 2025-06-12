@@ -1,23 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>Library</OutputType>
-		<TargetFramework>net472</TargetFramework>
 		<Configurations>Debug;Release</Configurations>
 		<Authors>Taipei Native</Authors>
-		<AssemblyVersion>0.3.3.0</AssemblyVersion> <!--4 digit -->
-		<FileVersion>0.3.3</FileVersion> <!--3 digit -->
-		<Version>0.3.3</Version> <!--3 digit -->
-		
-		<!--The folder where Game.dll is located. Set it only if the game is not installed in the default location, otherwise keep it empty-->
-		<CustomManagedPath></CustomManagedPath>
-		
-		<!--Path to the text file where PDX account data is stored which is required to publish the mod-->
-		<!--Keep it outside of project in order to not commit it or share accidentally-->
-		<!--The file should contain 2 lines:-->
-		<!--Your.PDX@Account.login-->
-		<!--Your-PDX-Account-Pa$$word-->
-		<PDXAccountDataPath>$(USERPROFILE)\Desktop\pdx_account.txt</PDXAccountDataPath>
+		<AssemblyVersion>0.3.4.0</AssemblyVersion> <!--4 digit -->
+		<FileVersion>0.3.4</FileVersion> <!--3 digit -->
+		<Version>0.3.4</Version> <!--3 digit -->
 		
 		<!--The file where mod information which is required for publishing mod on PDX mods are stored-->
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
@@ -85,7 +73,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Reference Update="System">
+		<Reference Include="System">
+			<HintPath>$(ManagedPath)\System.dll</HintPath>
 			<Private>false</Private>
 		</Reference>
 		<Reference Update="System.Core">
