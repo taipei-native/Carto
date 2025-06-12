@@ -2,6 +2,7 @@
 using Game;
 using Game.Modding;
 using Game.Settings;
+using Game.UI.Widgets;
 using System;
 using System.Collections.Generic;
 
@@ -11,9 +12,9 @@ namespace Carto
     /// The class that manages the mod's options.
     /// （管理模組設定的類別。）
     /// </summary>
-    [SettingsUIGroupOrder(ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup)]
-    [SettingsUIShowGroupName(ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup)]
-    [SettingsUITabOrder(GeneralTab, ProjectionTab)]
+    [SettingsUIGroupOrder(FeatureVectorGroup, FeatureRasterGroup, ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup)]
+    [SettingsUIShowGroupName(FeatureVectorGroup, FeatureRasterGroup, ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup)]
+    [SettingsUITabOrder(GeneralTab, FeatureTab, ProjectionTab)]
     [FileLocation("ModsSettings/" + nameof(Carto) + "/" + nameof(Carto) + "_v1")]
     public class Settings : ModSetting
     {
@@ -27,15 +28,50 @@ namespace Carto
 
         public const string GeneralTab = "GeneralTab";
         public const string GeneralGeneralGroup = "GeneralGeneralGroup";
+        public const string FeatureTab = "FeatureTab";
+        public const string FeatureVectorGroup = "FeatureVectorGroup";
+        public const string FeatureRasterGroup = "FeatureRasterGroup";
         public const string ProjectionTab = "ProjectionTab";
         public const string ProjectionBasicGroup = "ProjectionBasicGroup";
         public const string ProjectionEllipsoidGroup = "ProjectionEllipsoidGroup";
         public const string ProjectionProjectionGroup = "ProjectionProjectionGroup";
         public const string ProjectionUTMGroup = "ProjectionUTMGroup";
 
+        /// <summary>
+        /// The file format of the vector files.
+        /// （向量檔案的格式。）
+        /// </summary>
         [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
-        public IO.FileFormat ExportVectorFormat { get; set; } = IO.FileFormat.Shapefile;
+        [SettingsUIDropdown(typeof(Settings), nameof(GetVectorFormats))]
+        public int ExportVectorFormat { get; set; } = 2;
 
+        public DropdownItem<int>[] GetVectorFormats()
+        {
+            return new DropdownItem<int>[]
+            {
+                new()
+                {
+                    value = 0,
+                    displayName = "Options.Carto.Carto.Mod.FILEFORMAT[GeoJSON]"
+                },
+                // TODO: Uncommet when the GeoPackage the export function is implemented.
+                /*new()
+                {
+                    value = 1,
+                    displayName = "Options.Carto.Carto.Mod.FILEFORMAT[GeoPackage]"
+                },*/
+                new()
+                {
+                    value = 2,
+                    displayName = "Options.Carto.Carto.Mod.FILEFORMAT[Shapefile]"
+                },
+            };
+        }
+
+        /// <summary>
+        /// The format of the GeoTIFF files.
+        /// （GeoTIFF 檔案的格式。）
+        /// </summary>
         [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
         public IO.GeoTiffFormat ExportGeoTiffFormat { get; set; } = IO.GeoTiffFormat.Int16;
 
@@ -46,6 +82,206 @@ namespace Carto
         {
             set { IO.IO.Export(); }
         }
+
+        /// <summary>
+        /// Whether to export area features.
+        /// （是否輸出區域圖徵。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        public bool SystemArea { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export districts.
+        /// （是否輸出行政區。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemArea), invert: true)]
+        public bool FeatureDistrict { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export map tiles.
+        /// （是否輸出地圖區塊。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemArea), invert: true)]
+        public bool FeatureMapTile { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export building features.
+        /// （是否輸出建築圖徵。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        public bool SystemBuilding { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export buildings.
+        /// （是否輸出建築。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemBuilding), invert: true)]
+        public bool FeatureBuilding { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export landfills.
+        /// （是否輸出垃圾掩埋場。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemBuilding), invert: true)]
+        public bool FeatureLandfill { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export specialized industries.
+        /// （是否輸出專精工業。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemBuilding), invert: true)]
+        public bool FeatureExtractor { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export network features.
+        /// （是否輸出網路圖徵。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        public bool SystemNetwork { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export paths.
+        /// （是否輸出人行通道。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemNetwork), invert: true)]
+        public bool FeaturePathway { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export roads.
+        /// （是否輸出道路。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemNetwork), invert: true)]
+        public bool FeatureRoad { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export runways & taxiways.
+        /// （是否輸出跑道與滑行道。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemNetwork), invert: true)]
+        public bool FeatureRunwayAndTaxiway { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export seaways.
+        /// （是否輸出航道。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemNetwork), invert: true)]
+        public bool FeatureWaterway { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export tracks.
+        /// （是否輸出軌道。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemNetwork), invert: true)]
+        public bool FeatureTrack { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export POI (point of interest) features.
+        /// （是否輸出 POI（興趣點）圖徵。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        public bool SystemPOI { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export private facilities' POIs.
+        /// （是否輸出私人設施的 POI。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemPOI), invert: true)]
+        public bool FeaturePOIPrivate { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export public facilities' POIs.
+        /// （是否輸出公共設施的 POI。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemPOI), invert: true)]
+        public bool FeaturePOIPublic { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export transport facilities' POIs.
+        /// （是否輸出交通設施的 POI。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemPOI), invert: true)]
+        public bool FeaturePOITransport { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export utility facilities' POIs.
+        /// （是否輸出民生設施的 POI。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemPOI), invert: true)]
+        public bool FeaturePOIUtility { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export route features.
+        /// （是否輸出路線圖徵。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        public bool SystemRoute { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export cargo routes.
+        /// （是否輸出貨運交通路線。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemRoute), invert: true)]
+        public bool FeatureRouteCargo { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export passenger routes.
+        /// （是否輸出客運交通路線。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(SystemRoute), invert: true)]
+        public bool FeatureRoutePassenger { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export zoning features.
+        /// （是否輸出分區圖徵。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureVectorGroup)]
+        public bool SystemZoning { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export the terrain.
+        /// （是否輸出地形。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureRasterGroup)]
+        public bool FeatureTerrain { get; set; } = true;
+
+        /// <summary>
+        /// Whether to export water bodies.
+        /// （是否輸出水體。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureRasterGroup)]
+        public bool FeatureWater { get; set; } = true;
 
         /// <summary>
         /// The source coordinate reference system.
@@ -191,6 +427,9 @@ namespace Carto
             Geodata.CRS sourceCRS = Geodata.CRS.Unknown;
             Geodata.CRS targetCRS = Geodata.CRS.Unknown;
             IO.Ellipsoid ellipsoid = IO.Ellipsoid.WGS84;
+            IO.Feature feature = IO.Feature.None;
+            IO.FileFormat vectorFileFormat = IO.FileFormat.Shapefile;
+            IO.System system = IO.System.Unknown;
             Geodata.ProjectionDefinition projectionDefinition = default;
             projectionDefinition.transform = new(new double[0]);
             Dictionary<string, IO.Error> errors = new()
@@ -198,6 +437,47 @@ namespace Carto
                 { GetOptionLabelLocaleID(nameof(SourceXCoord)), Utils.IOUtils.TryGetNumber(SourceXCoord, out double sourceX) },
                 { GetOptionLabelLocaleID(nameof(SourceYCoord)), Utils.IOUtils.TryGetNumber(SourceYCoord, out double sourceY) }
             };
+
+            switch (ExportVectorFormat)
+            {
+                case 0:
+                    vectorFileFormat = IO.FileFormat.GeoJSON;
+                    break;
+
+                case 1:
+                    vectorFileFormat = IO.FileFormat.GeoPackage;
+                    break;
+
+                case 2:
+                    vectorFileFormat = IO.FileFormat.Shapefile;
+                    break;
+            }
+
+            if (SystemArea) system |= IO.System.Area;
+            if (SystemBuilding) system |= IO.System.Building;
+            if (SystemNetwork) system |= IO.System.Network;
+            if (SystemPOI) system |= IO.System.POI;
+            if (SystemRoute) system |= IO.System.Route;
+            if (SystemZoning) system |= IO.System.Zoning;
+            if (FeatureTerrain || FeatureWater) system |= IO.System.Raster;
+
+            if (FeatureBuilding) feature |= IO.Feature.Building;
+            if (FeatureDistrict) feature |= IO.Feature.District;
+            if (FeatureExtractor) feature |= IO.Feature.Extractor;
+            if (FeatureLandfill) feature |= IO.Feature.Landfill;
+            if (FeatureMapTile) feature |= IO.Feature.MapTile;
+            if (FeaturePathway) feature |= IO.Feature.Pathway;
+            if (FeaturePOIPrivate) feature |= IO.Feature.POIPrivate;
+            if (FeaturePOIPublic) feature |= IO.Feature.POIPublic;
+            if (FeaturePOITransport) feature |= IO.Feature.POITransport;
+            if (FeaturePOIUtility) feature |= IO.Feature.POIUtility;
+            if (FeatureRoad) feature |= IO.Feature.Road;
+            if (FeatureRouteCargo) feature |= IO.Feature.RouteCargo;
+            if (FeatureRoutePassenger) feature |= IO.Feature.RoutePassenger;
+            if (FeatureRunwayAndTaxiway) feature |= (IO.Feature.Runway & IO.Feature.Taxiway);
+            if (FeatureTrack) feature |= IO.Feature.Track;
+            if (FeatureWaterway) feature |= IO.Feature.Waterway;
+            if (SystemZoning) feature |= IO.Feature.Zoning;
 
             switch (SourceCRS)
             {
@@ -260,8 +540,7 @@ namespace Carto
                     { (IO.Property.Zoning, IO.System.Unknown), true }
                 },
                 Elevation = false,
-                //Features = IO.Feature.District | IO.Feature.MapTile | IO.Feature.Building | IO.Feature.Extractor | IO.Feature.Landfill | IO.Feature.Zoning,
-                Features = IO.Feature.Cable | IO.Feature.Fence | IO.Feature.Pathway | IO.Feature.Pipe | IO.Feature.Road | IO.Feature.Runway | IO.Feature.Taxiway | IO.Feature.Track | IO.Feature.Waterway,
+                Features = feature,
                 FileName = "OPZ_{Feature}",
                 GeoTiffFormat = ExportGeoTiffFormat,
                 Homeless = true,
@@ -269,7 +548,7 @@ namespace Carto
                 Properties = new Dictionary<IO.System, HashSet<IO.Property>>
                 {
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
-                    { IO.System.Building, new() { IO.Property.Age, IO.Property.Brand, IO.Property.Theme, IO.Property.Zoning } },
+                    { IO.System.Building, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Age, IO.Property.Asset, IO.Property.Brand, IO.Property.Category, IO.Property.Elevation, IO.Property.Employee, IO.Property.Height, IO.Property.Household, IO.Property.Labor, IO.Property.Level, IO.Property.Product, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Story, IO.Property.Theme, IO.Property.Value, IO.Property.Wage, IO.Property.Zoning } },
                     { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,
@@ -279,13 +558,13 @@ namespace Carto
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,
                 StatisticsMapTile = true,
-                Systems = IO.System.Network, //IO.System.Area | IO.System.Building | IO.System.Zoning | IO.System.Raster,
+                Systems = system,
                 TargetEllipsoid = ellipsoid,
                 TargetProjection = targetCRS,
                 TargetProjectionDefinition = projectionDefinition,
                 Taxable = false,
                 Unzoned = true,
-                VectorFormat = ExportVectorFormat,
+                VectorFormat = vectorFileFormat,
                 VectorKinds = new Dictionary<IO.System, IO.VectorKind>
                 {
                     { IO.System.Area, IO.VectorKind.Boundary },

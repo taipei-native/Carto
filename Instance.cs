@@ -113,6 +113,12 @@ namespace Carto
         public static ILog Log { get; } = LogManager.GetLogger(nameof(Carto)).SetShowsErrorsInUI(false);
 
         /// <summary>
+        /// The system that searches networks.
+        /// （搜尋網路的系統。）
+        /// </summary>
+        public static NetworkSystem Network => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<NetworkSystem>();
+
+        /// <summary>
         /// The system that handles grid data.
         /// （處理網格資料的系統。）
         /// </summary>

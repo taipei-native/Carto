@@ -58,12 +58,6 @@ namespace Carto.Domain
         AfterBuildingStats,
 
         /// <summary>
-        /// Dispose containers no longer needed after <see cref="Systems.BuildingSystem"/>'s or <see cref="Systems.NetworkSystem"/>'s operation.<br/>
-        /// （丟棄在 <see cref="Systems.BuildingSystem"/> 或 <see cref="Systems.NetworkSystem"/> 操作後不再需要的容器。）
-        /// </summary>
-        AfterNetworkRelated,
-
-        /// <summary>
         /// Dispose containers no longer needed after terrain related operations in <see cref="Systems.RasterSystem"/>.<br/>
         /// （丟棄在 <see cref="Systems.RasterSystem"/> 與地形相關操作執行後不再需要的容器。）
         /// </summary>

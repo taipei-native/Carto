@@ -21,10 +21,24 @@ namespace Carto.Domain
         public int number; 
 
         /// <summary>
-        /// The street aggregation entity, in other words, the network entity with <see cref="Game.Net.Aggregated"/> component.<br/>
-        /// （街道的聚合實體。換句話說，擁有 <see cref="Game.Net.Aggregated"/> 組件的網路實體。）
+        /// The street aggregation entity, in other words, the network entity with <see cref="Game.Net.AggregateElement"/> buffer.<br/>
+        /// （街道的聚合實體。換句話說，擁有 <see cref="Game.Net.AggregateElement"/> 組件的網路實體。）
         /// </summary>
         public Entity street;
+
+        public Address(Entity street, int houseNumber)
+        {
+            district = Entity.Null;
+            this.street = street;
+            number = houseNumber;
+        }
+
+        public Address(Entity district, Entity street, int houseNumber)
+        {
+            this.district = district;
+            this.street = street;
+            number = houseNumber;
+        }
 
         /// <summary>
         /// An empty address.

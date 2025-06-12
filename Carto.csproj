@@ -1,8 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>Library</OutputType>
-		<TargetFramework>net472</TargetFramework>
 		<Configurations>Debug;Release</Configurations>
 
 		<!-- Metadata -->
@@ -10,9 +8,6 @@
 		<AssemblyVersion>1.0.0.0</AssemblyVersion> <!--4 digit -->
 		<FileVersion>1.0.0</FileVersion> <!--3 digit -->
 		<Version>1.0.0</Version> <!--3 digit -->
-		
-		<!-- The original template didn't specify the language version. -->
-		<LangVersion>9.0</LangVersion>
 		
 		<!--The file where mod information which is required for publishing mod on PDX mods are stored-->
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>

@@ -7,7 +7,6 @@ using Game;
 using Game.Areas;
 using Game.Buildings;
 using Game.Common;
-using Game.Companies;
 using Game.Economy;
 using Game.Objects;
 using Game.Prefabs;
@@ -346,6 +345,7 @@ namespace Carto.Systems
                 BuildingStat stat = new()
                 {
                     entity = area,
+                    address = default,
                     age = 0f,
                     brand = 0,
                     company = 0,

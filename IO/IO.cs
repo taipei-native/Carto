@@ -3,10 +3,7 @@ using Carto.Geodata;
 using Colossal.Logging;
 using System;
 using System.Collections.Generic;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
-using UnityEngine;
 
 namespace Carto.IO
 {
@@ -191,6 +188,7 @@ namespace Carto.IO
             { Property.Profit, 2 },
             { Property.SexRatio, 4 },
             { Property.Value, 2 },
+            { Property.Volume, 2 },
             { Property.Wage, 2 },
             { Property.Width, 4 }
         };
@@ -242,18 +240,18 @@ namespace Carto.IO
                      *  ....................................................................
                      *  Themes ──── ZoningTypes  ┬─────────── ZoningSystem
                      *                               └┐                  ┌ AreaSystem
-                     *  Brands ────────────┼─ BuildingStats  ┼ BuildingSystem
-                     *                               ┌┘                  └ POISystem
-                     *  NetworkStats ────────┴─────────── NetworkSystem
+                     *  Brands ────────────┴─ BuildingStats  ┼ BuildingSystem
+                     *                                                     └ POISystem
+                     *  NetworkStats ──────────────────── NetworkSystem
                      *                                                        RouteSystem
                      *  
                      *  The actual requirements and execution order:（實際需求與執行順序：)
                      *  
                      *  1. ZoningSystem   - Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
-                     *  2. NetworkSystem  - NetworkStats
-                     *  3. BuildingSystem - Brands, BuildingStats, Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
-                     *  4. POISystem      - Brands, BuildingStats
-                     *  5. AreaSystem     - BuildingStats
+                     *  2. BuildingSystem - Brands, BuildingStats, Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
+                     *  3. POISystem      - Brands, BuildingStats
+                     *  4. AreaSystem     - BuildingStats
+                     *  5. NetworkSystem  - NetworkStats
                      *  6. RouteSystem    - (No dependency)
                      */
 
@@ -265,17 +263,17 @@ namespace Carto.IO
                     }
                     else
                     {
-                        if (useNetwork)
-                        {
-                            // Retrieve network statistics.（獲取網路的統計資料。）
-                             Instance.Shared.GetNetworkStats(options);
-                        }
-
                         if (useZoning)
                         {
                             // Retrieve zoning types information.（獲取分區類別的資訊。）
                             Instance.Shared.GetZoningTypes(options);
                         }
+                    }
+
+                    if (useNetwork)
+                    {
+                        // Retrieve network statistics.（獲取網路的統計資料。）
+                        Instance.Network.GetNetworkStats(options);
                     }
 
                     bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
