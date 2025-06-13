@@ -27,11 +27,36 @@ namespace Carto.IO
         {
             { System.Unknown, new() { } },
             { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
-            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zoning } },
+            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zone } },
             { System.Network, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
             { System.Route, new() { Property.Name, Property.Object, Property.Length, Property.Model, Property.Passenger, Property.Stop, Property.Transport, Property.Vehicle} },
             { System.Zoning, new() { Property.Name, Property.Object, Property.Color, Property.Density, Property.Theme, Property.Zoning} }
+        };
+
+        /// <summary>
+        /// The array sorted by each <see cref="BuildingCategory"/>'s display order.
+        /// （根據每個 <see cref="BuildingCategory"/> 顯示順序排序的陣列。）
+        /// </summary>
+        public static BuildingCategory[] BuildingCategoryDisplayOrder = new BuildingCategory[]
+        {
+            // Group A: Public facilities（A 組：公共設施）
+            BuildingCategory.Transportation, BuildingCategory.Police, BuildingCategory.Fire, BuildingCategory.Health, BuildingCategory.Mortuary,
+            BuildingCategory.Education, BuildingCategory.Research, BuildingCategory.Post, BuildingCategory.Communication, BuildingCategory.Disaster,
+            BuildingCategory.Waste, BuildingCategory.Power, BuildingCategory.Water, BuildingCategory.Sewage, BuildingCategory.Maintenance, BuildingCategory.Admin,
+            BuildingCategory.Park, BuildingCategory.Parking, BuildingCategory.Public,
+
+            // Group B: Private facilities（B 組：私人設施）
+            BuildingCategory.Property, BuildingCategory.Extractor,
+
+            // Group C: Other tags（C 組：其他標籤）
+            BuildingCategory.Extractor, BuildingCategory.Decoration,
+
+            // Group D: Building status（D 組：建築狀態）
+            BuildingCategory.Destroyed, BuildingCategory.Condemned, BuildingCategory.Abandoned, BuildingCategory.Construction, BuildingCategory.Extension,
+
+            // Group E: Fallback value（E 組：後備值）
+            BuildingCategory.None
         };
 
         /// <summary>
@@ -41,7 +66,7 @@ namespace Carto.IO
         public static readonly HashSet<Property> BurstImcompatiblePropertyTable = new()
         {
             Property.Asset, Property.Brand, Property.Category, Property.Color, Property.Density, Property.Direction, Property.Form, Property.Model, Property.Name, Property.Object,
-            Property.Product, Property.Theme, Property.Transport, Property.Zoning
+            Property.Product, Property.Theme, Property.Transport, Property.Zone, Property.Zoning
         };
 
         /// <summary>
@@ -168,6 +193,7 @@ namespace Carto.IO
             { Property.Volume, typeof(float) },
             { Property.Wage, typeof(float) },
             { Property.Width, typeof(float) },
+            { Property.Zone, typeof(string) },
             { Property.Zoning, typeof(string) }
         };
 
@@ -291,10 +317,6 @@ namespace Carto.IO
                                     GeoJson.Write(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundaryFeatures, OnReport);
                                 }
                             }
-                            if (useNetwork)
-                            {
-
-                            }
                             if (useBuilding)
                             {
                                 if (buildingHasBoundary)
@@ -313,6 +335,10 @@ namespace Carto.IO
                                     GeoJson.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundaryFeatures, OnReport);
                                 }
                             }
+                            if (useNetwork)
+                            {
+
+                            }
                             break;
 
                         case FileFormat.Shapefile:
@@ -322,10 +348,6 @@ namespace Carto.IO
                                 {
                                     Shapefile.Write<ZoningCell>(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundarySHP, Instance.Zoning.WriteBoundaryDBF, OnReport);
                                 }
-                            }
-                            if (useNetwork)
-                            {
-
                             }
                             if (useBuilding)
                             {
@@ -341,6 +363,10 @@ namespace Carto.IO
                                 {
                                     Shapefile.Write<Entity>(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, Instance.Area.WriteBoundaryDBF, OnReport);
                                 }
+                            }
+                            if (useNetwork)
+                            {
+
                             }
                             break;
                     }

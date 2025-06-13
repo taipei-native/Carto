@@ -1,6 +1,8 @@
 using Carto.Domain;
 using Carto.Geodata;
 using Carto.IO;
+using Carto.Utils;
+using Colossal.IO.AssetDatabase.Internal;
 using Colossal.Logging;
 using Colossal.Mathematics;
 using Game;
@@ -8,12 +10,15 @@ using Game.Areas;
 using Game.Buildings;
 using Game.Common;
 using Game.Economy;
+using Game.Net;
 using Game.Objects;
 using Game.Prefabs;
 using Game.Tools;
+using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
@@ -48,6 +53,18 @@ namespace Carto.Systems
         /// See <see cref="Instance.Log"/> for more information.
         /// </summary>
         static readonly ILog _log = Instance.Log;
+
+        /// <summary>
+        /// The system managing names.（管理名稱的系統。）<br/>
+        /// See <see cref="Instance.Name"/> for more information.
+        /// </summary>
+        static readonly NameSystem _name = Instance.Name;
+
+        /// <summary>
+        /// The system managing prefabricated data.（管理預製模板資料的系統。）<br/>
+        /// See <see cref="Instance.Prefab"/> for more information.
+        /// </summary>
+        static readonly PrefabSystem _prefab = Instance.Prefab;
 
         /// <summary>
         /// The system collecting shared data.（收集共享資料的系統。）<br/>
@@ -173,7 +190,7 @@ namespace Carto.Systems
             bool hasTheme = options.Contains(Property.Theme, IO.System.Building);
             bool hasValue = options.Contains(Property.Value, IO.System.Building);
             bool hasWage = options.Contains(Property.Wage, IO.System.Building);
-            bool hasZoning = options.Contains(Property.Zoning, IO.System.Building);
+            bool hasZone = options.Contains(Property.Zone, IO.System.Building);
 
             // Create alias for fields.（創造欄位的別名。）
             ref NativeList<BuildingStat> buildingStats = ref _shared.BuildingStats;
@@ -182,6 +199,8 @@ namespace Carto.Systems
 
             // Validate native containers integrity.（驗證原生容器的完整性。）
             Utils.CommonUtils.ValidateIntegrity(ref buildingStats, true);
+            Utils.CommonUtils.ValidateIntegrity(ref zoningTypes, true);
+            Utils.CommonUtils.ValidateIntegrity(ref zoningTypesNames, true);
 
             // Initialize native containers.（初始化原生容器。）
             int areaCount = areaQuery.CalculateEntityCount();
@@ -193,7 +212,11 @@ namespace Carto.Systems
             NativeParallelHashMap<Entity, NativeArray<double3>> nodeEntityMap = new(totalEntityCount, Allocator.Persistent);
 
             // Initialize managed containers.（初始化控管容器。）
+            Dictionary<Resource, string> resourcesMap = new();
+            List<Brand> brands = _shared.Brands;
+            List<LiteralAddress> buildingAddresses = new();
             List<string> buildingAssets = new();
+            List<string> buildingNames = new();
             List<BuildingStat> buildingStatsManaged = new();
             List<Theme> themes = _shared.Themes;
             List<ZoningType> zoningTypesManaged = Utils.CommonUtils.Copy(ref zoningTypes);
@@ -233,12 +256,23 @@ namespace Carto.Systems
                     // Collect the statistics of each facility.（收集各個設施的統計資料。）
                     CollectAffliatedAreaStatsJob collectAreaStatsJob = new()
                     {
+                        aggregateElementLookup = GetBufferLookup<AggregateElement>(),
+                        aggregatedLookup = GetComponentLookup<Aggregated>(),
                         attachmentLookup = GetComponentLookup<Attachment>(),
+                        buildingLookup = GetComponentLookup<Building>(),
+                        buildingDataLookup = GetComponentLookup<BuildingData>(),
                         buildingPropertyDataLookup = GetComponentLookup<BuildingPropertyData>(),
+                        compositionLookup = GetComponentLookup<Composition>(),
+                        currentDistrictLookup = GetComponentLookup<CurrentDistrict>(),
+                        curveLookup = GetComponentLookup<Curve>(),
+                        edgeLookup = GetComponentLookup<Edge>(),
+                        netCompositionDataLookup = GetComponentLookup<NetCompositionData>(),
                         ownerLookup = GetComponentLookup<Owner>(),
                         prefabRefLookup = GetComponentLookup<PrefabRef>(),
+                        roundaboutLookup = GetComponentLookup<Game.Net.Roundabout>(),
                         storageLookup = GetComponentLookup<Storage>(),
                         storageAreaDataLookup = GetComponentLookup<StorageAreaData>(),
+                        transformLookup = GetComponentLookup<Game.Objects.Transform>(),
                         emptyZoningTypeIndex = _shared.ZoningTypes.Length - 1,
                         list = affliatedAreaStats.AsParallelWriter()
                     };
@@ -264,7 +298,40 @@ namespace Carto.Systems
                 }
 
                 // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
-                
+                if (hasName || hasAddress || hasAsset)
+                {
+                    for (int i = 0; i < buildingStatsManaged.Count; i++)
+                    {
+                        BuildingStat stat = buildingStatsManaged[i];
+
+                        if (hasName)
+                        {
+                            buildingNames.Add(_name.GetRenderedLabelName(stat.entity));
+                        }
+
+                        if (hasAddress)
+                        {
+                            buildingAddresses.Add(stat.address.ToLiteral(_name));
+                        }
+
+                        if (hasAsset)
+                        {
+                            string prefabName = _prefab.GetPrefabName(stat.prefab);
+                            buildingAssets.Add(LocaleUtils.TryTranslate($"Assets.NAME[{prefabName}]", out string assetName) ? assetName : prefabName);
+                        }
+                    }
+                }
+
+                if (hasProduct)
+                {
+                    Dictionary<Resource, string>.Enumerator enumerator = Utils.CommonUtils.GetNamedFlags<Resource>().GetEnumerator();
+                    
+                    while (enumerator.MoveNext())
+                    {
+                        KeyValuePair<Resource, string> resource = enumerator.Current;
+                        resourcesMap.Add(resource.Key, LocaleUtils.TryTranslate($"Resources.TITLE[{resource.Value}]", out string localizedName) ? localizedName : (resource.Key == Resource.NoResource ? string.Empty : resource.Value));
+                    }
+                }
 
                 // Initialize the writer thread.（初始化負責寫出的執行緒。）
                 Task writerThread = Task.Run(() =>
@@ -273,6 +340,8 @@ namespace Carto.Systems
                     {
                         BuildingStat buildingStat = buildingStatsManaged[i];
                         Entity building = buildingStat.entity;
+                        bool hasValidZoningType = (buildingStat.zoning >= 0) && (buildingStat.zoning < zoningTypesManaged.Count);
+                        ZoningType zoningType = hasValidZoningType ? zoningTypesManaged[buildingStat.zoning] : zoningTypesManaged[^1];
                         if (!nodeEntityMap.TryGetValue(building, out NativeArray<double3> buildingNodes)) continue;
 
                         // Write feature header.（寫出圖徵檔頭。）
@@ -286,6 +355,122 @@ namespace Carto.Systems
                         // Write feature properties.（寫出圖徵）
                         writer.WritePropertyName("properties");
                         writer.WriteStartObject();
+
+                        if (hasName)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Name, buildingNames[i]);
+                        }
+                        if (hasAddress)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Address, buildingAddresses[i].ToArray());
+                        }
+                        if (hasAge)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Age, buildingStat.GetAverageAge());
+                        }
+                        if (hasAsset)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Asset, buildingAssets[i]);
+                        }
+                        if (hasBrand)
+                        {
+                            string brandName = (buildingStat.brand >= 0) && (buildingStat.brand < brands.Count) ? brands[buildingStat.brand].name : string.Empty;
+                            GeoJson.WriteProperty(writer, Property.Brand, brandName);
+                        }
+                        if (hasCategory)
+                        {
+                            BuildingCategory category = options.Display[(Property.Category, IO.System.Building)] ? buildingStat.category : Utils.CommonUtils.GetFirstMatch(buildingStat.category, IO.IO.BuildingCategoryDisplayOrder);
+                            GeoJson.WriteProperty(writer, Property.Category, category.ToString("G"));
+                        }
+                        if (hasElevation)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Elevation, (float)Math.Round(buildingStat.elevation, 4));
+                        }
+                        if (hasEmployee)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Employee, buildingStat.employee);
+                        }
+                        //if (hasHeight)
+                        //{
+                            // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasHousehold)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Household, buildingStat.household);
+                        }
+                        if (hasLabor)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Labor, buildingStat.labor);
+                        }
+                        if (hasLevel)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Level, buildingStat.level);
+                        }
+                        if (hasObject)
+                        {
+                            Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? buildingStat.objectType : Utils.CommonUtils.GetFirstMatch(buildingStat.objectType, IO.IO.FeatureDisplayOrder);
+                            GeoJson.WriteProperty(writer, Property.Object, displayType.ToString("G"));
+                        }
+                        if (hasProduct)
+                        {
+                            StringBuilder productNames = new();
+                            Resource[] products = Utils.CommonUtils.GetFlagComponents(buildingStat.product);
+
+                            for (int j = 0; j < products.Length; j++)
+                            {
+                                string productName = resourcesMap.TryGetValue(products[j], out string localizedName) ? localizedName : products[j].ToString("G");
+                                productNames.Append(localizedName);
+
+                                if (j != products.Length - 1)
+                                {
+                                    productNames.Append(", ");
+                                }
+                            }
+
+                            GeoJson.WriteProperty(writer, Property.Product, productNames.ToString());
+                        }
+                        if (hasProfit)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Profit, buildingStat.GetAverageProfit());
+                        }
+                        if (hasResident)
+                        {
+                            if (options.SeparateResident)
+                            {
+                                GeoJson.WriteProperty(writer, Property.Resident, new int[2] { buildingStat.residentFemale, buildingStat.residentMale }, options);
+                            }
+                            else
+                            {
+                                GeoJson.WriteProperty(writer, Property.Resident, buildingStat.residentFemale + buildingStat.residentMale);
+                            }
+                        }
+                        if (hasSexRatio)
+                        {
+                            GeoJson.WriteProperty(writer, Property.SexRatio, buildingStat.GetSexRatio());
+                        }
+                        //if (hasStory)
+                        //{
+                            // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasTheme)
+                        {
+                            string themeName = (zoningType.theme >= 0) && (zoningType.theme < themes.Count) ? themes[zoningType.theme].name : string.Empty;
+                            GeoJson.WriteProperty (writer, Property.Theme, themeName);
+                        }
+                        //if (hasValue)
+                        //{
+                            // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasWage)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Wage, buildingStat.GetAverageWage());
+                        }
+                        if (hasZone)
+                        {
+                            // The fallback value is "Unzoned".（後備值是「無分區」。）
+                            string zoningTypeName = hasValidZoningType ? zoningTypesNamesManaged[buildingStat.zoning] : zoningTypesNamesManaged[^1];
+                            GeoJson.WriteProperty(writer, Property.Zone, zoningTypeName);
+                        }
 
                         writer.WriteEndObject();
                         writer.WriteEndObject();
@@ -317,10 +502,37 @@ namespace Carto.Systems
         public partial struct CollectAffliatedAreaStatsJob : IJobEntity
         {
             [ReadOnly]
+            public BufferLookup<AggregateElement> aggregateElementLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Aggregated> aggregatedLookup;
+
+            [ReadOnly]
             public ComponentLookup<Attachment> attachmentLookup;
 
             [ReadOnly]
+            public ComponentLookup<Building> buildingLookup;
+
+            [ReadOnly]
+            public ComponentLookup<BuildingData> buildingDataLookup;
+
+            [ReadOnly]
             public ComponentLookup<BuildingPropertyData> buildingPropertyDataLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Composition> compositionLookup;
+
+            [ReadOnly]
+            public ComponentLookup<CurrentDistrict> currentDistrictLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Curve> curveLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Edge> edgeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<NetCompositionData> netCompositionDataLookup;
 
             [ReadOnly]
             public ComponentLookup<Owner> ownerLookup;
@@ -329,10 +541,16 @@ namespace Carto.Systems
             public ComponentLookup<PrefabRef> prefabRefLookup;
 
             [ReadOnly]
+            public ComponentLookup<Game.Net.Roundabout> roundaboutLookup;
+
+            [ReadOnly]
             public ComponentLookup<Storage> storageLookup;
 
             [ReadOnly]
             public ComponentLookup<StorageAreaData> storageAreaDataLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Objects.Transform> transformLookup;
 
             [ReadOnly]
             public int emptyZoningTypeIndex;
@@ -340,21 +558,24 @@ namespace Carto.Systems
             [WriteOnly]
             public NativeList<BuildingStat>.ParallelWriter list;
 
-            public void Execute(in Owner owner, in PrefabRef prefabRef, Entity area)
+            public void Execute(in Game.Areas.Geometry geometry, in Owner owner, in PrefabRef prefabRef, Entity area)
             {
                 BuildingStat stat = new()
                 {
                     entity = area,
-                    address = default,
+                    address = Address.Null,
                     age = 0f,
                     brand = 0,
+                    category = BuildingCategory.None,
                     company = 0,
+                    elevation = geometry.m_CenterPosition.y,
                     employee = 0,
                     household = 0,
                     labor = 0,
                     level = 0,
                     mainBuilding = Entity.Null,
                     objectType = Feature.Extractor,
+                    prefab = prefabRef,
                     product = Resource.NoResource,
                     profit = 0,
                     residentFemale = 0,
@@ -393,7 +614,24 @@ namespace Carto.Systems
                         stat.product = ownerPrefabProperty.m_AllowedManufactured;
                     }
                 }
-                
+
+                if (buildingLookup.TryGetComponent(owner.m_Owner, out Building ownerBuilding))
+                {
+                    if (SharedDataCollectionSystem.GetAddress(owner.m_Owner, ownerBuilding.m_RoadEdge, ownerBuilding.m_CurvePosition, out Entity road, out int number,
+                                                          ref aggregateElementLookup, ref aggregatedLookup, ref buildingDataLookup, ref curveLookup,
+                                                          ref compositionLookup, ref edgeLookup, ref netCompositionDataLookup, ref prefabRefLookup,
+                                                          ref roundaboutLookup, ref transformLookup))
+                    {
+                        stat.address.street = road;
+                        stat.address.number = number;
+                    }
+                    
+                    if (currentDistrictLookup.TryGetComponent(owner.m_Owner, out CurrentDistrict currentDistrict))
+                    {
+                        stat.address.district = currentDistrict.m_District;
+                    }
+                }
+
                 list.AddNoResize(stat);
             }
         }

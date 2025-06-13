@@ -340,6 +340,16 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Retrieve the named flags' names from the enum type.
+        /// （由枚舉型別獲得命名旗標的名稱。）
+        /// </summary>
+        /// <returns>A dictionary between named flags and their names.（包含命名旗標與其名稱的字典。）</returns>
+        public static Dictionary<T, string> GetNamedFlags<T>() where T : Enum
+        {
+            return Enum.GetValues(typeof(T)).Cast<T>().ToDictionary(value => value, value => value.ToString());
+        }
+
+        /// <summary>
         /// Replace the tokens into pre-defined texts.
         /// （將代號轉換為預先定義的文字。）
         /// </summary>

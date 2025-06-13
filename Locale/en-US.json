@@ -111,5 +111,6 @@
   "Options.Option.SourceCRSTransform": "Transform Parameters",
   "Options.Description.SourceCRSTransform": "Helmert Transform parameters for converting the current datum to WGS84. Enter values separated by spaces.",
   "Assets.NAME[Unzoned]": "Unzoned",
-  "Assets.THEME[Carto Generic]": "Generic"
+  "Assets.THEME[Carto Generic]": "Generic",
+  "Carto.Address.NULL[District]": "(Unincorporated Area)"
 }

@@ -1,3 +1,5 @@
+using Carto.Utils;
+using Game.UI;
 using Unity.Entities;
 
 namespace Carto.Domain
@@ -55,6 +57,31 @@ namespace Carto.Domain
                     street = Entity.Null
                 };
             }
+        }
+
+        /// <summary>
+        /// Convert the entity address to literal one.
+        /// （將實體地址轉換為文字地址。）
+        /// </summary>
+        /// <param name="nameSystem">The system managing names.（管理名稱的系統。）</param>
+        /// <returns>The literal address of the struct.（結構的文字地址。）</returns>
+        public readonly LiteralAddress ToLiteral(NameSystem nameSystem)
+        {
+            LiteralAddress literal = default;
+
+            if (district != Entity.Null)
+            {
+                literal.district = nameSystem.GetRenderedLabelName(district);
+            }
+            else
+            {
+                literal.district = LocaleUtils.TryTranslate("Carto.Address.NULL[District]", out string unincorporated) ? unincorporated : string.Empty;
+            }
+
+            literal.street = (street != Entity.Null) ? nameSystem.GetRenderedLabelName(street) : string.Empty;
+            literal.number = number;
+
+            return literal;
         }
 
         public override readonly string ToString()

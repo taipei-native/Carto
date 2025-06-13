@@ -596,6 +596,11 @@ namespace Carto.IO
         Width,
 
         /// <summary>
+        /// The name of the zoning type.（分區名稱，建築所屬的分區名稱。）
+        /// </summary>
+        Zone,
+
+        /// <summary>
         /// The classification of designated development purposes.（分區，土地的發展用途。）
         /// </summary>
         Zoning

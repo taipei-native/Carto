@@ -3,6 +3,82 @@ using System;
 namespace Carto.Domain
 {
     /// <summary>
+    /// The building types in the game.
+    /// （遊戲內的建築類別。）
+    /// </summary>
+    [Flags]
+    public enum BuildingCategory : uint
+    {
+        /// <summary>
+        /// The fallback value for unknown or unregistered building type.（用於未知或未註冊建築類別的後備值。）
+        /// </summary>
+        None = 0,
+
+        // Building Status（建築狀態）
+        /// <summary>
+        /// The abandoned building.（廢棄的建築。）
+        /// </summary>
+        Abandoned = 1 << 0,
+
+        /// <summary>
+        /// The building in the wrong zoning and would be demolished soon.（因分區錯誤，將被拆除的建築。）
+        /// </summary>
+        Condemned = 1 << 1,
+
+        /// <summary>
+        /// The under construction building.（建造中的建築。）
+        /// </summary>
+        Construction = 1 << 2,
+
+        /// <summary>
+        /// The destroyed building.（被摧毀的建築。）
+        /// </summary>
+        Destroyed = 1 << 3,
+
+        // Building properties（建築屬性）
+        /// <summary>
+        /// The building upgrades that require main buildings.（需要主建築的建築升級。）
+        /// </summary>
+        Extension = 1 << 4,
+
+        /// <summary>
+        /// The buildings that automatically spawn on special industries.（自動生成在特化工業上的建築。）
+        /// </summary>
+        Extractor = 1 << 5,
+
+        /// <summary>
+        /// The private buildings that spawn on the dedicated zonings.（生成在特定分區的私人建築。）
+        /// </summary>
+        Property = 1 << 6,
+
+        /// <summary>
+        /// Public service buildings.（公共服務建築。）
+        /// </summary>
+        Public = 1 << 7,
+
+        // Building tags（建築標籤）
+        Admin = 1 << 8,
+        Communication = 1 << 9,
+        Decoration = 1 << 10,
+        Disaster = 1 << 11,
+        Education = 1 << 12,
+        Fire = 1 << 13,
+        Health = 1 << 14,
+        Maintenance = 1 << 15,
+        Mortuary = 1 << 16,
+        Park = 1 << 17,
+        Parking = 1 << 18,
+        Police = 1 << 19,
+        Post = 1 << 20,
+        Power = 1 << 21,
+        Research = 1 << 22,
+        Sewage = 1 << 23,
+        Transportation = 1 << 24,
+        Waste = 1 << 25,
+        Water = 1 << 26
+    }
+
+    /// <summary>
     /// The direction of the network.
     /// （網路的方向。）
     /// </summary>

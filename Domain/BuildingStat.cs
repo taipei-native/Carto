@@ -41,10 +41,22 @@ namespace Carto.Domain
         public int brand;
 
         /// <summary>
+        /// The category of the building.
+        /// （建築的分類。）
+        /// </summary>
+        public BuildingCategory category;
+
+        /// <summary>
         /// The number of companies in the building.
         /// （建築內的公司數量。）
         /// </summary>
         public int company;
+
+        /// <summary>
+        /// The bottom elevation of the building.
+        /// （建築底部的高度。）
+        /// </summary>
+        public float elevation;
 
         /// <summary>
         /// The number of employee in the building.
@@ -81,6 +93,12 @@ namespace Carto.Domain
         /// （圖徵分類。）
         /// </summary>
         public Feature objectType;
+
+        /// <summary>
+        /// The prefab template of the building.
+        /// （建築的預製模板。）
+        /// </summary>
+        public Entity prefab;
 
         /// <summary>
         /// The merchandise sold by the companies in the building.
@@ -148,7 +166,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Building ({entity.Index}:{entity.Version}) - Address [{address}], Age [{age}], Brand [{brand}], Company [{company}], Employee [{employee}], Household [{household}], Labor [{labor}], Level [{level}], MainBuilding [{mainBuilding.Index}:{mainBuilding.Version}], ObjectType [{objectType}], Product [{product}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
+            return $"Building ({entity.Index}:{entity.Version}) - Address [{address}], Age [{age}], Brand [{brand}], Category [{category}], Company [{company}], Elevation [{elevation}], Employee [{employee}], Household [{household}], Labor [{labor}], Level [{level}], MainBuilding [{mainBuilding.Index}:{mainBuilding.Version}], ObjectType [{objectType}], Product [{product}], Prefab [{prefab.Index}:{prefab.Version}], Profit [{profit}], ResidentFemale [{residentFemale}], ResidentMale [{residentMale}], Wage [{wage}], Zoning [{zoning}]";
         }
     }
 }

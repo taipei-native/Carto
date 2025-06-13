@@ -391,6 +391,7 @@ namespace Carto.Systems
                     // （以下屬性在建築系統完成工作後丟棄，因為 zoning 欄位會用到它們。）
                     Utils.CommonUtils.Dispose(ref _zoningTypes);
                     Utils.CommonUtils.Dispose(ref _zoningTypesEntityMap);
+                    Utils.CommonUtils.Dispose(ref _zoningTypesNames);
 
                     // Manually call the dispose for AfterZoningSystem, in case of the situation that the system is not used.
                     // （手動呼叫 AfterZoningSystem 的拋棄指令，以避免該系統並未被使用。）
@@ -403,7 +404,6 @@ namespace Carto.Systems
 
                 case DisposePhase.AfterZoningSystem:
                     Utils.CommonUtils.Dispose(ref _zoningTypesIdMap);
-                    Utils.CommonUtils.Dispose(ref _zoningTypesNames);
                     break;
 
                 default:
@@ -591,6 +591,171 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Retrieve the building category of the entity.
+        /// （獲得實體的建築分類。）
+        /// </summary>
+        /// <param name="target">The target entity.（目標實體。）</param>
+        /// <returns>The building category.（建築分類。）</returns>
+        public static BuildingCategory GetBuildingCategory(Entity target,
+                                                           ref ComponentLookup<Abandoned> abandonedLookup, ref ComponentLookup<AdminBuilding> adminBuildingLookup,
+                                                           ref ComponentLookup<Game.Buildings.Battery> batteryLookup, ref ComponentLookup<CommercialProperty> commercialPropertyLookup,
+                                                           ref ComponentLookup<Condemned> condemnedLookup, ref ComponentLookup<Game.Buildings.DeathcareFacility> deathcareFacilityLookup,
+                                                           ref ComponentLookup<Destroyed> destroyedLookup, ref ComponentLookup<Game.Buildings.DisasterFacility> disasterFacilityLookup,
+                                                           ref ComponentLookup<Game.Buildings.EarlyDisasterWarningSystem> earlyDisasterWarningSystemLookup, ref ComponentLookup<ElectricityProducer> electricityProducerLookup,
+                                                           ref ComponentLookup<Game.Buildings.EmergencyShelter> emergencyShelterLookup, ref ComponentLookup<Game.Buildings.ExtractorFacility> extractorFacilityLookup,
+                                                           ref ComponentLookup<Game.Buildings.FireStation> fireStationLookup, ref ComponentLookup<Game.Buildings.FirewatchTower> firewatchTowerLookup,
+                                                           ref ComponentLookup<Game.Buildings.GarbageFacility> garbageFacilityLookup, ref ComponentLookup<Game.Buildings.Hospital> hospitalLookup,
+                                                           ref ComponentLookup<IndustrialProperty> industrialPropertyLookup, ref ComponentLookup<Game.Buildings.MaintenanceDepot> maintenanceDepotLookup,
+                                                           ref ComponentLookup<Native> nativeLookup, ref ComponentLookup<Game.Buildings.Park> parkLookup,
+                                                           ref ComponentLookup<Game.Buildings.ParkingFacility> parkingFacilityLookup, ref ComponentLookup<Game.Buildings.PoliceStation> policeStationLookup,
+                                                           ref ComponentLookup<Game.Buildings.PostFacility> postFacilityLookup, ref ComponentLookup<Game.Buildings.Prison> prisonLookup,
+                                                           ref ComponentLookup<Game.Buildings.ResearchFacility> researchFacilityLookup, ref ComponentLookup<ResidentialProperty> residentialPropertyLookup,
+                                                           ref ComponentLookup<Game.Buildings.School> schoolLookup, ref ComponentLookup<Game.Buildings.ServiceUpgrade> serviceUpgradeLookup,
+                                                           ref ComponentLookup<Game.Buildings.SewageOutlet> sewageOutletLookup, ref ComponentLookup<Game.Buildings.TelecomFacility> telecomFacilityLookup,
+                                                           ref ComponentLookup<Game.Buildings.Transformer> transformerLookup, ref ComponentLookup<Game.Buildings.TransportDepot> transportDepotLookup,
+                                                           ref ComponentLookup<Game.Buildings.TransportStation> transportStationLookup, ref ComponentLookup<UnderConstruction> underConstructionLookup,
+                                                           ref ComponentLookup<Game.Buildings.WaterPumpingStation> waterPumpingStationLookup, ref ComponentLookup<Game.Buildings.WelfareOffice> welfareOfficeLookup)
+        {
+            bool hasPublicFacility = false;
+            BuildingCategory category = BuildingCategory.None;
+
+            // Building Status（建築狀態）
+            if (abandonedLookup.HasComponent(target)) category |= BuildingCategory.Abandoned;
+            if (condemnedLookup.HasComponent(target)) category |= BuildingCategory.Condemned;
+            if (underConstructionLookup.HasComponent(target)) category |= BuildingCategory.Construction;
+            if (destroyedLookup.HasComponent(target)) category |= BuildingCategory.Destroyed;
+
+            // Building properties（建築屬性）
+            if (serviceUpgradeLookup.HasComponent(target)) category |= BuildingCategory.Extension;
+            if (extractorFacilityLookup.HasComponent(target)) category |= BuildingCategory.Extractor;
+            if (commercialPropertyLookup.HasComponent(target) ||
+                industrialPropertyLookup.HasComponent(target) ||
+                residentialPropertyLookup.HasComponent(target)) category |= BuildingCategory.Property;
+
+            // Building tags（建築標籤）
+            if (adminBuildingLookup.HasComponent(target) ||
+                welfareOfficeLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Admin;
+                hasPublicFacility = true;
+            }
+
+            if (telecomFacilityLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Communication;
+                hasPublicFacility = true;
+            }
+
+            if (disasterFacilityLookup.HasComponent(target) ||
+                earlyDisasterWarningSystemLookup.HasComponent(target) ||
+                emergencyShelterLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Disaster;
+                hasPublicFacility = true;
+            }
+
+            if (schoolLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Education;
+                hasPublicFacility = true;
+            }
+
+            if (fireStationLookup.HasComponent(target) ||
+                firewatchTowerLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Fire;
+                hasPublicFacility = true;
+            }
+
+            if (hospitalLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Health;
+                hasPublicFacility = true;
+            }
+
+            if (maintenanceDepotLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Maintenance;
+                hasPublicFacility = true;
+            }
+
+            if (deathcareFacilityLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Mortuary;
+                hasPublicFacility = true;
+            }
+
+            if (parkLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Park;
+                hasPublicFacility = true;
+            }
+
+            if (parkingFacilityLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Parking;
+                hasPublicFacility = true;
+            }
+
+            if (policeStationLookup.HasComponent(target) ||
+                prisonLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Police;
+                hasPublicFacility = true;
+            }
+
+            if (postFacilityLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Post;
+                hasPublicFacility = true;
+            }
+
+            if (batteryLookup.HasComponent(target) ||
+                electricityProducerLookup.HasComponent(target) ||
+                transformerLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Power;
+                hasPublicFacility = true;
+            }
+
+            if (researchFacilityLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Research;
+                hasPublicFacility = true;
+            }
+
+            if (sewageOutletLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Sewage;
+                hasPublicFacility = true;
+            }
+
+            if (transportDepotLookup.HasComponent(target) ||
+                transportStationLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Transportation;
+                hasPublicFacility = true;
+            }
+
+            if (garbageFacilityLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Waste;
+                hasPublicFacility = true;
+            }
+
+            if (waterPumpingStationLookup.HasComponent(target))
+            {
+                category |= BuildingCategory.Water;
+                hasPublicFacility = true;
+            }
+
+            if (nativeLookup.HasComponent(target) && 
+                category == BuildingCategory.None) category |= BuildingCategory.Decoration;
+
+            return hasPublicFacility ? category | BuildingCategory.Public : category;
+        }
+
+        /// <summary>
         /// Retrieve building entities' statistical data.
         /// （獲取建築實體的統計資料。）
         /// </summary>
@@ -714,25 +879,61 @@ namespace Carto.Systems
                     citizenBufferLookup = GetBufferLookup<HouseholdCitizen>(true),
                     employeeBufferLookup = GetBufferLookup<Employee>(true),
                     renterBufferLookup = GetBufferLookup<Renter>(true),
+                    abandonedLookup = GetComponentLookup<Abandoned>(true),
+                    adminBuildingLookup = GetComponentLookup<AdminBuilding>(true),
                     aggregatedLookup = GetComponentLookup<Aggregated>(true),
+                    batteryLookup = GetComponentLookup<Game.Buildings.Battery>(true),
                     buildingDataLookup = GetComponentLookup<BuildingData>(true),
                     citizenLookup = GetComponentLookup<Citizen>(true),
+                    commercialPropertyLookup = GetComponentLookup<CommercialProperty>(true),
                     companyDataLookup = GetComponentLookup<CompanyData>(true),
                     compositionLookup = GetComponentLookup<Composition>(true),
+                    condemnedLookup = GetComponentLookup<Condemned>(true),
                     currentDistrictLookup = GetComponentLookup<CurrentDistrict>(true),
                     curveLookup = GetComponentLookup<Curve>(true),
+                    deathcareFacilityLookup = GetComponentLookup<Game.Buildings.DeathcareFacility>(true),
+                    destroyedLookup = GetComponentLookup<Destroyed>(true),
+                    disasterFacilityLookup = GetComponentLookup<Game.Buildings.DisasterFacility>(true),
+                    earlyDisasterWarningSystemLookup = GetComponentLookup<Game.Buildings.EarlyDisasterWarningSystem>(true),
                     edgeLookup = GetComponentLookup<Edge>(true),
+                    electricityProducerLookup = GetComponentLookup<ElectricityProducer>(true),
+                    emergencyShelterLookup = GetComponentLookup<Game.Buildings.EmergencyShelter>(true),
+                    extractorFacilityLookup = GetComponentLookup<Game.Buildings.ExtractorFacility>(true),
+                    fireStationLookup = GetComponentLookup<Game.Buildings.FireStation>(true),
+                    firewatchTowerLookup = GetComponentLookup<Game.Buildings.FirewatchTower>(true),
+                    garbageFacilityLookup = GetComponentLookup<Game.Buildings.GarbageFacility>(true),
                     healthProblemLookup = GetComponentLookup<HealthProblem>(true),
                     homelessHouseholdLookup = GetComponentLookup<HomelessHousehold>(true),
+                    hospitalLookup = GetComponentLookup<Game.Buildings.Hospital>(true),
                     householdLookup = GetComponentLookup<Household>(true),
+                    industrialPropertyLookup = GetComponentLookup<IndustrialProperty>(true),
+                    maintenanceDepotLookup = GetComponentLookup<Game.Buildings.MaintenanceDepot>(true),
+                    nativeLookup = GetComponentLookup<Native>(true),
                     netCompositionDataLookup = GetComponentLookup<NetCompositionData>(true),
+                    parkLookup = GetComponentLookup<Game.Buildings.Park>(true),
+                    parkingFacilityLookup = GetComponentLookup<Game.Buildings.ParkingFacility>(true),
+                    policeStationLookup = GetComponentLookup<Game.Buildings.PoliceStation>(true),
+                    postFacilityLookup = GetComponentLookup<Game.Buildings.PostFacility>(true),
                     prefabRefLookup = GetComponentLookup<PrefabRef>(true),
+                    prisonLookup = GetComponentLookup<Game.Buildings.Prison>(true),
                     processLookup = GetComponentLookup<IndustrialProcessData>(true),
+                    researchFacilityLookup = GetComponentLookup<Game.Buildings.ResearchFacility>(true),
+                    residentialPropertyLookup = GetComponentLookup<ResidentialProperty>(true),
                     roundaboutLookup = GetComponentLookup<Game.Net.Roundabout>(true),
+                    schoolLookup = GetComponentLookup<Game.Buildings.School>(true),
+                    serviceUpgradeLookup = GetComponentLookup<Game.Buildings.ServiceUpgrade>(true),
+                    sewageOutletLookup = GetComponentLookup<Game.Buildings.SewageOutlet>(true),
                     spawnableDataLookup = GetComponentLookup<SpawnableBuildingData>(true),
                     taxPayerLookup = GetComponentLookup<TaxPayer>(true),
+                    telecomFacilityLookup = GetComponentLookup<Game.Buildings.TelecomFacility>(true),
                     travelPurposeLookup = GetComponentLookup<TravelPurpose>(true),
                     transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
+                    transformerLookup = GetComponentLookup<Game.Buildings.Transformer>(true),
+                    transportDepotLookup = GetComponentLookup<Game.Buildings.TransportDepot>(true),
+                    transportStationLookup = GetComponentLookup<Game.Buildings.TransportStation>(true),
+                    underConstructionLookup = GetComponentLookup<UnderConstruction>(true),
+                    waterPumpingStationLookup = GetComponentLookup<Game.Buildings.WaterPumpingStation>(true),
+                    welfareOfficeLookup = GetComponentLookup<Game.Buildings.WelfareOffice>(true),
                     workerLookup = GetComponentLookup<Worker>(true),
                     economyParameter = economyParameterData,
                     emptyZoningTypeIndex = zonings.Length - 1,
@@ -757,11 +958,6 @@ namespace Carto.Systems
                 Utils.CommonUtils.Dispose(ref sexEntityMap);
                 Dispose(DisposePhase.AfterBuildingStats); // brandsEntityMap
             }
-
-            for (int i = 0; i < stats.Length; i++)
-            {
-                _log.Info(stats[i].ToString());
-            } 
         }
 
         /// <summary>
@@ -1030,7 +1226,16 @@ namespace Carto.Systems
             public BufferLookup<Renter> renterBufferLookup;
 
             [ReadOnly]
+            public ComponentLookup<Abandoned> abandonedLookup;
+
+            [ReadOnly]
+            public ComponentLookup<AdminBuilding> adminBuildingLookup;
+
+            [ReadOnly]
             public ComponentLookup<Aggregated> aggregatedLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.Battery> batteryLookup;
 
             [ReadOnly]
             public ComponentLookup<BuildingData> buildingDataLookup;
@@ -1039,10 +1244,16 @@ namespace Carto.Systems
             public ComponentLookup<Citizen> citizenLookup;
 
             [ReadOnly]
+            public ComponentLookup<CommercialProperty> commercialPropertyLookup;
+
+            [ReadOnly]
             public ComponentLookup<CompanyData> companyDataLookup;
 
             [ReadOnly]
             public ComponentLookup<Composition> compositionLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Condemned> condemnedLookup;
 
             [ReadOnly]
             public ComponentLookup<CurrentDistrict> currentDistrictLookup;
@@ -1051,7 +1262,37 @@ namespace Carto.Systems
             public ComponentLookup<Curve> curveLookup;
 
             [ReadOnly]
+            public ComponentLookup<Game.Buildings.DeathcareFacility> deathcareFacilityLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Destroyed> destroyedLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.DisasterFacility> disasterFacilityLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.EarlyDisasterWarningSystem> earlyDisasterWarningSystemLookup;
+
+            [ReadOnly]
             public ComponentLookup<Edge> edgeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<ElectricityProducer> electricityProducerLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.EmergencyShelter> emergencyShelterLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.ExtractorFacility> extractorFacilityLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.FireStation> fireStationLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.FirewatchTower> firewatchTowerLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.GarbageFacility> garbageFacilityLookup;
 
             [ReadOnly]
             public ComponentLookup<HealthProblem> healthProblemLookup;
@@ -1060,19 +1301,61 @@ namespace Carto.Systems
             public ComponentLookup<HomelessHousehold> homelessHouseholdLookup;
 
             [ReadOnly]
+            public ComponentLookup<Game.Buildings.Hospital> hospitalLookup;
+
+            [ReadOnly]
             public ComponentLookup<Household> householdLookup;
+
+            [ReadOnly]
+            public ComponentLookup<IndustrialProperty> industrialPropertyLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.MaintenanceDepot> maintenanceDepotLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Native> nativeLookup;
 
             [ReadOnly]
             public ComponentLookup<NetCompositionData> netCompositionDataLookup;
 
             [ReadOnly]
+            public ComponentLookup<Game.Buildings.Park> parkLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.ParkingFacility> parkingFacilityLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.PoliceStation> policeStationLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.PostFacility> postFacilityLookup;
+
+            [ReadOnly]
             public ComponentLookup<PrefabRef> prefabRefLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.Prison> prisonLookup;
 
             [ReadOnly]
             public ComponentLookup<IndustrialProcessData> processLookup;
 
             [ReadOnly]
+            public ComponentLookup<Game.Buildings.ResearchFacility> researchFacilityLookup;
+
+            [ReadOnly]
+            public ComponentLookup<ResidentialProperty> residentialPropertyLookup;
+
+            [ReadOnly]
             public ComponentLookup<Game.Net.Roundabout> roundaboutLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.School> schoolLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.ServiceUpgrade> serviceUpgradeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.SewageOutlet> sewageOutletLookup;
 
             [ReadOnly]
             public ComponentLookup<SpawnableBuildingData> spawnableDataLookup;
@@ -1081,10 +1364,31 @@ namespace Carto.Systems
             public ComponentLookup<TaxPayer> taxPayerLookup;
 
             [ReadOnly]
+            public ComponentLookup<Game.Buildings.TelecomFacility> telecomFacilityLookup;
+
+            [ReadOnly]
             public ComponentLookup<TravelPurpose> travelPurposeLookup;
 
             [ReadOnly]
             public ComponentLookup<Game.Objects.Transform> transformLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.Transformer> transformerLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.TransportDepot> transportDepotLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.TransportStation> transportStationLookup;
+
+            [ReadOnly]
+            public ComponentLookup<UnderConstruction> underConstructionLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.WaterPumpingStation> waterPumpingStationLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Buildings.WelfareOffice> welfareOfficeLookup;
 
             [ReadOnly]
             public ComponentLookup<Worker> workerLookup;
@@ -1127,6 +1431,25 @@ namespace Carto.Systems
                     address = Address.Null,
                     age = 0f,
                     brand = 0,
+                    category = GetBuildingCategory(building,
+                                                   ref abandonedLookup, ref adminBuildingLookup,
+                                                   ref batteryLookup, ref commercialPropertyLookup,
+                                                   ref condemnedLookup, ref deathcareFacilityLookup,
+                                                   ref destroyedLookup, ref disasterFacilityLookup,
+                                                   ref earlyDisasterWarningSystemLookup, ref electricityProducerLookup,
+                                                   ref emergencyShelterLookup, ref extractorFacilityLookup,
+                                                   ref fireStationLookup, ref firewatchTowerLookup,
+                                                   ref garbageFacilityLookup, ref hospitalLookup,
+                                                   ref industrialPropertyLookup, ref maintenanceDepotLookup,
+                                                   ref nativeLookup, ref parkLookup,
+                                                   ref parkingFacilityLookup, ref policeStationLookup,
+                                                   ref postFacilityLookup, ref prisonLookup,
+                                                   ref researchFacilityLookup, ref residentialPropertyLookup,
+                                                   ref schoolLookup, ref serviceUpgradeLookup,
+                                                   ref sewageOutletLookup, ref telecomFacilityLookup,
+                                                   ref transformerLookup, ref transportDepotLookup,
+                                                   ref transportStationLookup, ref underConstructionLookup,
+                                                   ref waterPumpingStationLookup, ref welfareOfficeLookup),
                     company = 0,
                     employee = 0,
                     household = 0,
@@ -1134,6 +1457,7 @@ namespace Carto.Systems
                     level = 0,
                     mainBuilding = Entity.Null,
                     objectType = Feature.Building,
+                    prefab = prefabRef,
                     product = Resource.NoResource,
                     profit = 0,
                     residentFemale = 0,
@@ -1141,6 +1465,11 @@ namespace Carto.Systems
                     wage = 0,
                     zoning = emptyZoningTypeIndex
                 };
+
+                if (transformLookup.TryGetComponent(building, out Game.Objects.Transform buildingTransform))
+                {
+                    stat.elevation = buildingTransform.m_Position.y;
+                }
 
                 if (employeeBufferLookup.TryGetBuffer(building, out DynamicBuffer<Employee> employeeBuffer))
                 {

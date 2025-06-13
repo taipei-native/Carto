@@ -366,11 +366,6 @@ namespace Carto.Systems
                 Utils.CommonUtils.Dispose(ref utilityLanes);
             }
 
-            for (int i = 0; i < _networkStats.Length; i++)
-            {
-                _log.Info(_networkStats[i].ToString());
-            }
-
             // Temporary disposal
             Dispose();
         }
