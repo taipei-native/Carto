@@ -31,7 +31,7 @@ Go to the options and click Carto in the sidebar. In the *General* tab, you can 
 
 ### Credits
 
-Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them! Aside from the inspiring modders, I am really grateful to beta testers for their precious feedback, including but not limited to **Allegretic**, **LightLight**, and other members in the two Discord servers listed below.
+Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them! Aside from the inspiring modders, I am really grateful to beta testers for their precious feedback, including but not limited to **Allegretic**, **Excellent Guy**, **LightLight**, **jefferyharrell**, and other members in the two Discord servers listed below.
 
 ### Feedback and Contacts
 

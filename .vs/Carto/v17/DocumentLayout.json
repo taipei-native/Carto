@@ -5,20 +5,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\carto.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
       "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:carto.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\utils\\miscutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:utils\\miscutils.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|d:\\documents\\source\\repos\\carto\\carto.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|",
-      "RelativeMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|solutionrelative:carto.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|c:\\users\\daniel\\appdata\\locallow\\colossal order\\cities skylines ii\\.cache\\modding\\mod.props||{FA3CD31E-987B-443A-9B81-186104E8DAC1}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}|Carto.csproj|c:\\users\\daniel\\appdata\\locallow\\colossal order\\cities skylines ii\\.cache\\modding\\mod.targets||{FA3CD31E-987B-443A-9B81-186104E8DAC1}"
     }
   ],
   "DocumentGroupContainers": [
@@ -28,7 +14,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Bookmark",
@@ -36,61 +22,15 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "MiscUtils.cs",
-              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Utils\\MiscUtils.cs",
-              "RelativeDocumentMoniker": "Utils\\MiscUtils.cs",
-              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Utils\\MiscUtils.cs",
-              "RelativeToolTip": "Utils\\MiscUtils.cs",
-              "ViewState": "AgIAALwAAAAAAAAAAIAxwJoAAAAJAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-06-12T06:54:29.74Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "Carto",
               "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Carto.csproj",
               "RelativeDocumentMoniker": "Carto.csproj",
               "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Carto.csproj",
               "RelativeToolTip": "Carto.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAHIAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-06-12T06:48:18.131Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "Carto.csproj",
-              "DocumentMoniker": "D:\\Documents\\source\\repos\\Carto\\Carto.csproj",
-              "RelativeDocumentMoniker": "Carto.csproj",
-              "ToolTip": "D:\\Documents\\source\\repos\\Carto\\Carto.csproj",
-              "RelativeToolTip": "Carto.csproj",
-              "ViewState": "AgIAADAAAAAAAAAAAAAAADoAAAAbAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-06-11T14:19:53.941Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "Mod.targets",
-              "DocumentMoniker": "C:\\Users\\Daniel\\AppData\\LocalLow\\Colossal Order\\Cities Skylines II\\.cache\\Modding\\Mod.targets",
-              "ToolTip": "C:\\Users\\Daniel\\AppData\\LocalLow\\Colossal Order\\Cities Skylines II\\.cache\\Modding\\Mod.targets",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAHgAAAB7AAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003801|",
-              "WhenOpened": "2025-06-11T14:30:14.19Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "Mod.props",
-              "DocumentMoniker": "C:\\Users\\Daniel\\AppData\\LocalLow\\Colossal Order\\Cities Skylines II\\.cache\\Modding\\Mod.props",
-              "ToolTip": "C:\\Users\\Daniel\\AppData\\LocalLow\\Colossal Order\\Cities Skylines II\\.cache\\Modding\\Mod.props",
-              "ViewState": "AgIAABgAAAAAAAAAAAAAADQAAAAUAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003801|",
-              "WhenOpened": "2025-06-11T14:25:09.805Z",
+              "WhenOpened": "2025-06-15T11:27:49.868Z",
               "EditorCaption": ""
             }
           ]

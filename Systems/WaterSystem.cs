@@ -93,7 +93,7 @@
                                 for (int j = 0; j < _water.resolution.x; j++)
                                 {
                                     float val = watrOriginalData[j + (_water.resolution.z - 1 - z) * _water.resolution.x].m_Depth;
-                                    val = (val == 0) ? 1.70141E+38f : val;
+                                    val = (val <= 0) ? 1.70141E+38f : val;
                                     watrDepth[z, j] = val;
                                 }
                             });

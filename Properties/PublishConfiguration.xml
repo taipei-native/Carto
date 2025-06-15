@@ -46,7 +46,7 @@ I’ve written a step-by-step tutorial on how to make maps with Carto &amp; QGIS
 
 ### Credits
 
-Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them! Aside from the inspiring modders, I am really grateful to beta testers for their precious feedback, including but not limited to **Allegretic**, **LightLight**, and other members in the two Discord servers listed below.
+Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them! Aside from the inspiring modders, I am really grateful to beta testers for their precious feedback, including but not limited to **Allegretic**, **Excellent Guy**, **LightLight**, **jefferyharrell**, and other members in the two Discord servers listed below.
 
 ### Feedback and Contacts
 
@@ -64,16 +64,14 @@ You can reach me at the PDX forum’s comment section (English / Chinese), Citie
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.3.4" />
+	<ModVersion Value="0.3.5" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.3.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Recompiled the mod to ensure compatibility with game version 1.3.
-* Upgraded target .NET Framework from 4.7.2 to 4.8.
-* Cleaned up the project file for improved consistency with the mod template.
+* Fixed negative water depth values in exported GeoTIFF after 1.3.3f1 patch. [Reported by @Excellent Guy]
 	</ChangeLog>
 	<!--ChangeLog>
 	</ChangeLog-->
