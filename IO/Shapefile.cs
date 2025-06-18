@@ -3,7 +3,6 @@ using Carto.Geodata;
 using Carto.Utils;
 using Colossal.Mathematics;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -163,6 +162,24 @@ namespace Carto.IO
         public delegate void WriteSHPMethod<T>(BinaryWriter writer, Options options, out List<IndexPair> indexPairs, out Bounds3 bounds, out List<T> syncList);
 
         /// <summary>
+        /// Apply the decimal length constraint of the field info.
+        /// （對欄位資訊增加小數點後位數長度的限制。）
+        /// </summary>
+        /// <param name="property">The property enum value.（屬性枚舉值。）</param>
+        /// <param name="constraint">The input field info.（輸入的欄位資訊。）</param>
+        /// <returns>The field info with updated decimal length constraint.（附有更新後小數長度的欄位資訊。）</returns>
+        public static FieldInfo ApplyFieldInfoConstraint(Property property, FieldInfo constraint)
+        {
+            if (IO.PropertyDecimalConstraintTable.TryGetValue(property, out int maxLength))
+            {
+                int newDecimalLength = constraint.decimalLength > maxLength ? maxLength : constraint.decimalLength;
+                return new(newDecimalLength, constraint.length, constraint.scientific, constraint.type);
+            }
+
+            return constraint;
+        }
+
+        /// <summary>
         /// Combine the <see cref="FieldInfo"/> created by jobs and those created manually into a single dictionary.<br/>
         /// （將工作與手動產生的 <see cref="FieldInfo"/> 合併成單一字典。）
         /// </summary>
@@ -188,15 +205,7 @@ namespace Carto.IO
             {
                 Property key = nativeFieldInfo.Current.Key;
                 FieldInfo constraint = nativeFieldInfo.Current.Value;
-                if (IO.PropertyDecimalConstraintTable.TryGetValue(key, out int maxLength))
-                {
-                    int newDecimalLength = constraint.decimalLength > maxLength ? maxLength : constraint.decimalLength;
-                    fieldMap.Add(key, new(newDecimalLength, constraint.length, constraint.scientific, constraint.type));
-                }
-                else
-                {
-                    fieldMap.Add(key, constraint);
-                }
+                fieldMap.Add(key, ApplyFieldInfoConstraint(key, constraint));
             }
 
             CommonUtils.Dispose(ref nativeFieldMap);

@@ -351,7 +351,10 @@ namespace Carto.IO
                             }
                             if (useBuilding)
                             {
-
+                                if (buildingHasBoundary)
+                                {
+                                    Shapefile.Write<Entity>(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundarySHP, Instance.Building.WriteBoundaryDBF, OnReport);
+                                }
                             }
                             if (usePOI)
                             {

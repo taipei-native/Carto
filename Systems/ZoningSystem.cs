@@ -201,9 +201,9 @@ namespace Carto.Systems
                         zoningField += new FieldInfo(category.ToString("G"));
                     }
 
-                    _fieldMap.Add(Property.Density, densityField);
-                    _fieldMap.Add(Property.Theme, themeField);
-                    _fieldMap.Add(Property.Zoning, zoningField);
+                    if (hasDensity) _fieldMap.Add(Property.Density, densityField);
+                    if (hasTheme) _fieldMap.Add(Property.Theme, themeField);
+                    if (hasZoning) _fieldMap.Add(Property.Zoning, zoningField);
                 }
 
                 // Initialize the writer thread.（初始化負責寫出的執行緒。）

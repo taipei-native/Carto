@@ -143,7 +143,7 @@ namespace Carto.Systems
                                 for (int j = 0; j < _param.imageWidth; j++)
                                 {
                                     short depthInPlace = (short)Math.Round(depth[i * _param.imageWidth + j].m_Depth, MidpointRounding.AwayFromZero);
-                                    writer.Write(BitConverter.GetBytes(depthInPlace == 0 ? (short) _param.nodata : depthInPlace));
+                                    writer.Write(BitConverter.GetBytes(depthInPlace <= 0 ? (short) _param.nodata : depthInPlace));
                                 }
                             }
                             break;

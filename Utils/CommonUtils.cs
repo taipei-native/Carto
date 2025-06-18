@@ -32,6 +32,27 @@ namespace Carto.Utils
                 destination.Add(source[i]);
             }
         }
+
+        /// <summary>
+        /// Add the elements from a <see cref="NativeList{T}"/> to another native list.
+        /// （將一個 <see cref="NativeList{T}"/> 的元素加入至另一個原生列表中。）
+        /// </summary>
+        /// <typeparam name="T">The type of list's items.（列表內物件的型別。）</typeparam>
+        /// <param name="destination">The target list.（目標列表。）</param>
+        /// <param name="source">The source native list.（來源原生列表。）</param>
+        public static void AddTo<T>(ref NativeList<T> destination, ref NativeList<T> source) where T : unmanaged
+        {
+            if (!destination.IsCreated || !source.IsCreated ||
+                (source.Length == 0) || ((destination.Capacity - destination.Length) < source.Length)) return;
+
+            AddToJob<T> addJob = new()
+            {
+                source = source,
+                destination = destination.AsParallelWriter(),
+            };
+            JobHandle addHandle = addJob.Schedule(source.Length, 64, default);
+            addHandle.Complete();
+        }
         
         /// <summary>
         /// Copy a <see cref="NativeList{T}"/> to a managed list.
@@ -373,7 +394,7 @@ namespace Carto.Utils
         /// <typeparam name="T">The type of the items.（陣列內物件的型別。）</typeparam>
         /// <param name="array">The input array.（輸入的陣列。）</param>
         /// <param name="capacity">The capacity used to initialize the array.（用於初始化陣列的容量。）</param>
-        public static void Reset<T>(T[] array, int capacity = 16)
+        public static void Reset<T>(ref T[] array, int capacity = 16)
         {
             if (array == null)
             {
@@ -636,6 +657,26 @@ namespace Carto.Utils
             if (!omitLength && hashmap.Count() == 0)
             {
                 throw new InvalidOperationException("The hashmap is empty. 映射表為空。");
+            }
+        }
+
+        /// <summary>
+        /// The job to add a <see cref="NativeList{T}"/>'s contents to another list.
+        /// （將一個 <see cref="NativeList{T}"/> 內容加入至另一個列表的工作。）
+        /// </summary>
+        [BurstCompile]
+        private partial struct AddToJob<T> : IJobParallelFor
+            where T : unmanaged
+        {
+            [ReadOnly]
+            public NativeList<T> source;
+
+            [WriteOnly]
+            public NativeList<T>.ParallelWriter destination;
+
+            public void Execute(int index)
+            {
+                destination.AddNoResize(source[index]);
             }
         }
 

@@ -1,6 +1,8 @@
 using Carto.IO;
 using Game.Economy;
 using System;
+using System.Collections.Generic;
+using System.Text;
 using Unity.Entities;
 
 namespace Carto.Domain
@@ -156,6 +158,30 @@ namespace Carto.Domain
         /// </summary>
         /// <returns>The wage in ₡ per month.（以 ₡／月 計的薪資。）</returns>
         public readonly float GetAverageWage() => labor > 0 ? (float)Math.Round((double)wage / labor, 2) : 0f;
+
+        /// <summary>
+        /// Retrieve the products in localized name.
+        /// （獲得翻譯後的產品名稱。）
+        /// </summary>
+        /// <param name="resourceTranslationMap">The map between the resource enum value and the translation.（資源枚舉值與翻譯的映射表。）</param>
+        /// <returns>The string containing localized product names.（含有已翻譯產品名稱的字串。）</returns>
+        public readonly string GetLocalizedProducts(Dictionary<Resource, string> resourceTranslationMap)
+        {
+            StringBuilder productNames = new();
+            Resource[] products = Utils.CommonUtils.GetFlagComponents(product);
+
+            for (int j = 0; j < products.Length; j++)
+            {
+                string productName = resourceTranslationMap.TryGetValue(products[j], out string localizedName) ? localizedName : products[j].ToString("G");
+                productNames.Append(productName);
+
+                if (j != products.Length - 1)
+                {
+                    productNames.Append(", ");
+                }
+            }
+            return productNames.ToString();
+        }
 
         /// <summary>
         /// Retrieve the sex ratio of the building.

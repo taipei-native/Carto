@@ -548,7 +548,7 @@ namespace Carto
                 Properties = new Dictionary<IO.System, HashSet<IO.Property>>
                 {
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
-                    { IO.System.Building, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Age, IO.Property.Asset, IO.Property.Brand, IO.Property.Category, IO.Property.Elevation, IO.Property.Employee, IO.Property.Height, IO.Property.Household, IO.Property.Labor, IO.Property.Level, IO.Property.Product, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Story, IO.Property.Theme, IO.Property.Value, IO.Property.Wage, IO.Property.Zone } },
+                    { IO.System.Building, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Age, IO.Property.Asset, IO.Property.Brand, IO.Property.Category, IO.Property.Elevation, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Level, IO.Property.Product, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Theme, IO.Property.Wage, IO.Property.Zone } },
                     { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,

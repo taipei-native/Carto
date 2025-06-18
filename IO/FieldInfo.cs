@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 
 namespace Carto.IO
 {
@@ -106,7 +107,7 @@ namespace Carto.IO
         public FieldInfo(string value)
         {
             decimalLength = 0;
-            length = value.Length + 6;
+            length = Encoding.UTF8.GetByteCount(value) + 6;
             if (length > shpStringLength)
             {
                 length = shpStringLength;

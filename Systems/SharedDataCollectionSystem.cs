@@ -147,6 +147,17 @@ namespace Carto.Systems
         private NativeList<BuildingStat> _buildingStats;
 
         /// <summary>
+        /// The map between resource enum values and their localized names.
+        /// （資源枚舉值與其已翻譯名稱的映射表。）
+        /// </summary>
+        public ref Dictionary<Resource, string> ResourceNameMap => ref _resourceNameMap;
+
+        /// <summary>
+        /// See <see cref="ResourceNameMap"/>.
+        /// </summary>
+        private Dictionary<Resource, string> _resourceNameMap;
+
+        /// <summary>
         /// The list of in-game themes' / asset packs' information.
         /// （遊戲內建築風格／資產包資訊的列表。）
         /// </summary>
@@ -456,7 +467,6 @@ namespace Carto.Systems
                 for (int i = 0; i < aggregateElements.Length; i++)
                 {
                     Bezier4x3 curveLine = default;
-                    Edge edgeComponent = default;
                     Entity aggregateElement = aggregateElements[i].m_Edge;
                     float nextNumber = currentNumber;
                     float curveLength = 0f;
@@ -464,7 +474,7 @@ namespace Carto.Systems
                     bool isFirst = i == 0;
                     bool isLast = i == aggregateElements.Length - 1;
                     bool isTarget = aggregateElement == edge;
-                    bool hasEdge = edgeLookup.TryGetComponent(aggregateElement, out edgeComponent);
+                    bool hasEdge = edgeLookup.TryGetComponent(aggregateElement, out Edge edgeComponent);
                     bool isContinuous = false;
 
                     if (curveLookup.TryGetComponent(aggregateElement, out Curve curve) &&
@@ -776,6 +786,7 @@ namespace Carto.Systems
             bool hasAge = options.Contains(Property.Age);
             bool hasBrand = options.Contains(Property.Brand);
             bool hasPopulation = options.ContainsAny(Property.Age, Property.Labor, Property.Resident, Property.SexRatio, Property.Wage);
+            bool hasProduct = options.Contains(Property.Product);
             bool hasWage = options.Contains(Property.Wage);
             bool hasZoning = options.ContainsAny(Property.Theme, Property.Zoning) ||
                              options.ContainsAny(IO.System.Zoning, Property.Category, Property.Color, Property.Density, Property.Name);
@@ -814,6 +825,16 @@ namespace Carto.Systems
                 theme = 0
             });
             zoningsNames.Add(new("Unzoned", Allocator.Persistent)); 
+
+            // Collect resources' translations.（收集資源的翻譯。）
+            if (hasProduct)
+            {
+                GetResourceMap();
+            }
+            else
+            {
+                _resourceNameMap = new();
+            }
 
             // Reset output containers.（重置輸出容器。）
             int buildingEntityCount = _buildingQuery.CalculateEntityCount();
@@ -957,6 +978,27 @@ namespace Carto.Systems
                 Utils.CommonUtils.Dispose(ref dividendEntityMap);
                 Utils.CommonUtils.Dispose(ref sexEntityMap);
                 Dispose(DisposePhase.AfterBuildingStats); // brandsEntityMap
+            }
+        }
+
+        /// <summary>
+        /// Retrieve the resources' localized names.
+        /// （獲得資源的已翻譯名稱。）
+        /// </summary>
+        private void GetResourceMap()
+        {
+            // Create alias for fields.（創造欄位的別名。）
+            ref Dictionary<Resource, string> resourceMap = ref _resourceNameMap;
+
+            // Reset output containers.（重置輸出容器。）
+            Utils.CommonUtils.Reset<Dictionary<Resource, string>, Resource, string>(ref resourceMap);
+
+            Dictionary<Resource, string>.Enumerator enumerator = Utils.CommonUtils.GetNamedFlags<Resource>().GetEnumerator();
+
+            while (enumerator.MoveNext())
+            {
+                KeyValuePair<Resource, string> resource = enumerator.Current;
+                resourceMap.Add(resource.Key, Utils.LocaleUtils.TryTranslate($"Resources.TITLE[{resource.Value}]", out string localizedName) ? localizedName : (resource.Key == Resource.NoResource ? string.Empty : resource.Value));
             }
         }
 
