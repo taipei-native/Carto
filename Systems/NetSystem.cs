@@ -671,7 +671,8 @@
             // （0.3.3 版本：為了解決停車巷以及有頂人行天橋遺失一部分 segmentC 及 segmentG 的問題，這兩個路段的最後一個頂點將會被追蹤。
             //               若下個路段的首個頂點與該頂點位置不同，該頂點將被重新加入。）
 
-            float3 lastPointLeft = segmentC[segmentC.Count - 1];
+            float3 firstPointRight = segmentF[0];
+            float3 lastPointLeft = segmentC[^1];
             int lastPointLeftNextIndex = nodeList.Count;
 
             if (endRoundabout)
@@ -680,6 +681,7 @@
                 nodeList.AddRange(RoundaboutInnerVertices[endNode][net]);
                 List<float3> segmentD3 = RoundaboutOuterRightVertices[endNode][net];
                 nodeList.AddRange(segmentD3.GetRange(0, segmentD3.Count - 1));
+                firstPointRight = segmentD3[^1];
             }
             else
             {
@@ -713,10 +715,16 @@
                 nodeList.Insert(lastPointLeftNextIndex, lastPointLeft);
             }
 
+            if (math.any(firstPointRight != segmentF[0]))
+            {
+                nodeList.Add(firstPointRight);
+            }
+
             nodeList.AddRange(segmentF.GetRange(0, segmentF.Count - 1));
             nodeList.AddRange(segmentG.GetRange(0, segmentG.Count - 1));
 
-            float3 lastPointRight = segmentG[segmentG.Count - 1];
+            float3 firstPointLeft = nodeList[0];
+            float3 lastPointRight = segmentG[^1];
             int lastPointRightNextIndex = nodeList.Count;
 
             if (startRoundabout)
@@ -725,6 +733,7 @@
                 nodeList.AddRange(RoundaboutInnerVertices[startNode][net]);
                 List<float3> segmentH3 = RoundaboutOuterLeftVertices[startNode][net];
                 nodeList.AddRange(segmentH3.GetRange(0, segmentH3.Count - 1));
+                firstPointRight = segmentH3[^1];
             }
             else
             {
@@ -758,6 +767,11 @@
                 nodeList.Insert(lastPointRightNextIndex, lastPointRight);
             }
 
+            if (math.any(firstPointLeft != nodeList[0]))
+            {
+                nodeList.Add(firstPointLeft);
+            }
+
             return GeometryUtils.RemoveDuplicate(nodeList).Where(n => !math.any(math.isnan(n))).ToList();
         }
 
@@ -769,6 +783,10 @@
         {
             List<CartoObject> pathList = new List<CartoObject>();
             fieldLength = new Dictionary<string, int>();
+
+            int ttc = _pathwayQuery.CalculateEntityCount();
+            int elc = 0;
+            m_Log.Debug($"Start exporting pathway: 0/{ttc}");
 
             foreach (Entity _path in _pathwayQuery.ToEntityArray(Allocator.Temp))
             {
@@ -884,6 +902,8 @@
                     }
 
                     pathList.Add(new CartoObject(edges, props, type));
+                    m_Log.Debug($"{elc}/{ttc}");
+                    elc++;
                 }
                 catch (Exception ex)
                 {
@@ -975,153 +995,59 @@
                         for (int i = 0; i < roundaboutEdgesSorted.Length; i++)
                         {
                             Entity edge = roundaboutEdgesSorted[i];
+                            bool roundaboutIsStartNode = connectToStart[edge];
                             EdgeGeometry edgeGeometry = EntityManager.GetComponentData<EdgeGeometry>(edge);
-                            Bezier4x3 leftEdgeEnd = edgeGeometry.m_End.m_Left;
-                            Bezier4x3 leftEdgeStart = edgeGeometry.m_Start.m_Left;
-                            Bezier4x3 rightEdgeEnd = edgeGeometry.m_End.m_Right;
-                            Bezier4x3 rightEdgeStart = edgeGeometry.m_Start.m_Right;
-                            float centerAzimuth = roundaboutAzimuths[edge];
-                            float deviation = math.PI / 6;              // The value of maximum acceptable deviation between `left/rightFixAzimuth` and `left/rightIntersectionAzimuth`.（`left/rightFixAzimuth`與`left/rightIntersectionAzimuth`之間最大可容許差值。） 
-                            float leftAzimuth = 0;                      // The azimuth angle of the leftest boundary.（最左側邊界的方位角。）
-                            float leftConnectionAzimuth = 0;            // The azimuth angle of `leftConnection`.（`leftConnection`的方位角。）
-                            float leftIntersectionAzimuth = 0;          // The azimuth angle of `leftIntersection`.（`leftIntersection`的方位角。）
-                            float leftTangentAzimuth = 0;               // The azimuth angle of `leftTangent`.（`leftTangent`的方位角。）
-                            float rightAzimuth = 0;                     // The azimuth angle of the rightest boundary.（最右側邊界的方位角。）
-                            float rightConnectionAzimuth = 0;           // The azimuth angle of `rightConnection`.（`rightConnection`的方位角。）
-                            float rightIntersectionAzimuth = 0;         // The azimuth angle of `rightIntersection`.（`rightIntersection`的方位角。）
-                            float rightTangentAzimuth = 0;              // The azimuth angle of `rightTangent`.（`rightTangent`的方位角。）
-                            float2 leftControlPoint2D = default;        // The position of `leftCurve`'s control point on a plane.（`leftCurve`在平面上的控制點位置。）
-                            float2 rightControlPoint2D = default;       // The position of `rightCurve`'s control point on a plane.（`rightCurve`在平面上的控制點位置。）
-                            float3 leftConnection = default;            // The position where `leftArc` intersects `leftCurve`.（`leftArc`與`leftCurve`相交的位置。）
-                            float3 leftControlPoint = default;          // The position of `leftCurve`'s control point.（`leftCurve`的控制點位置。）
-                            float3 leftEdgeEndpoint = default;          // The position where `edge`'s left boundary intersects `leftCurve`.（`edge`的左側邊界與`leftCurve`相交的位置。）
-                            float3 leftIntersection = default;          // The position where `leftConnectionTangent` intersects `leftEdgeExtension`.（`leftConnectionTangent`與`leftEdgeExtension`相交的位置。）
-                            float3 rightConnection = default;           // The position where `rightArc` intersects `rightCurve`.（`rightArc`與`rightCurve`相交的位置。）
-                            float3 rightControlPoint = default;         // The position of `rightCurve`'s control point.（`rightCurve`的控制點位置。）
-                            float3 rightEdgeEndpoint = default;         // The position where `edge`'s right boundary intersects `rightCurve`.（`edge`的右側邊界與`rightCurve`相交的位置。）
-                            float3 rightIntersection = default;         // The position where `rightConnectionTangent` intersects `rightEdgeExtension`.（`rightConnectionTangent`與`rightEdgeExtension`相交的位置。）
-                            float3[] leftTangentCollection = default;   // The two tangent points of the roundabout from `leftEdgeEndpoint`.（圓環上由`leftEdgeEndpoint`產生的兩個切點。）
-                            float3[] rightTangentCollection = default;  // The two tangent points of the roundabout from `rightEdgeEndpoint`.（圓環上由`rightEdgeEndpoint`產生的兩個切點。）
-                            Line2 leftConnectionTangent = default;      // The tangent line of the roundabout at `leftConnection`.（圓環上由`leftConnection`產生的切線。）
-                            Line2 leftEdgeExtension = default;          // The extension line of `edge`'s left boundary from `leftEdgeEndpoint`.（`edge`的左側邊界從`leftEdgeEndpoint`開始的延伸線。）
-                            Line2 rightConnectionTangent = default;     // The tangent line of the roundabout at `rightConnection`.（圓環上由`rightConnection`產生的切線。）
-                            Line2 rightEdgeExtension = default;         // The extension line of `edge`'s right boundary from `rightEdgeEndpoint`.（`edge`的右側邊界從`rightEdgeEndpoint`開始的延伸線。）
-                            List<float3> innerArc = default;            // The inner arc of the roundabout.（圓環內側的圓弧。）
-                            List<float3> leftArc = default;             // The left outer arc of the roundabout.（圓環左外側的圓弧。）
-                            List<float3> leftCurve = default;           // The transition curve from `leftArc` to `edge`'s left boundary.（`leftArc`至`edge`的左側邊界的過渡曲線。）
-                            List<float3> leftFinalCurve = new List<float3>();   // The complete curve of the left part of the road intersection.（道路相交處左側的完整曲線。） 
-                            List<float3> rightArc = default;            // The right outer arc of the roundabout.（圓環右外側的圓弧。）
-                            List<float3> rightCurve = default;          // The transition curve from `rightArc` to `edge`'s right boundary.（`rightArc`至`edge`的右側邊界的過渡曲線。）
-                            List<float3> rightFinalCurve = new List<float3>();  // The complete curve of the right part of the road intersection.（道路相交處右側的完整曲線。） 
+                            EdgeNodeGeometry nodeGeometry = roundaboutIsStartNode ? EntityManager.GetComponentData<StartNodeGeometry>(edge).m_Geometry : EntityManager.GetComponentData<EndNodeGeometry>(edge).m_Geometry;
 
-                            // Find out road intersection's left and right boundaries in azimuth angle.（找出路口以方位角表示的左右側邊界。）
-                            if (roundaboutEdgesSorted.Length > 1)
-                            {
-                                if (i == 0)
-                                {
-                                    leftAzimuth = (2 * math.PI + centerAzimuth + roundaboutAzimuths[roundaboutEdgesSorted[roundaboutEdgesSorted.Length - 1]]) / 2;
-                                    rightAzimuth = (roundaboutAzimuths[roundaboutEdgesSorted[1]] + centerAzimuth) / 2;
-                                    if (leftAzimuth >= 2 * math.PI) leftAzimuth -= 2 * math.PI;
-                                }
-                                else if (i == roundaboutEdgesSorted.Length - 1)
-                                {
-                                    leftAzimuth = (centerAzimuth + roundaboutAzimuths[roundaboutEdgesSorted[roundaboutEdgesSorted.Length - 2]]) / 2;
-                                    rightAzimuth = (2 * math.PI + roundaboutAzimuths[roundaboutEdgesSorted[0]] + centerAzimuth) / 2;
-                                    if (rightAzimuth >= 2 * math.PI) rightAzimuth -= 2 * math.PI;
-                                }
-                                else
-                                {
-                                    leftAzimuth = (centerAzimuth + roundaboutAzimuths[roundaboutEdgesSorted[i - 1]]) / 2;
-                                    rightAzimuth = (roundaboutAzimuths[roundaboutEdgesSorted[i + 1]] + centerAzimuth) / 2;
-                                }
-                            }
-                            else
-                            {
-                                leftAzimuth  = GeometryUtils.AddAngle(centerAzimuth, -math.PI / 2);
-                                rightAzimuth = GeometryUtils.AddAngle(centerAzimuth, math.PI / 2);
-                            }
+                            // Version 0.3.6: To solve the defect of the roundabout algorithm introduced back in version 0.1, the code now correctly uses the relevant node geometry's Bezier curve.
+                            // （0.3.6 版本：為了解決 0.1 版本圓環演算法的缺陷，程式現在正確地使用相關的節點幾何貝茲曲線。）
 
-                            // Find out the endpoints of `edge`'s left and right boundaries.（找出`edge`的左側與右側邊界端點。）
-                            if (connectToStart[edge])
-                            {
-                                leftEdgeEndpoint = leftEdgeStart.a;
-                                rightEdgeEndpoint = rightEdgeStart.a;
-                            }
-                            else
-                            {
-                                leftEdgeEndpoint = rightEdgeEnd.d;
-                                rightEdgeEndpoint = leftEdgeEnd.d;
-                            }
+                            Bezier4x3 leftFrontCurve = nodeGeometry.m_Left.m_Left;      // The front part of the left node boundary when facing the roundabout.（面對圓環時，節點左側靠前的邊界。）
+                            Bezier4x3 leftRearCurve = nodeGeometry.m_Right.m_Left;      // The rear part of the left node boundary when facing the roundabout.（面對圓環時，節點左側靠後的邊界。）
+                            Bezier4x3 rightFrontCurve = nodeGeometry.m_Left.m_Right;    // The front part of the right node boundary when facing the roundabout.（面對圓環時，節點右側靠前的邊界。）
+                            Bezier4x3 rightRearCurve = nodeGeometry.m_Right.m_Right;    // The rear part of the right node boundary when facing the roundabout.（面對圓環時，節點右側靠後的邊界。）
 
-                            // Find out the intersections between the extenstion line of `edge`'s left and right boundaries and the roundabout and their azimuth angles.（找出`edge`左側與右側邊界延伸線與圓環的相交處以及它們的方位角。）
-                            leftEdgeExtension = new Line2(leftEdgeEndpoint.xz, GeometryUtils.Location(new Circle3(100, leftEdgeEndpoint, new quaternion(0, 0, 0, 0)), centerAzimuth).xz);
-                            rightEdgeExtension = new Line2(rightEdgeEndpoint.xz, GeometryUtils.Location(new Circle3(100, rightEdgeEndpoint, new quaternion(0, 0, 0, 0)), centerAzimuth).xz);
-                            bool isLeftIntersect = GeometryUtils.Intersect(roundaboutCircle, leftEdgeExtension, out float3[] leftIntersectionCollection);
-                            bool isRightIntersect =  GeometryUtils.Intersect(roundaboutCircle, rightEdgeExtension, out float3[] rightIntersectionCollection);
-                            leftIntersection = math.distance(leftEdgeEndpoint, leftIntersectionCollection[0]) > math.distance(leftEdgeEndpoint, leftIntersectionCollection[1]) ? leftIntersectionCollection[1] : leftIntersectionCollection[0];
-                            rightIntersection = math.distance(rightEdgeEndpoint, rightIntersectionCollection[0]) > math.distance(rightEdgeEndpoint, rightIntersectionCollection[1]) ? rightIntersectionCollection[1] : rightIntersectionCollection[0];
-                            leftIntersectionAzimuth = GeometryUtils.Azimuth(roundaboutCircle.position, leftIntersection);
-                            rightIntersectionAzimuth = GeometryUtils.Azimuth(roundaboutCircle.position, rightIntersection);
-
-                            // Find out the tangent points between `edge`'s left and right endpoints and the roundabout and their azimuth angles.（找出`edge`左側與右側端點與圓環的切點以及它們的方位角。）
-                            leftTangentCollection = GeometryUtils.TangentPoint(roundaboutCircle, leftEdgeEndpoint);
-                            rightTangentCollection = GeometryUtils.TangentPoint(roundaboutCircle, rightEdgeEndpoint);
-                            leftTangentAzimuth = GeometryUtils.Leftest(leftTangentCollection.Select(x => GeometryUtils.Azimuth(roundaboutCircle.position, x)).ToArray(), leftIntersectionAzimuth);
-                            rightTangentAzimuth = GeometryUtils.Rightest(rightTangentCollection.Select(x => GeometryUtils.Azimuth(roundaboutCircle.position, x)).ToArray(), rightIntersectionAzimuth);
-
-                            // Find out the transition point between left/right arcs and curves and their azimuths.（找出左側與右側圓弧與曲線的過渡點與它們的方位角。）
-                            _ = GeometryUtils.Righter(leftTangentAzimuth, leftAzimuth, out float leftFixAzimuth);
-                            _ = GeometryUtils.Lefter(rightTangentAzimuth, rightAzimuth, out float rightFixAzimuth);
-                            leftConnectionAzimuth = GeometryUtils.Lefter(leftIntersectionAzimuth, leftFixAzimuth) ? leftFixAzimuth : ((GeometryUtils.RotationAngle(leftIntersectionAzimuth, leftFixAzimuth) >= deviation) ? GeometryUtils.AddAngle(leftIntersectionAzimuth, -deviation / 2) : GeometryUtils.MeanAngle(leftIntersectionAzimuth, leftFixAzimuth));
-                            rightConnectionAzimuth = GeometryUtils.Righter(rightIntersectionAzimuth, rightFixAzimuth) ? rightFixAzimuth : ((GeometryUtils.RotationAngle(rightIntersectionAzimuth, rightFixAzimuth) >= deviation) ? GeometryUtils.AddAngle(rightIntersectionAzimuth, deviation / 2) : GeometryUtils.MeanAngle(rightIntersectionAzimuth, rightFixAzimuth));
-                            leftConnection = GeometryUtils.Location(roundaboutCircle, leftConnectionAzimuth);
-                            rightConnection = GeometryUtils.Location(roundaboutCircle, rightConnectionAzimuth);
-
-                            // Find out the control point of the curve.（找出曲線的控制點位置。）
-                            leftConnectionTangent = new Line2(leftConnection.xz, GeometryUtils.Location(new Circle3(1, leftConnection, new quaternion(0, 0, 0, 0)), leftConnectionAzimuth + math.PI / 2).xz);
-                            rightConnectionTangent = new Line2(rightConnection.xz, GeometryUtils.Location(new Circle3(1, rightConnection, new quaternion(0, 0, 0, 0)), rightConnectionAzimuth - math.PI / 2).xz);
-                            _ = MathUtils.Intersect(leftEdgeExtension, leftConnectionTangent, out float2 leftT);
-                            _ = MathUtils.Intersect(rightEdgeExtension, rightConnectionTangent, out float2 rightT);
-                            leftControlPoint2D = MathUtils.Position(leftEdgeExtension, leftT.x);
-                            rightControlPoint2D = MathUtils.Position(rightEdgeExtension, rightT.x);
-                            leftControlPoint = new float3(leftControlPoint2D.x, (leftEdgeEndpoint.y + roundaboutCircle.position.y) / 2, leftControlPoint2D.y);
-                            rightControlPoint = new float3(rightControlPoint2D.x, (rightEdgeEndpoint.y + roundaboutCircle.position.y) / 2, rightControlPoint2D.y);
+                            // Find out the azimuth of the node boundary terminus.（找出節點邊界終點的方位角。）
+                            float leftAzimuth  = GeometryUtils.Azimuth(roundaboutLocation, leftRearCurve.d);
+                            float rightAzimuth = GeometryUtils.Azimuth(roundaboutLocation, rightRearCurve.d);
 
                             // Interpolate the arcs and the curves.（內插圓弧與曲線。）
-                            leftCurve = GeometryUtils.Interpolate(new Bezier4x3(leftConnection, leftConnection, leftControlPoint, leftEdgeEndpoint), 0.5f, 0.2f);
-                            rightCurve = GeometryUtils.Interpolate(new Bezier4x3(rightEdgeEndpoint, rightControlPoint, rightConnection, rightConnection), 0.5f, 0.2f);
-                            leftArc = GeometryUtils.Arc(roundaboutCircle, leftAzimuth, leftConnectionAzimuth);
-                            rightArc = GeometryUtils.Arc(roundaboutCircle, rightConnectionAzimuth, rightAzimuth);
+                            List<float3> leftFrontCurveVertex  = GeometryUtils.Interpolate(leftFrontCurve, 0.5f, 0.2f);
+                            List<float3> leftRearCurveVertex   = GeometryUtils.Interpolate(leftRearCurve, 0.5f, 0.2f);
+                            List<float3> rightFrontCurveVertex = GeometryUtils.Interpolate(MathUtils.Invert(rightFrontCurve), 0.5f, 0.2f);
+                            List<float3> rightRearCurveVertex  = GeometryUtils.Interpolate(MathUtils.Invert(rightRearCurve), 0.5f, 0.2f);
+                            List<float3> innerArcVertex = new();
 
                             if (roundaboutEdgesSorted.Length > 1)
                             {
-                                innerArc = GeometryUtils.Arc(new Circle3(roundaboutRadius - maxWidth, roundaboutLocation, new quaternion(0, 0, 0, 0)), leftAzimuth, rightAzimuth);
-                                innerArc.Reverse();
-                            }
-                            else
-                            {
-                                innerArc = GeometryUtils.Arc(roundaboutCircle, rightAzimuth, leftAzimuth);
-                                innerArc = innerArc.GetRange(1, innerArc.Count - 2);
+                                innerArcVertex = GeometryUtils.Arc(new Circle3(roundaboutRadius - maxWidth, roundaboutLocation, new quaternion(0, 0, 0, 0)), rightAzimuth, leftAzimuth);
+                                innerArcVertex.Reverse();
                             }
 
                             // Join the interpolated line segments.（將內插後的線段結合。）
-                            leftFinalCurve.AddRange(leftArc);
-                            leftFinalCurve.AddRange(leftCurve.GetRange(1, leftCurve.Count - 1));
-                            rightFinalCurve.AddRange(rightCurve);
-                            rightFinalCurve.AddRange(rightArc.GetRange(1, rightArc.Count - 1));
+                            List<float3> outerLeftCurveVertex = new();
+                            List<float3> outerRightCurveVertex = new();
 
-                            if (connectToStart[edge])
+                            if (roundaboutIsStartNode)
                             {
-                                RoundaboutOuterLeftVertices[_roundabout][edge] = leftFinalCurve;
-                                RoundaboutOuterRightVertices[_roundabout][edge] = rightFinalCurve;
+                                outerLeftCurveVertex.AddRange(leftFrontCurveVertex);
+                                outerLeftCurveVertex.AddRange(leftRearCurveVertex.GetRange(1, leftRearCurveVertex.Count - 1));
+                                outerRightCurveVertex.AddRange(rightRearCurveVertex);
+                                outerRightCurveVertex.AddRange(rightFrontCurveVertex.GetRange(1, rightFrontCurveVertex.Count - 1));
+                                RoundaboutOuterLeftVertices[_roundabout][edge]  = outerRightCurveVertex;
+                                RoundaboutOuterRightVertices[_roundabout][edge] = outerLeftCurveVertex;
                             }
                             else
                             {
-                                RoundaboutOuterLeftVertices[_roundabout][edge] = rightFinalCurve;
-                                RoundaboutOuterRightVertices[_roundabout][edge] = leftFinalCurve;
+                                outerLeftCurveVertex.AddRange(leftFrontCurveVertex);
+                                outerLeftCurveVertex.AddRange(leftRearCurveVertex.GetRange(1, leftRearCurveVertex.Count - 1));
+                                outerRightCurveVertex.AddRange(rightRearCurveVertex);
+                                outerRightCurveVertex.AddRange(rightFrontCurveVertex.GetRange(1, rightFrontCurveVertex.Count - 1));
+                                RoundaboutOuterLeftVertices[_roundabout][edge]  = outerLeftCurveVertex;
+                                RoundaboutOuterRightVertices[_roundabout][edge] = outerRightCurveVertex;
                             }
 
-                            RoundaboutInnerVertices[_roundabout][edge] = innerArc;
+                            RoundaboutInnerVertices[_roundabout][edge] = innerArcVertex;
                         }
                     }
 

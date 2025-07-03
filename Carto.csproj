@@ -3,9 +3,9 @@
 	<PropertyGroup>
 		<Configurations>Debug;Release</Configurations>
 		<Authors>Taipei Native</Authors>
-		<AssemblyVersion>0.3.5.0</AssemblyVersion> <!--4 digit -->
-		<FileVersion>0.3.5</FileVersion> <!--3 digit -->
-		<Version>0.3.5</Version> <!--3 digit -->
+		<AssemblyVersion>0.3.6.0</AssemblyVersion> <!--4 digit -->
+		<FileVersion>0.3.6</FileVersion> <!--3 digit -->
+		<Version>0.3.6</Version> <!--3 digit -->
 		
 		<!--The file where mod information which is required for publishing mod on PDX mods are stored-->
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
