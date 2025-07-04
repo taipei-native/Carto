@@ -148,6 +148,139 @@ namespace Carto.IO
         };
 
         /// <summary>
+        /// The array sorted by each <see cref="POICategory"/>'s display order.
+        /// （根據每個 <see cref="POICategory"/> 顯示順序排序的陣列。）
+        /// </summary>
+        public static readonly POICategory[] POICategoryDisplayOrder = new POICategory[]
+        {
+            // Group A: Transportation POIs（A 組：運輸興趣點）
+            //  Group A1: Heavy Transportation Buildings（A1 組：重型運輸建築）
+            POICategory.BuildingPassengerAirplane, POICategory.BuildingCargoAirplane, POICategory.BuildingPassengerShip, POICategory.BuildingCargoShip,
+
+            //  Group A2: Rail Transportation Buildings（A2 組：軌道運輸建築）
+            POICategory.BuildingPassengerTrain, POICategory.BuildingCargoTrain, POICategory.BuildingSubway, POICategory.BuildingTram,
+
+            //  Group A3: Road Transportation Buildings（A3 組：道路運輸建築）
+            POICategory.BuildingBus, POICategory.BuildingTaxi,
+
+            //  Group A4: Uncommon Transportation Buildings（A4 組：非常見運輸建築）
+            POICategory.BuildingHelicopter, POICategory.SpaceCenter,
+
+            //  Group A5: Depots（A5 組：機廠）
+            POICategory.DepotTrain, POICategory.DepotSubway, POICategory.DepotTram, POICategory.DepotBus, POICategory.DepotTaxi, POICategory.DepotGeneric,
+
+            //  Group A6: Heavy Transportation Stops（A6 組：重型運輸站點）
+            POICategory.StopPassengerAirplane, POICategory.StopCargoAirplane, POICategory.StopPassengerShip, POICategory.StopCargoShip,
+
+            //  Group A7: Rail Transportation Stops（A7 組：軌道運輸站點）
+            POICategory.StopPassengerTrain, POICategory.StopCargoTrain, POICategory.StopSubway, POICategory.StopTram,
+
+            //  Group A8: Road Transportation Stops（A8 組：道路運輸站點）
+            POICategory.StopBus, POICategory.StopTaxi,
+
+            //  Group A9: Uncommon Transportation Stops（A9 組：非常見運輸站點）
+            POICategory.StopHelicopter,
+
+            //  Group A10: Transportation Fallback Value（A10 組：運輸相關後備值）
+            POICategory.TransportationGeneric,
+
+            // Group B: Public POIs（B 組：公共設施興趣點）
+            //  Group B1: Emergency Services（B1 組：緊急服務）
+            POICategory.Fire, POICategory.FireWatchTower, POICategory.Disaster, POICategory.Health, POICategory.MortuaryCemetery, POICategory.MortuaryCrematorium, POICategory.MortuaryGeneric,
+
+            //  Group B2: Administrative Services（B2 組：行政服務）
+            POICategory.Police, POICategory.Prison, POICategory.Post, POICategory.Maintenance, POICategory.Admin,
+
+            //  Group B3: Education & Research（B3 組：教育研究）
+            POICategory.Research, POICategory.EducationUniversity, POICategory.EducationCollege, POICategory.EducationHigh, POICategory.EducationElementary, POICategory.EducationGeneric,
+
+            //  Group B4: Recreation & Others（B4 組：遊憩與其他）
+            POICategory.Attraction, POICategory.Park, POICategory.Parking,
+
+            // Group C: Utility POIs（C 組：公用設施興趣點）
+            //  Group C1: Electricity（C1 組：電力）
+            POICategory.PowerBattery, POICategory.PowerDam, POICategory.PowerTurbine, POICategory.PowerPlant, POICategory.PowerSubstation, POICategory.PowerGeneric,
+
+            //  Group C2: Water & Sewage（C2 組：自來水與污水）
+            POICategory.Water, POICategory.Sewage,
+
+            //  Group C3: Communication（C3 組：通訊）
+            POICategory.Communication,
+
+            //  Group C4: Waste & Others（C4 組：廢棄物與其他）
+            POICategory.Waste,
+
+            // Group D: Private POIs（D 組：私人興趣點）
+            //  Group D1: Offices（D1 組：辦公室）
+            POICategory.StoreBank, POICategory.StoreSoftware, POICategory.StoreTelecom, POICategory.StoreMedia, POICategory.StoreOffice,
+
+            //  Group D2: Commercials（D2 組：商業）
+            POICategory.StoreHotel, POICategory.StoreGasStation,
+            POICategory.StoreRestaurant, POICategory.StoreBar, POICategory.StoreBeverage, POICategory.StoreFood, POICategory.StoreConvenienceStore,
+            POICategory.StoreBookStore, POICategory.StoreCarStore, POICategory.StoreChemicals, POICategory.StoreDrugStore, POICategory.StoreElectronics,
+            POICategory.StoreFashionStore, POICategory.StoreFurniture, POICategory.StorePlastics, POICategory.StoreRecreation, POICategory.StoreGeneric,
+
+            //  Group D3: Industrials（D3 組：工業）
+            POICategory.IndustrialCoal, POICategory.IndustrialCotton, POICategory.IndustrialGrain, POICategory.IndustrialLivestock, POICategory.IndustrialFish,
+            POICategory.IndustrialOil, POICategory.IndustrialOre, POICategory.IndustrialStone, POICategory.IndustrialVegetables, POICategory.IndustrialWood,
+            POICategory.IndustrialWarehouse, POICategory.IndustrialFactory, POICategory.IndustrialGeneric,
+
+            // Group E: Objects（E 組：物件）
+            POICategory.TrafficLight, POICategory.LevelCrossing, POICategory.PostBox, POICategory.UtilityPylon, POICategory.UtilityPole, POICategory.Helipad,
+
+            // Group F: Fallback value（F 組：後備值）
+            POICategory.None
+        };
+
+        public static readonly Dictionary<Feature, HashSet<POICategory>> POICategoryFeatureTable = new()
+        {
+            { Feature.POIPrivate, new()
+                {
+                    POICategory.StoreBank, POICategory.StoreSoftware, POICategory.StoreTelecom, POICategory.StoreMedia, POICategory.StoreOffice,
+                    POICategory.StoreHotel, POICategory.StoreGasStation,
+                    POICategory.StoreRestaurant, POICategory.StoreBar, POICategory.StoreBeverage, POICategory.StoreFood, POICategory.StoreConvenienceStore,
+                    POICategory.StoreBookStore, POICategory.StoreCarStore, POICategory.StoreChemicals, POICategory.StoreDrugStore, POICategory.StoreElectronics,
+                    POICategory.StoreFashionStore, POICategory.StoreFurniture, POICategory.StorePlastics, POICategory.StoreRecreation, POICategory.StoreGeneric,
+                    POICategory.IndustrialCoal, POICategory.IndustrialCotton, POICategory.IndustrialGrain, POICategory.IndustrialLivestock, POICategory.IndustrialFish,
+                    POICategory.IndustrialOil, POICategory.IndustrialOre, POICategory.IndustrialStone, POICategory.IndustrialVegetables, POICategory.IndustrialWood,
+                    POICategory.IndustrialWarehouse, POICategory.IndustrialFactory, POICategory.IndustrialGeneric
+                }
+            },
+            { Feature.POIPublic, new()
+                {
+                    POICategory.Fire, POICategory.FireWatchTower, POICategory.Disaster, POICategory.Health, POICategory.MortuaryCemetery, POICategory.MortuaryCrematorium, POICategory.MortuaryGeneric,
+                    POICategory.Police, POICategory.Prison, POICategory.Post, POICategory.Maintenance, POICategory.Admin,
+                    POICategory.Research, POICategory.EducationUniversity, POICategory.EducationCollege, POICategory.EducationHigh, POICategory.EducationElementary, POICategory.EducationGeneric,
+                    POICategory.Attraction, POICategory.Park, POICategory.Parking
+                }
+            },
+            { Feature.POITransport, new()
+                {
+                    POICategory.BuildingPassengerAirplane, POICategory.BuildingCargoAirplane, POICategory.BuildingPassengerShip, POICategory.BuildingCargoShip,
+                    POICategory.BuildingPassengerTrain, POICategory.BuildingCargoTrain, POICategory.BuildingSubway, POICategory.BuildingTram,
+                    POICategory.BuildingBus, POICategory.BuildingTaxi,
+                    POICategory.BuildingHelicopter, POICategory.SpaceCenter,
+                    POICategory.DepotTrain, POICategory.DepotSubway, POICategory.DepotTram, POICategory.DepotBus, POICategory.DepotTaxi, POICategory.DepotGeneric,
+                    POICategory.StopPassengerAirplane, POICategory.StopCargoAirplane, POICategory.StopPassengerShip, POICategory.StopCargoShip,
+                    POICategory.StopPassengerTrain, POICategory.StopCargoTrain, POICategory.StopSubway, POICategory.StopTram,
+                    POICategory.StopBus, POICategory.StopTaxi,
+                    POICategory.StopHelicopter,
+                    POICategory.TrafficLight, POICategory.LevelCrossing, POICategory.PostBox, POICategory.Helipad,
+                    POICategory.TransportationGeneric
+                }
+            },
+            { Feature.POIUtility, new()
+                {
+                    POICategory.PowerBattery, POICategory.PowerDam, POICategory.PowerTurbine, POICategory.PowerPlant, POICategory.PowerSubstation, POICategory.PowerGeneric,
+                    POICategory.Water, POICategory.Sewage,
+                    POICategory.Communication,
+                    POICategory.Waste,
+                    POICategory.UtilityPylon, POICategory.UtilityPole
+                }
+            }
+        };
+
+        /// <summary>
         /// The look-up table of each <see cref="Property"/>'s corresponding type.<br/>
         /// （每個 <see cref="Property"/> 的對應型別表。）
         /// </summary>
@@ -268,16 +401,16 @@ namespace Carto.IO
                      *                               └┐                  ┌ AreaSystem
                      *  Brands ────────────┴─ BuildingStats  ┼ BuildingSystem
                      *                                                     └ POISystem
-                     *  NetworkStats ──────────────────── NetworkSystem
+                     *                                                        NetworkSystem
                      *                                                        RouteSystem
                      *  
                      *  The actual requirements and execution order:（實際需求與執行順序：)
                      *  
                      *  1. ZoningSystem   - Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
-                     *  2. BuildingSystem - Brands, BuildingStats, Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
-                     *  3. POISystem      - Brands, BuildingStats
+                     *  2. POISystem      - Brands, BuildingStats, ZoningTypes
+                     *  3. BuildingSystem - Brands, BuildingStats, Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
                      *  4. AreaSystem     - BuildingStats
-                     *  5. NetworkSystem  - NetworkStats
+                     *  5. NetworkSystem  - (No dependency)
                      *  6. RouteSystem    - (No dependency)
                      */
 
@@ -304,6 +437,7 @@ namespace Carto.IO
 
                     bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
                     bool buildingHasBoundary = options.Has(System.Building, VectorKind.Boundary);
+                    bool poiHasLocation = options.Has(System.POI, VectorKind.Location);
                     bool zoningHasBoundary = options.Has(System.Zoning, VectorKind.Boundary);
 
                     // Write vector data.（寫入向量資料。）
@@ -317,16 +451,19 @@ namespace Carto.IO
                                     GeoJson.Write(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundaryFeatures, OnReport);
                                 }
                             }
+                            if (usePOI)
+                            {
+                                if (poiHasLocation)
+                                {
+                                    GeoJson.Write(options, System.POI, VectorKind.Location, Instance.POI.WriteLocationFeatures, OnReport);
+                                }
+                            }
                             if (useBuilding)
                             {
                                 if (buildingHasBoundary)
                                 {
                                     GeoJson.Write(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundaryFeatures, OnReport);
                                 }
-                            }
-                            if (usePOI)
-                            {
-
                             }
                             if (useArea)
                             {
@@ -349,16 +486,16 @@ namespace Carto.IO
                                     Shapefile.Write<ZoningCell>(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundarySHP, Instance.Zoning.WriteBoundaryDBF, OnReport);
                                 }
                             }
+                            if (usePOI)
+                            {
+
+                            }
                             if (useBuilding)
                             {
                                 if (buildingHasBoundary)
                                 {
                                     Shapefile.Write<Entity>(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundarySHP, Instance.Building.WriteBoundaryDBF, OnReport);
                                 }
-                            }
-                            if (usePOI)
-                            {
-
                             }
                             if (useArea)
                             {

@@ -119,6 +119,12 @@ namespace Carto
         public static NetworkSystem Network => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<NetworkSystem>();
 
         /// <summary>
+        /// The system that searches point of interests (POIs).
+        /// （搜尋興趣點（POI）的系統。）
+        /// </summary>
+        public static POISystem POI => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<POISystem>();
+
+        /// <summary>
         /// The system that handles grid data.
         /// （處理網格資料的系統。）
         /// </summary>

@@ -122,8 +122,9 @@ namespace Carto.Systems
         private void FillBuildingStatMap(ref NativeList<BuildingStat> buildingStats, ref NativeParallelMultiHashMap<Entity, int> areaEntityMap, bool mapTileStatistics)
         {
             // Initialize native containers.（初始化原生容器。）
+            int triangleCount = GetTrianglesCount(ref _mapTileQuery);
             NativeArray<float3> locations = new(buildingStats.Length, Allocator.Persistent);
-            NativeList<BVHUtils.Triangle> triangles = new(_mapTileQuery.CalculateEntityCount() * 4, Allocator.Persistent);
+            NativeList<BVHUtils.Triangle> triangles = new(triangleCount, Allocator.Persistent);
 
             // Map each building to districts.（將各棟建築映射至行政區。）
             MapBuildingsToDistrictsJob mapDistrictsJob = new()
@@ -165,6 +166,42 @@ namespace Carto.Systems
             // Dispose the native containers.（拋棄原生容器。）
             Utils.CommonUtils.Dispose(ref locations);
             Utils.CommonUtils.Dispose(ref triangles);
+        }
+
+        /// <summary>
+        /// Retrieve the number of triangles of all area.
+        /// （獲得所有區域的三角形數量。）
+        /// </summary>
+        /// <param name="query">The specific entity query.（特定的實體查詢。）</param>
+        /// <returns>The number of triangles.（三角形的數量。）</returns>
+        public int GetTrianglesCount(ref EntityQuery query)
+        {
+            int count = 0;
+
+            // Initialize native containers.（初始化原生容器。）
+            NativeQueue<int> triangleCounts = new(Allocator.Persistent);
+
+            try
+            {
+                CountAreaTrianglesJob countJob = new()
+                {
+                    triangleCounts = triangleCounts.AsParallelWriter()
+                };
+                JobHandle countHandle = countJob.ScheduleParallel(query, default);
+                countHandle.Complete();
+
+                count = Utils.CommonUtils.Sum(ref triangleCounts);
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref triangleCounts);
+            }
+
+            return count;
         }
 
         /// <summary>
@@ -942,6 +979,22 @@ namespace Carto.Systems
                 }
 
                 nodeEntityMap.TryAdd(area, nodesArray);
+            }
+        }
+
+        /// <summary>
+        /// The job to count the number of triangles in each area.
+        /// （計算每個區域中三角形的數量。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CountAreaTrianglesJob : IJobEntity
+        {
+            [WriteOnly]
+            public NativeQueue<int>.ParallelWriter triangleCounts;
+
+            public void Execute(in DynamicBuffer<Triangle> triangles)
+            {
+                triangleCounts.Enqueue(triangles.Length);
             }
         }
 

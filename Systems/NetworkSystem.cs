@@ -56,7 +56,7 @@ namespace Carto.Systems
 
         /// <summary>
         /// The query to collect all utility service network entities.
-        /// （收集所有公共服務管線網路實體的查詢。）
+        /// （收集所有公用事業管線網路實體的查詢。）
         /// </summary>
         static EntityQuery _utilityServiceNetworkQuery;
 
@@ -372,7 +372,7 @@ namespace Carto.Systems
 
         /// <summary>
         /// Retrieve the number of utility service network segments.
-        /// （獲得公共服務管線路段的數量。）
+        /// （獲得公用事業管線路段的數量。）
         /// </summary>
         /// <returns>The number of segments.（路段的數量。）</returns>
         private int GetUtilityServiceNetworkSegmentsCount()
@@ -808,7 +808,7 @@ namespace Carto.Systems
                     list.AddNoResize(stat);
                 }
 
-                // Handle the individual utility service networks.（處理獨立公共管線網路。）
+                // Handle the individual utility service networks.（處理獨立公用事業管線網路。）
                 if (hasUtilityServiceNetworks && !isNotUtilityServiceNetwork)
                 {
                     // Generate the `NetworkStat` for the pipe.（產生水管的 `NetworkStat`。）
@@ -1029,7 +1029,7 @@ namespace Carto.Systems
                     }
                 }
 
-                // TODO: Handle the integrated utility service networks.（處理整合公共管線網路。）
+                // TODO: Handle the integrated utility service networks.（處理整合公用事業管線網路。）
                 /*
                 //if (hasUtilityServiceNetworks && isNotUtilityServiceNetwork)
                 //{
@@ -1272,7 +1272,7 @@ namespace Carto.Systems
 
         /// <summary>
         /// The job to count the number of segments required to represent the individual (NOT included in the roads) utility service networks.
-        /// （計算表達獨立公共服務管線（未包含在道路中的）所需路段數量的工作。）
+        /// （計算表達獨立公用事業管線（未包含在道路中的）所需路段數量的工作。）
         /// </summary>
         public partial struct CountIndividualUtilityServiceNetworkSegmentsJob : IJobEntity
         {
@@ -1314,7 +1314,7 @@ namespace Carto.Systems
 
         /// <summary>
         /// The job to count the number of segments required to represent the integrated (included in the roads) utility service networks.
-        /// （計算表達整合公共服務管線（包含在道路中的）所需路段數量的工作。）
+        /// （計算表達整合公用事業管線（包含在道路中的）所需路段數量的工作。）
         /// </summary>
         public partial struct CountIntegratedUtilityServiceNetworkSegmentsJob : IJobEntity
         {

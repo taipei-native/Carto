@@ -280,6 +280,220 @@ namespace Carto.Domain
     }
 
     /// <summary>
+    /// The POI types in the game.
+    /// （遊戲內的興趣點類別。）
+    /// </summary>
+    public enum POICategory
+    {
+        /// <summary>
+        /// The fallback value for unknown or unregistered feature type.（用於未知或未註冊圖徵的後備值。）
+        /// </summary>
+        None = 0,
+
+        // Public Service Facilities（公眾服務設施）
+        Admin,
+        Communication,
+        Disaster,
+        EducationCollege,
+        EducationElementary,
+        EducationGeneric,
+        EducationHigh,
+        EducationUniversity,
+        Fire,
+        FireWatchTower,
+        Health,
+        Maintenance,
+        MortuaryCemetery,
+        MortuaryCrematorium,
+        MortuaryGeneric,
+        Police,
+        Post,
+        PostBox,
+        PowerBattery,
+        PowerDam,
+        PowerGeneric,
+        PowerPlant,
+        PowerSubstation,
+        PowerTurbine,
+        Prison,
+        Research,
+        Sewage,
+        UtilityPole,
+        UtilityPylon,
+        Waste,
+        Water,
+
+        // Public Transportation Facilities（大眾運輸設施）
+        Helipad,
+        LevelCrossing,
+        Parking,
+        SpaceCenter,
+        TrafficLight,
+        BuildingBus,
+        BuildingCargoAirplane,
+        BuildingCargoShip,
+        BuildingCargoTrain,
+        BuildingHelicopter,
+        BuildingPassengerAirplane,
+        BuildingPassengerShip,
+        BuildingPassengerTrain,
+        BuildingSubway,
+        BuildingTaxi,
+        BuildingTram,
+        DepotBus,
+        DepotGeneric,
+        DepotSubway,
+        DepotTaxi,
+        DepotTrain,
+        DepotTram,
+        StopBus,
+        StopCargoAirplane,
+        StopCargoShip,
+        StopCargoTrain,
+        StopHelicopter,
+        StopPassengerAirplane,
+        StopPassengerShip,
+        StopPassengerTrain,
+        StopSubway,
+        StopTaxi,
+        StopTram,
+        TransportationGeneric,
+
+        // Commercial Facilities & Offices（商辦設施）
+        /// <summary>
+        /// The office that sells the products not listed below.（販售未在下表列出的產品的辦公場所。）
+        /// </summary>
+        StoreOffice,
+
+        /// <summary>
+        /// The commercial store that sells the products not listed below.（販售未在下表列出的產品的商店。）
+        /// </summary>
+        StoreGeneric,
+
+        /// <summary>
+        /// The office that sells Financial.（販售金融的辦公場所。）
+        /// </summary>
+        StoreBank,
+
+        /// <summary>
+        /// The store that sells Entertainment.（販售娛樂的商店。）
+        /// </summary>
+        StoreBar,
+
+        /// <summary>
+        /// The store that sells Paper.（販售紙張的商店。）
+        /// </summary>
+        StoreBookStore,
+
+        /// <summary>
+        /// The store that sells Beverage.（販售飲料的商店。）
+        /// </summary>
+        StoreBeverage,
+
+        /// <summary>
+        /// The store that sells Vehicles.（販售車輛的商店。）
+        /// </summary>
+        StoreCarStore,
+
+        /// <summary>
+        /// The store that sells Chemicals.（販售化學品的商店。）
+        /// </summary>
+        StoreChemicals,
+
+        /// <summary>
+        /// The store that sells Convenience Food.（販售即時食品的商店。）
+        /// </summary>
+        StoreConvenienceStore,
+
+        /// <summary>
+        /// The store that sells Pharmaceuticals.（販售藥品的商店。）
+        /// </summary>
+        StoreDrugStore,
+
+        /// <summary>
+        /// The store that sells Electronics.（販售電子產品的商店。）
+        /// </summary>
+        StoreElectronics,
+
+        /// <summary>
+        /// The store that sells Textiles.（販售紡織品的商店。）
+        /// </summary>
+        StoreFashionStore,
+
+        /// <summary>
+        /// The store that sells Food.（販售食物的商店。）
+        /// </summary>
+        StoreFood,
+
+        /// <summary>
+        /// The store that sells Furnitures.（販售家具的商店。）
+        /// </summary>
+        StoreFurniture,
+
+        /// <summary>
+        /// The store that sells Petrochemicals.（販售石化產品的商店。）
+        /// </summary>
+        StoreGasStation,
+
+        /// <summary>
+        /// The store that sells Lodging.（販售旅宿的商店。）
+        /// </summary>
+        StoreHotel,
+
+        /// <summary>
+        /// The office that sells Media.（販售媒體的辦公場所。）
+        /// </summary>
+        StoreMedia,
+
+        /// <summary>
+        /// The store that sells Plastics.（販售塑膠的商店。）
+        /// </summary>
+        StorePlastics,
+
+        /// <summary>
+        /// The store that sells Recreation.（販售休閒的商店。）
+        /// </summary>
+        StoreRecreation,
+
+        /// <summary>
+        /// The store that sells Meals.（販售膳食的商店。）
+        /// </summary>
+        StoreRestaurant,
+
+        /// <summary>
+        /// The office that sells Software.（販售軟體的辦公場所。）
+        /// </summary>
+        StoreSoftware,
+
+        /// <summary>
+        /// The office that sells Telecom.（販售電信的辦公場所。）
+        /// </summary>
+        StoreTelecom,
+
+        // Industrial Facilities（工業設施）
+        IndustrialCoal,
+        IndustrialCotton,
+        IndustrialFactory,
+        IndustrialFish,
+        IndustrialGeneric,
+        IndustrialGrain,
+        IndustrialLivestock,
+        IndustrialOil,
+        IndustrialOre,
+        IndustrialStone,
+        IndustrialVegetables,
+        IndustrialWarehouse,
+        IndustrialWood,
+
+        // Other Facilities（其他設施）
+        /// <summary>
+        /// The tourist attractions & landmarks.（旅遊景點與地標。）
+        /// </summary>
+        Attraction,
+        Park
+    }
+
+    /// <summary>
     /// The basic zoning types in the game.
     /// （遊戲內的基本分區類別。）
     /// </summary>

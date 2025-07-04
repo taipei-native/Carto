@@ -100,6 +100,12 @@ namespace Carto.IO
         public bool SeparateResident { get; set; } = false;
 
         /// <summary>
+        /// Whether to export service upgrade POIs separately or not.<br/>
+        /// （是否要分別輸出服務升級的 POI？）
+        /// </summary>
+        public bool SeparateServiceUpgrade { get; set; } = false;
+
+        /// <summary>
         /// The map center's coordinates in Transverse Mercator.
         /// （橫麥卡托投影中的地圖中心坐標。）
         /// </summary>

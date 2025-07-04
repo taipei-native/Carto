@@ -457,11 +457,64 @@ namespace Carto.Systems
 
             road = Entity.Null;
             number = 0;
+
+            if ((target == Entity.Null) || (edge == Entity.Null) || (!transformLookup.TryGetComponent(target, out Game.Objects.Transform transform))) return false;
+
+            if (GetAddress(target, edge, curvePosition, out Entity aggregation, out int houseNumber,
+                           transform.m_Position, transform.m_Rotation,
+                           ref aggregateElementLookup, ref aggregatedLookup, ref buildingDataLookup,
+                           ref curveLookup, ref compositionLookup, ref edgeLookup,
+                           ref netCompositionDataLookup, ref prefabRefLookup, ref roundaboutLookup))
+            {
+                road = aggregation;
+                number = houseNumber;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Retrieve the address from the entity.
+        /// （由實體取得地址。）
+        /// </summary>
+        /// <param name="target">The target entity.（目標實體。）</param>
+        /// <param name="edge">The curve entity.（曲線實體。）</param>
+        /// <param name="curvePosition">The position of the target entity on the curve.（目標實體在曲線上的位置。）</param>
+        /// <param name="road">The aggregated road entity.（聚合道路實體。）</param>
+        /// <param name="number">The housenumber.（門牌號碼。）</param>
+        /// <param name="position">The position of the entity.（實體的位置。）</param>
+        /// <param name="rotation">The rotation of the entity.（實體的旋轉。）</param>
+        /// <param name="aggregateElementLookup">The lookup for <see cref="AggregateElement"/>.（ <see cref="AggregateElement"/> 的查詢。）</param>
+        /// <param name="aggregatedLookup">The lookup for <see cref="Aggregated"/>.（ <see cref="Aggregated"/> 的查詢。）</param>
+        /// <param name="buildingDataLookup">The lookup for <see cref="BuildingData"/>.（ <see cref="BuildingData"/> 的查詢。）</param>
+        /// <param name="compositionLookup">The lookup for <see cref="Composition"/>.（ <see cref="Composition"/> 的查詢。）</param>
+        /// <param name="curveLookup">The lookup for <see cref="Curve"/>.（ <see cref="Curve"/> 的查詢。）</param>
+        /// <param name="edgeLookup">The lookup for <see cref="Edge"/>.（ <see cref="Edge"/> 的查詢。）</param>
+        /// <param name="netCompositionDataLookup">The lookup for <see cref="NetCompositionData"/>.（ <see cref="NetCompositionData"/> 的查詢。）</param>
+        /// <param name="prefabRefLookup">The lookup for <see cref="PrefabRef"/>.（ <see cref="PrefabRef"/> 的查詢。）</param>
+        /// <param name="roundaboutLookup">The lookup for <see cref="Game.Net.Roundabout"/>.（ <see cref="Game.Net.Roundabout"/> 的查詢。）</param>
+        /// <returns>Whether the entity has an address.（實體是否有地址。）</returns>
+        public static bool GetAddress(Entity target, Entity edge, float curvePosition, out Entity road, out int number,
+                                      float3 position, quaternion rotation,
+                                      ref BufferLookup<AggregateElement> aggregateElementLookup,
+                                      ref ComponentLookup<Aggregated> aggregatedLookup, ref ComponentLookup<BuildingData> buildingDataLookup,
+                                      ref ComponentLookup<Curve> curveLookup, ref ComponentLookup<Composition> compositionLookup,
+                                      ref ComponentLookup<Edge> edgeLookup, ref ComponentLookup<NetCompositionData> netCompositionDataLookup,
+                                      ref ComponentLookup<PrefabRef> prefabRefLookup, ref ComponentLookup<Game.Net.Roundabout> roundaboutLookup)
+        {
+            /*
+             *  This is the Burst-compatible version of `BuildingUtils.GetAddress()`.
+             *  （這是 `BuildingUtils.GetAddress()` 的可 Burst 編譯版本。）
+             */
+
+            road = Entity.Null;
+            number = 0;
             float currentNumber = 0f;
 
             if ((target == Entity.Null) || (edge == Entity.Null)) return false;
 
-            if (aggregatedLookup.TryGetComponent(edge, out Aggregated aggregateParent) && 
+            if (aggregatedLookup.TryGetComponent(edge, out Aggregated aggregateParent) &&
                 aggregateElementLookup.TryGetBuffer(aggregateParent.m_Aggregate, out DynamicBuffer<AggregateElement> aggregateElements))
             {
                 for (int i = 0; i < aggregateElements.Length; i++)
@@ -520,38 +573,37 @@ namespace Carto.Systems
                             bool flag5 = false;
                             bool flag6 = prefabRefLookup.TryGetComponent(target, out PrefabRef prefabRef) && buildingDataLookup.TryGetComponent(prefabRef.m_Prefab, out buildingData);
 
-                            if (transformLookup.TryGetComponent(target, out Game.Objects.Transform transform))
+                            // Equivalent to `BuildingUtils.CalculateFrontPosition(transform, buildingData.m_LotSize.y)`
+                            float3 tempPosition = new(0f, 0f, buildingData.m_LotSize.y * 4f);
+                            float3 @float = position + math.mul(rotation, tempPosition);
+
+                            if ((num5 < 0.01f) && hasEdge && flag6 &&
+                                roundaboutLookup.TryGetComponent(edgeComponent.m_Start, out Game.Net.Roundabout startRoundabout))
                             {
-                                float3 @float = BuildingUtils.CalculateFrontPosition(transform, buildingData.m_LotSize.y);
-
-                                if ((num5 < 0.01f) && hasEdge && flag6 &&
-                                    roundaboutLookup.TryGetComponent(edgeComponent.m_Start, out Game.Net.Roundabout startRoundabout))
+                                float2 value1 = MathUtils.StartTangent(curveLine).xz;
+                                if (MathUtils.TryNormalize(ref value1))
                                 {
-                                    float2 value1 = MathUtils.StartTangent(curveLine).xz;
-                                    if (MathUtils.TryNormalize(ref value1))
-                                    {
-                                        float x2 = math.dot(value1, curveLine.a.xz - @float.xz);
-                                        x2 = math.clamp(x2, 0f, startRoundabout.m_Radius);
-                                        num6 += math.select(0f - x2, x2, isContinuous);
-                                    }
+                                    float x2 = math.dot(value1, curveLine.a.xz - @float.xz);
+                                    x2 = math.clamp(x2, 0f, startRoundabout.m_Radius);
+                                    num6 += math.select(0f - x2, x2, isContinuous);
                                 }
-
-                                if ((num5 > 0.99f) && hasEdge && flag6 &&
-                                    roundaboutLookup.TryGetComponent(edgeComponent.m_End, out Game.Net.Roundabout endRoundabout))
-                                {
-                                    float2 value2 = MathUtils.EndTangent(curveLine).xz;
-                                    if (MathUtils.TryNormalize(ref value2))
-                                    {
-                                        float x3 = math.dot(value2, @float.xz - curveLine.d.xz);
-                                        x3 = math.clamp(x3, 0f, endRoundabout.m_Radius);
-                                        num6 += math.select(x3, 0f - x3, isContinuous);
-                                    }
-                                }
-
-                                float2 x4 = transform.m_Position.xz - MathUtils.Position(curveLine, curvePosition).xz;
-                                float2 y2 = MathUtils.Right(MathUtils.Tangent(curveLine, curvePosition).xz);
-                                flag5 = math.dot(x4, y2) > 0f != isContinuous;
                             }
+
+                            if ((num5 > 0.99f) && hasEdge && flag6 &&
+                                roundaboutLookup.TryGetComponent(edgeComponent.m_End, out Game.Net.Roundabout endRoundabout))
+                            {
+                                float2 value2 = MathUtils.EndTangent(curveLine).xz;
+                                if (MathUtils.TryNormalize(ref value2))
+                                {
+                                    float x3 = math.dot(value2, @float.xz - curveLine.d.xz);
+                                    x3 = math.clamp(x3, 0f, endRoundabout.m_Radius);
+                                    num6 += math.select(x3, 0f - x3, isContinuous);
+                                }
+                            }
+
+                            float2 x4 = position.xz - MathUtils.Position(curveLine, curvePosition).xz;
+                            float2 y2 = MathUtils.Right(MathUtils.Tangent(curveLine, curvePosition).xz);
+                            flag5 = math.dot(x4, y2) > 0f != isContinuous;
 
                             road = aggregateParent.m_Aggregate;
                             number = (int)(math.round(num6 / 8f) * 2 + ((!flag5) ? 1 : 2));

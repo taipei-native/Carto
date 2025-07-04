@@ -230,7 +230,7 @@ namespace Carto
 
         /// <summary>
         /// Whether to export utility facilities' POIs.
-        /// （是否輸出民生設施的 POI。）
+        /// （是否輸出公用設施的 POI。）
         /// </summary>
         [SettingsUISection(FeatureTab, FeatureVectorGroup)]
         [SettingsUIAdvanced]
@@ -535,7 +535,7 @@ namespace Carto
                 {
                     { (IO.Property.Category, IO.System.Building), true },
                     { (IO.Property.Category, IO.System.Network), true },
-                    { (IO.Property.Category, IO.System.POI), false },
+                    { (IO.Property.Category, IO.System.POI), true },
                     { (IO.Property.Object, IO.System.Unknown), false },
                     { (IO.Property.Zoning, IO.System.Unknown), true }
                 },
@@ -549,11 +549,13 @@ namespace Carto
                 {
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
                     { IO.System.Building, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Age, IO.Property.Asset, IO.Property.Brand, IO.Property.Category, IO.Property.Elevation, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Level, IO.Property.Product, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Theme, IO.Property.Wage, IO.Property.Zone } },
+                    { IO.System.POI, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Category} },
                     { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,
                 RasterKinds = IO.RasterKind.WorldDepth | IO.RasterKind.WorldElevation | IO.RasterKind.Depth | IO.RasterKind.Elevation,
                 SeparateResident = false,
+                SeparateServiceUpgrade = true,
                 SourceCoordinates = sourceCoordinates,
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,
@@ -570,6 +572,7 @@ namespace Carto
                     { IO.System.Area, IO.VectorKind.Boundary },
                     { IO.System.Building, IO.VectorKind.Boundary },
                     { IO.System.Network, IO.VectorKind.Centerline },
+                    { IO.System.POI, IO.VectorKind.Location },
                     { IO.System.Zoning, IO.VectorKind.Boundary }
                 },
                 ZccColor = true

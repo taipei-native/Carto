@@ -204,7 +204,7 @@ namespace Carto.IO
         POITransport = 1 << 11,
 
         /// <summary>
-        /// The utility service's POI.（公共事業設施的興趣點。）
+        /// The utility service's POI.（公用設施的興趣點。）
         /// </summary>
         POIUtility = 1 << 12,
 

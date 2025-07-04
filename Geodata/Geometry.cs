@@ -30,6 +30,13 @@ namespace Carto.Geodata
         /// </summary>
         public double3[][] Inclusions { get; set; }
 
+        public Geometry(double3 point)
+        {
+            Inclusions = new double3[][] { new double3[] { point } };
+            Exclusions = new double3[0][][];
+            ExclusionIndexTable = new Dictionary<int, int> { };
+        }
+
         public Geometry(double3[][] inclusions)
         {
             Inclusions = inclusions;

@@ -37,6 +37,7 @@ namespace Carto
             updateSystem.UpdateBefore<AreaSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<BuildingSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<NetworkSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.UpdateBefore<POISystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<RasterSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<SharedDataCollectionSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<ZoningSystem>(SystemUpdatePhase.GameSimulation);

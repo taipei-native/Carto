@@ -123,7 +123,7 @@ namespace Carto.Systems
         /// </summary>
         protected override void OnDestroy()
         {
-            Utils.CommonUtils.Dispose(ref _localBuildingStats);
+            Dispose();
             base.OnDestroy();
         }
 
@@ -132,6 +132,15 @@ namespace Carto.Systems
         /// （當系統實例被更新時觸發的事件。）
         /// </summary>
         protected override void OnUpdate() { }
+
+        /// <summary>
+        /// Try disposing of all properties stored in unmanaged memory.
+        /// （嘗試丟棄儲存於未控管記憶體的屬性。）
+        /// </summary>
+        public void Dispose()
+        {
+            Utils.CommonUtils.Dispose(ref _localBuildingStats);
+        }
 
         /// <summary>
         /// Retrieve the building prefabs with circular boundaries.

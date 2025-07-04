@@ -1,3 +1,4 @@
+using Carto.Domain;
 using Colossal;
 using System;
 using System.Collections.Generic;
@@ -53,7 +54,28 @@ namespace Carto.Utils
             JobHandle addHandle = addJob.Schedule(source.Length, 64, default);
             addHandle.Complete();
         }
-        
+
+        /// <summary>
+        /// Copy a <see cref="NativeParallelHashSet{T}"/> to a managed array.
+        /// （將一個 <see cref="NativeParallelHashSet{T}"/> 複製為受控管陣列。）
+        /// </summary>
+        /// <typeparam name="T">The type of array's enums.（陣列內枚舉的型別。）</typeparam>
+        /// <param name="hashSet">The input hash set.（輸入的集合。）</param>
+        /// <returns>The copied array.（複製的陣列。）</returns>
+        public static T[] Copy<T>(ref NativeParallelHashSet<EnumWrapper<T>> hashSet) where T : unmanaged, Enum
+        {
+            int index = 0;
+            int size = hashSet.Count();
+            T[] enumArray = new T[size];
+            foreach (EnumWrapper<T> enumWrapper in hashSet)
+            {
+                enumArray[index] = enumWrapper.value;
+                index++;
+            }
+            Array.Sort(enumArray);
+            return enumArray;
+        }
+
         /// <summary>
         /// Copy a <see cref="NativeList{T}"/> to a managed list.
         /// （將一個 <see cref="NativeList{T}"/> 複製為列表。）

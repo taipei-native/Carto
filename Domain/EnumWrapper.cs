@@ -9,7 +9,7 @@ namespace Carto.Domain
     /// </summary>
     /// <typeparam name="T">The enum's type.（枚舉的型別。）</typeparam>
     public struct EnumWrapper<T> : IComparable, IComparable<EnumWrapper<T>>, IEquatable<EnumWrapper<T>>
-        where T : struct, Enum
+        where T : unmanaged, Enum
     {
         /// <summary>
         /// The enum value.
