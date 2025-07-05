@@ -19,7 +19,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -115,6 +114,12 @@ namespace Carto.Systems
         /// （儲存於本地系統的 <see cref="POI"/> 列表。）
         /// </summary>
         private NativeList<POI> _localPOIs;
+
+        /// <summary>
+        /// The object types that can be considered as POIs.
+        /// （可被視為興趣點的物件類別。）
+        /// </summary>
+        private const Feature POIObjects = Feature.POIPrivate | Feature.POIPublic | Feature.POITransport | Feature.POIUtility;
 
         /// <summary>
         /// The event triggered when the system instance is created.
@@ -314,6 +319,273 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Retrieve the general POIs.
+        /// （獲得運一般的興趣點。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="categoryEntityMap">The map between the entity and their POI categories.（實體與其興趣點分類的映射表。）</param>
+        /// <param name="buildingStats">The list of building statistics.（建築統計的列表。）</param>
+        /// <param name="zoningTypes">The list of zoning types.（分區類型的列表。）</param>
+        private void CollectGeneralPOIs(Options options, ref NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap,
+                                        ref NativeList<BuildingStat> buildingStats, ref NativeList<ZoningType> zoningTypes)
+        {
+            IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
+
+            // Collect the prefabs of parks that can be regarded as attractions.（收集可被視為地標的公園預製模板。）
+            NativeParallelHashSet<Entity> attractions = new(_parkPrefabQuery.CalculateEntityCount(), Allocator.Persistent);
+            GetAttractionPrefabs(ref attractions);
+
+            CollectPOIsFromBuildingStatsJob collectFromBuildingStatsJob = new()
+            {
+                separateServiceUpgrade = options.SeparateServiceUpgrade,
+                installedUpgradeBufferLookup = GetBufferLookup<InstalledUpgrade>(true),
+                subObjectBufferLookup = GetBufferLookup<SubObject>(true),
+                abandonedLookup = GetComponentLookup<Abandoned>(true),
+                adminBuildingLookup = GetComponentLookup<AdminBuilding>(true),
+                batteryLookup = GetComponentLookup<Battery>(true),
+                commercialPropertyLookup = GetComponentLookup<CommercialProperty>(true),
+                condemnedLookup = GetComponentLookup<Condemned>(true),
+                deathcareFacilityLookup = GetComponentLookup<DeathcareFacility>(true),
+                deathcareFacilityDataLookup = GetComponentLookup<Game.Prefabs.DeathcareFacilityData>(true),
+                destroyedLookup = GetComponentLookup<Game.Common.Destroyed>(true),
+                disasterFacilityLookup = GetComponentLookup<DisasterFacility>(true),
+                earlyDisasterWarningSystemLookup = GetComponentLookup<EarlyDisasterWarningSystem>(true),
+                electricityProducerLookup = GetComponentLookup<ElectricityProducer>(true),
+                emergencyShelterLookup = GetComponentLookup<EmergencyShelter>(true),
+                extractorFacilityLookup = GetComponentLookup<ExtractorFacility>(true),
+                fireStationLookup = GetComponentLookup<FireStation>(true),
+                firewatchTowerLookup = GetComponentLookup<FirewatchTower>(true),
+                garbageFacilityLookup = GetComponentLookup<GarbageFacility>(true),
+                hospitalLookup = GetComponentLookup<Hospital>(true),
+                industrialPropertyLookup = GetComponentLookup<IndustrialProperty>(true),
+                maintenanceDepotLookup = GetComponentLookup<MaintenanceDepot>(true),
+                nativeLookup = GetComponentLookup<Game.Common.Native>(true),
+                ownerLookup = GetComponentLookup<Game.Common.Owner>(true),
+                parkLookup = GetComponentLookup<Park>(true),
+                parkingFacilityLookup = GetComponentLookup<ParkingFacility>(true),
+                prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
+                policeStationLookup = GetComponentLookup<PoliceStation>(true),
+                postFacilityLookup = GetComponentLookup<PostFacility>(true),
+                prisonLookup = GetComponentLookup<Prison>(true),
+                researchFacilityLookup = GetComponentLookup<ResearchFacility>(true),
+                residentialPropertyLookup = GetComponentLookup<ResidentialProperty>(true),
+                schoolLookup = GetComponentLookup<School>(true),
+                schoolDataLookup = GetComponentLookup<Game.Prefabs.SchoolData>(true),
+                serviceDataLookup = GetComponentLookup<Game.Prefabs.ServiceData>(true),
+                serviceUpgradeLookup = GetComponentLookup<ServiceUpgrade>(true),
+                sewageOutletLookup = GetComponentLookup<SewageOutlet>(true),
+                storagePropertyLookup = GetComponentLookup<StorageProperty>(true),
+                telecomFacilityLookup = GetComponentLookup<TelecomFacility>(true),
+                transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
+                transformerLookup = GetComponentLookup<Transformer>(true),
+                transportDepotLookup = GetComponentLookup<TransportDepot>(true),
+                transportDepotDataLookup = GetComponentLookup<Game.Prefabs.TransportDepotData>(true),
+                transportStationLookup = GetComponentLookup<TransportStation>(true),
+                transportStopDataLookup = GetComponentLookup<Game.Prefabs.TransportStopData>(true),
+                underConstructionLookup = GetComponentLookup<UnderConstruction>(true),
+                waterPoweredDataLookup = GetComponentLookup<Game.Prefabs.WaterPoweredData>(true),
+                waterPumpingStationLookup = GetComponentLookup<WaterPumpingStation>(true),
+                welfareOfficeLookup = GetComponentLookup<WelfareOffice>(true),
+                windPoweredDataLookup = GetComponentLookup<Game.Prefabs.WindPoweredData>(true),
+                center = options.GetTMCoord(),
+                sourceCRS = options.GetTMProjection(),
+                targetCRS = targetCRS,
+                buildingStats = buildingStats,
+                zoningTypes = zoningTypes,
+                attractions = attractions,
+                sourceProjection = options.GetTMProjectionDefinition(),
+                targetProjection = targetProjection,
+                POIs = _localPOIs.AsParallelWriter(),
+                POICategories = categoryEntityMap.AsParallelWriter()
+            };
+            JobHandle collectFromBuildingStatsHandle = collectFromBuildingStatsJob.Schedule(buildingStats.Length, 32);
+            collectFromBuildingStatsHandle.Complete();
+
+            CommonUtils.Dispose(ref attractions);
+        }
+
+        /// <summary>
+        /// Retrieve the transport-related POIs.
+        /// （獲得運輸相關的興趣點。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="categoryEntityMap">The map between the entity and their POI categories.（實體與其興趣點分類的映射表。）</param>
+        private void CollectTransportPOIs(Options options, ref NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap)
+        {
+            bool hasAddress = options.Contains(Property.Address, IO.System.POI);
+            IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
+            NativeParallelHashMap<Entity, Game.Prefabs.TransportStopData> transportStopDataMap = new(_transportStopMarkerPrefabQuery.CalculateEntityCount(), Allocator.Persistent);
+
+            CollectHelipadsJob collectHelipadsJob = new()
+            {
+                useAddress = hasAddress,
+                aggregateElementBufferLookup = GetBufferLookup<AggregateElement>(true),
+                aggregatedLookup = GetComponentLookup<Aggregated>(true),
+                buildingLookup = GetComponentLookup<Building>(true),
+                buildingDataLookup = GetComponentLookup<Game.Prefabs.BuildingData>(true),
+                compositionLookup = GetComponentLookup<Composition>(true),
+                curveLookup = GetComponentLookup<Curve>(true),
+                edgeLookup = GetComponentLookup<Edge>(true),
+                netCompositionDataLookup = GetComponentLookup<Game.Prefabs.NetCompositionData>(true),
+                ownerLookup = GetComponentLookup<Game.Common.Owner>(true),
+                prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
+                roundaboutLookup = GetComponentLookup<Game.Net.Roundabout>(true),
+                transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
+                center = options.GetTMCoord(),
+                sourceCRS = options.GetTMProjection(),
+                targetCRS = targetCRS,
+                sourceProjection = options.GetTMProjectionDefinition(),
+                targetProjection = targetProjection,
+                POIs = _localPOIs.AsParallelWriter(),
+                POICategories = categoryEntityMap.AsParallelWriter()
+            };
+            JobHandle collectHelipadsHandle = collectHelipadsJob.ScheduleParallel(_helipadQuery, default);
+            collectHelipadsHandle.Complete();
+
+            CollectTrafficLightsJob collectTrafficLightsJob = new()
+            {
+                useAddress = hasAddress,
+                aggregateElementBufferLookup = GetBufferLookup<AggregateElement>(true),
+                aggregatedLookup = GetComponentLookup<Aggregated>(true),
+                buildingDataLookup = GetComponentLookup<Game.Prefabs.BuildingData>(true),
+                compositionLookup = GetComponentLookup<Composition>(true),
+                curveLookup = GetComponentLookup<Curve>(true),
+                edgeLookup = GetComponentLookup<Edge>(true),
+                netCompositionDataLookup = GetComponentLookup<Game.Prefabs.NetCompositionData>(true),
+                prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
+                roadLookup = GetComponentLookup<Road>(true),
+                roundaboutLookup = GetComponentLookup<Game.Net.Roundabout>(true),
+                transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
+                center = options.GetTMCoord(),
+                sourceCRS = options.GetTMProjection(),
+                targetCRS = targetCRS,
+                sourceProjection = options.GetTMProjectionDefinition(),
+                targetProjection = targetProjection,
+                POIs = _localPOIs.AsParallelWriter(),
+                POICategories = categoryEntityMap.AsParallelWriter()
+            };
+            JobHandle collectTrafficLightsHandle = collectTrafficLightsJob.ScheduleParallel(_trafficLightQuery, default);
+            collectTrafficLightsHandle.Complete();
+
+            CollectTransportStopDataJob collectTransportStopDataJob = new()
+            {
+                map = transportStopDataMap.AsParallelWriter()
+            };
+            JobHandle collectTransportStopDataHnadle = collectTransportStopDataJob.ScheduleParallel(_transportStopMarkerPrefabQuery, default);
+            collectTransportStopDataHnadle.Complete();
+
+            CollectTransportStopMarkersJob collectTransportStopMarkersJob = new()
+            {
+                useAddress = hasAddress,
+                aggregateElementBufferLookup = GetBufferLookup<AggregateElement>(true),
+                aggregatedLookup = GetComponentLookup<Aggregated>(true),
+                attachedLookup = GetComponentLookup<Attached>(true),
+                buildingLookup = GetComponentLookup<Building>(true),
+                buildingDataLookup = GetComponentLookup<Game.Prefabs.BuildingData>(true),
+                compositionLookup = GetComponentLookup<Composition>(true),
+                curveLookup = GetComponentLookup<Curve>(true),
+                edgeLookup = GetComponentLookup<Edge>(true),
+                netCompositionDataLookup = GetComponentLookup<Game.Prefabs.NetCompositionData>(true),
+                ownerLookup = GetComponentLookup<Game.Common.Owner>(true),
+                prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
+                roundaboutLookup = GetComponentLookup<Game.Net.Roundabout>(true),
+                transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
+                center = options.GetTMCoord(),
+                sourceCRS = options.GetTMProjection(),
+                targetCRS = targetCRS,
+                transportStopDataMap = transportStopDataMap,
+                sourceProjection = options.GetTMProjectionDefinition(),
+                targetProjection = targetProjection,
+                POIs = _localPOIs.AsParallelWriter(),
+                POICategories = categoryEntityMap.AsParallelWriter()
+            };
+            JobHandle collectTransportStopMarkersHandle = collectTransportStopMarkersJob.ScheduleParallel(_transportStopMarkerQuery, default);
+            collectTransportStopMarkersHandle.Complete();
+
+            CommonUtils.Dispose(ref transportStopDataMap);
+        }
+
+        /// <summary>
+        /// Retrieve the utility-related POIs.
+        /// （獲得公用事業相關的興趣點。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="categoryEntityMap">The map between the entity and their POI categories.（實體與其興趣點分類的映射表。）</param>
+        private void CollectUtilityPOIs(Options options, ref NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap)
+        {
+            IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
+            int utilityObjectPrefabCount = _utilityObjectPrefabQuery.CalculateEntityCount();
+            NativeParallelHashSet<Entity> poles = new(utilityObjectPrefabCount, Allocator.Persistent);
+            NativeParallelHashSet<Entity> pylons = new(utilityObjectPrefabCount, Allocator.Persistent);
+
+            CollectPylonPrefabsJob collectPylonPrefabsJob = new()
+            {
+                poles = poles.AsParallelWriter(),
+                pylons = pylons.AsParallelWriter()
+            };
+            JobHandle collectPylonPrefabsHandle = collectPylonPrefabsJob.ScheduleParallel(_utilityObjectPrefabQuery, default);
+            collectPylonPrefabsHandle.Complete();
+
+            CollectPylonsJob collectPylonsJob = new()
+            {
+                center = options.GetTMCoord(),
+                sourceCRS = options.GetTMProjection(),
+                targetCRS = targetCRS,
+                poles = poles,
+                pylons = pylons,
+                sourceProjection = options.GetTMProjectionDefinition(),
+                targetProjection = targetProjection,
+                POIs = _localPOIs.AsParallelWriter(),
+                POICategories = categoryEntityMap.AsParallelWriter()
+            };
+            JobHandle collectPylonsHandle = collectPylonsJob.ScheduleParallel(_pylonQuery, default);
+            collectPylonsHandle.Complete();
+
+            CommonUtils.Dispose(ref poles);
+            CommonUtils.Dispose(ref pylons);
+        }
+
+        /// <summary>
+        /// Retrieve the prefabs that can be considered attractions.
+        /// （獲得可被視為景點的預製模板。）
+        /// </summary>
+        /// <param name="attractions">The set of prefab entities.（預製模板實體的集合。）</param>
+        private void GetAttractionPrefabs(ref NativeParallelHashSet<Entity> attractions)
+        {
+            NativeList<PrefabUIGroup> parkPrefabs = new(_parkPrefabQuery.CalculateEntityCount(), Allocator.Persistent);
+
+            CollectUIObjectGroups collectUIGroupJob = new()
+            {
+                list = parkPrefabs.AsParallelWriter()
+            };
+            JobHandle collectUIGroupHandle = collectUIGroupJob.ScheduleParallel(_parkPrefabQuery, default);
+            collectUIGroupHandle.Complete();
+
+            for (int i = 0; i < parkPrefabs.Length; i++)
+            {
+                PrefabUIGroup prefabSet = parkPrefabs[i];
+                string uiGroupName = _prefab.GetPrefabName(prefabSet.uiGroup);
+                switch (uiGroupName)
+                {
+                    // Pre-order Pack & Treasure Hunt buildings.（預購包及尋寶活動建築。）
+                    case "SignaturesLandmarks":
+                        attractions.Add(prefabSet.prefab);
+                        break;
+
+                    // Base game buildings.（主遊戲建築。）
+                    case "TouristAttractions":
+                        attractions.Add(prefabSet.prefab);
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
+            CommonUtils.Dispose(ref parkPrefabs);
+        }
+
+        /// <summary>
         /// Retrieve the maximum possible number of <see cref="POICategory"/> from a <see cref="BuildingCategory"/>.<br/>
         /// （由 <see cref="BuildingCategory"/> 獲得 <see cref="POICategory"/> 的最大可能數量。）
         /// </summary>
@@ -422,7 +694,8 @@ namespace Carto.Systems
         /// <param name="brand">The brand index.（品牌的索引值。）</param>
         /// <param name="zoningTypeIndex">The index of the zone type that the entity belongs to.（實體所屬的分區類別的索引值。）</param>
         /// <param name="hasPrefabRef">Whether the target entity has <see cref="Game.Prefabs.PrefabRef"/> component.（目標實體是否有 <see cref="Game.Prefabs.PrefabRef"/> 組件？）</param>
-        public static void GetPOICategoryFromBuilding(Entity entity, Entity prefab, BuildingCategory buildingCategory, Resource product, int brand, int zoningTypeIndex, bool hasPrefabRef,
+        /// <param name="isSubBuilding">Whether the target entity is a sub building/service upgrade or not.（目標實體是否為一個子建築／服務升級？）</param>
+        public static void GetPOICategoryFromBuilding(Entity entity, Entity prefab, BuildingCategory buildingCategory, Resource product, int brand, int zoningTypeIndex, bool hasPrefabRef, bool isSubBuilding,
                                                       ref BufferLookup<SubObject> subObjectBufferLookup,
                                                       ref ComponentLookup<Battery> batteryLookup, ref ComponentLookup<Game.Prefabs.DeathcareFacilityData> deathcareFacilityDataLookup,
                                                       ref ComponentLookup<ElectricityProducer> electricityProducerLookup, ref ComponentLookup<FirewatchTower> firewatchTowerLookup,
@@ -778,7 +1051,7 @@ namespace Carto.Systems
                 poiUtility = true;
                 categories.Add(new(POICategory.Sewage));
             }
-            if ((buildingCategory & BuildingCategory.Transportation) != 0)
+            if (((buildingCategory & BuildingCategory.Transportation) != 0) || isSubBuilding)
             {
                 poiTransport = true;
                 bool hasAnyTransportationSubCategory = false;
@@ -824,7 +1097,7 @@ namespace Carto.Systems
 
                     hasAnyTransportationSubCategory = true;
                 }
-                if (transportStationLookup.HasComponent(entity) && subObjectBufferLookup.TryGetBuffer(entity, out DynamicBuffer<SubObject> subObjects))
+                if ((transportStationLookup.HasComponent(entity) || isSubBuilding) && subObjectBufferLookup.TryGetBuffer(entity, out DynamicBuffer<SubObject> subObjects))
                 {
                     poiTransport = true;
                     for (int i = 0; i < subObjects.Length; i++)
@@ -889,7 +1162,7 @@ namespace Carto.Systems
                         }
                     }
                 }
-                if (!hasAnyTransportationSubCategory && hasPrefabRef)
+                if (!hasAnyTransportationSubCategory && hasPrefabRef && !isSubBuilding)
                 {
                     poiTransport = true;
                     if (serviceDataLookup.TryGetComponent(prefab, out Game.Prefabs.ServiceData service))
@@ -918,6 +1191,15 @@ namespace Carto.Systems
             if (poiTransport) objectType |= Feature.POITransport;
             if (poiUtility) objectType |= Feature.POIUtility;
         }
+
+        /// <summary>
+        /// Check whether the input POI's type is allowed to be exported.
+        /// （確認輸入興趣點的種類是否允許被輸出。）
+        /// </summary>
+        /// <param name="poiObjectType">The input POI's type.（輸入的興趣點類別。）</param>
+        /// <param name="allowedType">The allowed POI type.（允許的 POI 種類。）</param>
+        /// <returns>Is the POI allowed to be exported?（POI 允許被輸出嗎？）</returns>
+        private bool IsAllowedPOIType(Feature poiObjectType, Feature allowedType) => (poiObjectType & (allowedType & POIObjects)) != 0;
 
         /// <summary>
         /// Map the districts to the input POI list.
@@ -994,20 +1276,13 @@ namespace Carto.Systems
             // Initialize native containers.（初始化原生容器。）
             int buildingStatsCount = buildingStats.Length;
             int helipadsCount = _helipadQuery.CalculateEntityCount();
-            int parkPrefabsCount = _parkPrefabQuery.CalculateEntityCount();
             int pylonsCount = _pylonQuery.CalculateEntityCount();
             int trafficLightsCount = _trafficLightQuery.CalculateEntityCount();
             int transportStopMarkersCount = _transportStopMarkerQuery.CalculateEntityCount();
-            int utilityObjectPrefabCount = _utilityObjectPrefabQuery.CalculateEntityCount();
             int maxPOICount = buildingStatsCount;
             if (useTransport) maxPOICount += helipadsCount + trafficLightsCount + transportStopMarkersCount;
             if (useUtility) maxPOICount += pylonsCount;
             NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap = new(maxPOICount, Allocator.Persistent);
-            NativeParallelHashMap<Entity, Game.Prefabs.TransportStopData> transportStopDataMap = new(_transportStopMarkerPrefabQuery.CalculateEntityCount(), Allocator.Persistent);
-            NativeParallelHashSet<Entity> attractions = new(parkPrefabsCount, Allocator.Persistent);
-            NativeParallelHashSet<Entity> poles = new(utilityObjectPrefabCount, Allocator.Persistent);
-            NativeParallelHashSet<Entity> pylons = new(utilityObjectPrefabCount, Allocator.Persistent);
-            NativeList<PrefabUIGroup> parkPrefabs = new(parkPrefabsCount, Allocator.Persistent);
             CommonUtils.Reset(ref _localPOIs, maxPOICount, Allocator.Persistent);
 
             // Initialize managed containers.（初始化控管容器。）
@@ -1017,215 +1292,17 @@ namespace Carto.Systems
 
             try
             {
-                // Collect the prefabs of parks that can be regarded as attractions.（收集可被視為地標的公園預製模板。）
-                CollectUIObjectGroups collectUIGroupJob = new()
-                {
-                    list = parkPrefabs.AsParallelWriter()
-                };
-                JobHandle collectUIGroupHandle = collectUIGroupJob.ScheduleParallel(_parkPrefabQuery, default);
-                collectUIGroupHandle.Complete();
-
-                for (int i = 0; i < parkPrefabs.Length; i++)
-                {
-                    PrefabUIGroup prefabSet = parkPrefabs[i];
-                    string uiGroupName = _prefab.GetPrefabName(prefabSet.uiGroup);
-                    switch (uiGroupName)
-                    {
-                        // Pre-order Pack & Treasure Hunt buildings.（預購包及尋寶活動建築。）
-                        case "SignaturesLandmarks":
-                            attractions.Add(prefabSet.prefab);
-                            break;
-
-                        // Base game buildings.（主遊戲建築。）
-                        case "TouristAttractions":
-                            attractions.Add(prefabSet.prefab);
-                            break;
-
-                        default:
-                            break;
-                    }
-                }
-
                 // Collect POIs from the building statistics.（由建築統計資料收集興趣點。）
-                CollectPOIsFromBuildingStatsJob collectFromBuildingStatsJob = new()
-                {
-                    separateServiceUpgrade = options.SeparateServiceUpgrade,
-                    installedUpgradeBufferLookup = GetBufferLookup<InstalledUpgrade>(true),
-                    subObjectBufferLookup = GetBufferLookup<SubObject>(true),
-                    abandonedLookup = GetComponentLookup<Abandoned>(true),
-                    adminBuildingLookup = GetComponentLookup<AdminBuilding>(true),
-                    batteryLookup = GetComponentLookup<Battery>(true),
-                    commercialPropertyLookup = GetComponentLookup<CommercialProperty>(true),
-                    condemnedLookup = GetComponentLookup<Condemned>(true),
-                    deathcareFacilityLookup = GetComponentLookup<DeathcareFacility>(true),
-                    deathcareFacilityDataLookup = GetComponentLookup<Game.Prefabs.DeathcareFacilityData>(true),
-                    destroyedLookup = GetComponentLookup<Game.Common.Destroyed>(true),
-                    disasterFacilityLookup = GetComponentLookup<DisasterFacility>(true),
-                    earlyDisasterWarningSystemLookup = GetComponentLookup<EarlyDisasterWarningSystem>(true),
-                    electricityProducerLookup = GetComponentLookup<ElectricityProducer>(true),
-                    emergencyShelterLookup = GetComponentLookup<EmergencyShelter>(true),
-                    extractorFacilityLookup = GetComponentLookup<ExtractorFacility>(true),
-                    fireStationLookup = GetComponentLookup<FireStation>(true),
-                    firewatchTowerLookup = GetComponentLookup<FirewatchTower>(true),
-                    garbageFacilityLookup = GetComponentLookup<GarbageFacility>(true),
-                    hospitalLookup = GetComponentLookup<Hospital>(true),
-                    industrialPropertyLookup = GetComponentLookup<IndustrialProperty>(true),
-                    maintenanceDepotLookup = GetComponentLookup<MaintenanceDepot>(true),
-                    nativeLookup = GetComponentLookup<Game.Common.Native>(true),
-                    ownerLookup = GetComponentLookup<Game.Common.Owner>(true),
-                    parkLookup = GetComponentLookup<Park>(true),
-                    parkingFacilityLookup = GetComponentLookup<ParkingFacility>(true),
-                    prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
-                    policeStationLookup = GetComponentLookup<PoliceStation>(true),
-                    postFacilityLookup = GetComponentLookup<PostFacility>(true),
-                    prisonLookup = GetComponentLookup<Prison>(true),
-                    researchFacilityLookup = GetComponentLookup<ResearchFacility>(true),
-                    residentialPropertyLookup = GetComponentLookup<ResidentialProperty>(true),
-                    schoolLookup = GetComponentLookup<School>(true),
-                    schoolDataLookup = GetComponentLookup<Game.Prefabs.SchoolData>(true),
-                    serviceDataLookup = GetComponentLookup<Game.Prefabs.ServiceData>(true),
-                    serviceUpgradeLookup = GetComponentLookup<ServiceUpgrade>(true),
-                    sewageOutletLookup = GetComponentLookup<SewageOutlet>(true),
-                    storagePropertyLookup = GetComponentLookup<StorageProperty>(true),
-                    telecomFacilityLookup = GetComponentLookup<TelecomFacility>(true),
-                    transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
-                    transformerLookup = GetComponentLookup<Transformer>(true),
-                    transportDepotLookup = GetComponentLookup<TransportDepot>(true),
-                    transportDepotDataLookup = GetComponentLookup<Game.Prefabs.TransportDepotData>(true),
-                    transportStationLookup = GetComponentLookup<TransportStation>(true),
-                    transportStopDataLookup = GetComponentLookup<Game.Prefabs.TransportStopData>(true),
-                    underConstructionLookup = GetComponentLookup<UnderConstruction>(true),
-                    waterPoweredDataLookup = GetComponentLookup<Game.Prefabs.WaterPoweredData>(true),
-                    waterPumpingStationLookup = GetComponentLookup<WaterPumpingStation>(true),
-                    welfareOfficeLookup = GetComponentLookup<WelfareOffice>(true),
-                    windPoweredDataLookup = GetComponentLookup<Game.Prefabs.WindPoweredData>(true),
-                    center = options.GetTMCoord(),
-                    sourceCRS = options.GetTMProjection(),
-                    targetCRS = Geodata.CRS.WGS84,
-                    buildingStats = buildingStats,
-                    zoningTypes = zoningTypes,
-                    attractions = attractions,
-                    sourceProjection = options.GetTMProjectionDefinition(),
-                    targetProjection = default,
-                    POIs = _localPOIs.AsParallelWriter(),
-                    POICategories = categoryEntityMap.AsParallelWriter()
-                };
-                JobHandle collectFromBuildingStatsHandle = collectFromBuildingStatsJob.Schedule(buildingStatsCount, 32);
-                collectFromBuildingStatsHandle.Complete();
+                CollectGeneralPOIs(options, ref categoryEntityMap, ref buildingStats, ref zoningTypes);
 
                 if (useTransport)
                 {
-                    CollectHelipadsJob collectHelipadsJob = new()
-                    {
-                        useAddress = hasAddress,
-                        aggregateElementBufferLookup = GetBufferLookup<AggregateElement>(true),
-                        aggregatedLookup = GetComponentLookup<Aggregated>(true),
-                        buildingLookup = GetComponentLookup<Building>(true),
-                        buildingDataLookup = GetComponentLookup<Game.Prefabs.BuildingData>(true),
-                        compositionLookup = GetComponentLookup<Composition>(true),
-                        curveLookup = GetComponentLookup<Curve>(true),
-                        edgeLookup = GetComponentLookup<Edge>(true),
-                        netCompositionDataLookup = GetComponentLookup<Game.Prefabs.NetCompositionData>(true),
-                        ownerLookup = GetComponentLookup<Game.Common.Owner>(true),
-                        prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
-                        roundaboutLookup = GetComponentLookup<Game.Net.Roundabout>(true),
-                        transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
-                        center = options.GetTMCoord(),
-                        sourceCRS = options.GetTMProjection(),
-                        targetCRS = Geodata.CRS.WGS84,
-                        sourceProjection = options.GetTMProjectionDefinition(),
-                        targetProjection = default,
-                        POIs = _localPOIs.AsParallelWriter(),
-                        POICategories = categoryEntityMap.AsParallelWriter()
-                    };
-                    JobHandle collectHelipadsHandle = collectHelipadsJob.ScheduleParallel(_helipadQuery, default);
-                    collectHelipadsHandle.Complete();
-
-                    CollectTrafficLightsJob collectTrafficLightsJob = new()
-                    {
-                        useAddress = hasAddress,
-                        aggregateElementBufferLookup = GetBufferLookup<AggregateElement>(true),
-                        aggregatedLookup = GetComponentLookup<Aggregated>(true),
-                        buildingDataLookup = GetComponentLookup<Game.Prefabs.BuildingData>(true),
-                        compositionLookup = GetComponentLookup<Composition>(true),
-                        curveLookup = GetComponentLookup<Curve>(true),
-                        edgeLookup = GetComponentLookup<Edge>(true),
-                        netCompositionDataLookup = GetComponentLookup<Game.Prefabs.NetCompositionData>(true),
-                        prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
-                        roadLookup = GetComponentLookup<Road>(true),
-                        roundaboutLookup = GetComponentLookup<Game.Net.Roundabout>(true),
-                        transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
-                        center = options.GetTMCoord(),
-                        sourceCRS = options.GetTMProjection(),
-                        targetCRS = Geodata.CRS.WGS84,
-                        sourceProjection = options.GetTMProjectionDefinition(),
-                        targetProjection = default,
-                        POIs = _localPOIs.AsParallelWriter(),
-                        POICategories = categoryEntityMap.AsParallelWriter()
-                    };
-                    JobHandle collectTrafficLightsHandle = collectTrafficLightsJob.ScheduleParallel(_trafficLightQuery, default);
-                    collectTrafficLightsHandle.Complete();
-
-                    CollectTransportStopDataJob collectTransportStopDataJob = new()
-                    {
-                        map = transportStopDataMap.AsParallelWriter()
-                    };
-                    JobHandle collectTransportStopDataHnadle = collectTransportStopDataJob.ScheduleParallel(_transportStopMarkerPrefabQuery, default);
-                    collectTransportStopDataHnadle.Complete();
-
-                    CollectTransportStopMarkersJob collectTransportStopMarkersJob = new()
-                    {
-                        useAddress = hasAddress,
-                        aggregateElementBufferLookup = GetBufferLookup<AggregateElement>(true),
-                        aggregatedLookup = GetComponentLookup<Aggregated>(true),
-                        attachedLookup = GetComponentLookup<Attached>(true),
-                        buildingLookup = GetComponentLookup<Building>(true),
-                        buildingDataLookup = GetComponentLookup<Game.Prefabs.BuildingData>(true),
-                        compositionLookup = GetComponentLookup<Composition>(true),
-                        curveLookup = GetComponentLookup<Curve>(true),
-                        edgeLookup = GetComponentLookup<Edge>(true),
-                        netCompositionDataLookup = GetComponentLookup<Game.Prefabs.NetCompositionData>(true),
-                        ownerLookup = GetComponentLookup<Game.Common.Owner>(true),
-                        prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
-                        roundaboutLookup = GetComponentLookup<Game.Net.Roundabout>(true),
-                        transformLookup = GetComponentLookup<Game.Objects.Transform>(true),
-                        center = options.GetTMCoord(),
-                        sourceCRS = options.GetTMProjection(),
-                        targetCRS = Geodata.CRS.WGS84,
-                        transportStopDataMap = transportStopDataMap,
-                        sourceProjection = options.GetTMProjectionDefinition(),
-                        targetProjection = default,
-                        POIs = _localPOIs.AsParallelWriter(),
-                        POICategories = categoryEntityMap.AsParallelWriter()
-                    };
-                    JobHandle collectTransportStopMarkersHandle = collectTransportStopMarkersJob.ScheduleParallel(_transportStopMarkerQuery, default);
-                    collectTransportStopMarkersHandle.Complete();
+                    CollectTransportPOIs(options, ref categoryEntityMap);
                 }
 
                 if (useUtility)
                 {
-                    CollectPylonPrefabsJob collectPylonPrefabsJob = new()
-                    {
-                        poles = poles.AsParallelWriter(),
-                        pylons = pylons.AsParallelWriter()
-                    };
-                    JobHandle collectPylonPrefabsHandle = collectPylonPrefabsJob.ScheduleParallel(_utilityObjectPrefabQuery, default);
-                    collectPylonPrefabsHandle.Complete();
-
-                    CollectPylonsJob collectPylonsJob = new()
-                    {
-                        center = options.GetTMCoord(),
-                        sourceCRS = options.GetTMProjection(),
-                        targetCRS = Geodata.CRS.WGS84,
-                        poles = poles,
-                        pylons = pylons,
-                        sourceProjection = options.GetTMProjectionDefinition(),
-                        targetProjection = default,
-                        POIs = _localPOIs.AsParallelWriter(),
-                        POICategories = categoryEntityMap.AsParallelWriter()
-                    };
-                    JobHandle collectPylonsHandle = collectPylonsJob.ScheduleParallel(_pylonQuery, default);
-                    collectPylonsHandle.Complete();
+                    CollectUtilityPOIs(options, ref categoryEntityMap);
                 }
 
                 // Map the district to POIs.（將行政區映射至興趣點。）
@@ -1293,7 +1370,7 @@ namespace Carto.Systems
                         POI poi = _localPOIs[i];
                         Entity entity = poi.entity;
                         Feature originalObject = poi.objectType;
-                        if (poi.location.x == double.MaxValue) continue;
+                        if ((poi.location.x == double.MaxValue) || !IsAllowedPOIType(originalObject, options.Features)) continue;
 
                         // Write feature header.（寫出圖徵檔頭。）
                         writer.WriteStartObject();
@@ -1356,12 +1433,7 @@ namespace Carto.Systems
             }
             finally
             {
-                CommonUtils.Dispose(ref attractions);
                 CommonUtils.Dispose(ref categoryEntityMap);
-                CommonUtils.Dispose(ref parkPrefabs);
-                CommonUtils.Dispose(ref poles);
-                CommonUtils.Dispose(ref pylons);
-                CommonUtils.Dispose(ref transportStopDataMap);
                 CommonUtils.Dispose(ref _localPOIs);
             }
         }
@@ -2085,7 +2157,7 @@ namespace Carto.Systems
 
                 if (((ownerLookup.TryGetComponent(entity, out Game.Common.Owner owner) && (owner.m_Owner != Entity.Null)) ||
                       serviceUpgradeLookup.HasComponent(entity)) &&
-                    separateServiceUpgrade) return;
+                    !separateServiceUpgrade) return;
 
                 if (!transformLookup.TryGetComponent(entity, out Game.Objects.Transform transformComponent)) return;
                 float3 poiLocation = transformComponent.m_Position;
@@ -2093,7 +2165,7 @@ namespace Carto.Systems
                 BuildingCategory buildingCategory = building.category;
                 NativeParallelHashSet<EnumWrapper<POICategory>> categories = new(GetMaximumCategoryCount(buildingCategory), Allocator.Persistent);
 
-                GetPOICategoryFromBuilding(entity, prefab, buildingCategory, building.product, building.brand, building.zoning, hasPrefabRef,
+                GetPOICategoryFromBuilding(entity, prefab, buildingCategory, building.product, building.brand, building.zoning, hasPrefabRef, false,
                                            ref subObjectBufferLookup, ref batteryLookup, ref deathcareFacilityDataLookup, ref electricityProducerLookup,
                                            ref firewatchTowerLookup, ref prefabRefLookup, ref prisonLookup, ref serviceDataLookup,
                                            ref schoolDataLookup, ref storagePropertyLookup, ref transformerLookup, ref transportDepotLookup,
@@ -2120,7 +2192,7 @@ namespace Carto.Systems
                                                                                                               ref welfareOfficeLookup);
                         categories.Capacity += GetMaximumCategoryCount(subBuildingCategory);
                         bool hasSubPrefabRef = prefabRefLookup.TryGetComponent(serviceUpgrade, out Game.Prefabs.PrefabRef subPrefabRef);
-                        GetPOICategoryFromBuilding(serviceUpgrade, subPrefabRef.m_Prefab, subBuildingCategory, Resource.NoResource, -1, -1, hasSubPrefabRef,
+                        GetPOICategoryFromBuilding(serviceUpgrade, subPrefabRef.m_Prefab, subBuildingCategory, Resource.NoResource, -1, -1, hasSubPrefabRef, true,
                                                    ref subObjectBufferLookup, ref batteryLookup, ref deathcareFacilityDataLookup, ref electricityProducerLookup,
                                                    ref firewatchTowerLookup, ref prefabRefLookup, ref prisonLookup, ref serviceDataLookup,
                                                    ref schoolDataLookup, ref storagePropertyLookup, ref transformerLookup, ref transportDepotLookup,

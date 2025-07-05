@@ -555,7 +555,7 @@ namespace Carto
                 RasterFormat = IO.FileFormat.GeoTIFF,
                 RasterKinds = IO.RasterKind.WorldDepth | IO.RasterKind.WorldElevation | IO.RasterKind.Depth | IO.RasterKind.Elevation,
                 SeparateResident = false,
-                SeparateServiceUpgrade = true,
+                SeparateServiceUpgrade = false,
                 SourceCoordinates = sourceCoordinates,
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,

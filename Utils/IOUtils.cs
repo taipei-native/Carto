@@ -1,11 +1,5 @@
 using Carto.IO;
 using Colossal.Logging;
-using Game.Areas;
-using Game.Buildings;
-using Game.Net;
-using Game.Prefabs;
-using Game.Routes;
-using Game.Zones;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -13,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using Unity.Entities;
 
 namespace Carto.Utils
 {
@@ -153,158 +146,6 @@ namespace Carto.Utils
         }
 
         /// <summary>
-        /// Retrieve the category of a feature.
-        /// （獲得圖徵的分類。）
-        /// </summary>
-        /// <param name="entityManager">The manager of in-game entities.（遊戲內實體的管理者。）</param>
-        /// <param name="feature">The feature entity.（圖徵實體。）</param>
-        /// <returns>The applicable feature types.（適合的圖徵分類。）</returns>
-        /// <exception cref="ArgumentNullException"></exception>
-        /// <exception cref="ArgumentException"></exception>
-        public static Feature GetFeatureType(EntityManager entityManager, Entity feature)
-        {
-            if ((entityManager == null) | (feature == null) | (feature == Entity.Null)) throw new ArgumentNullException("The parameters must not be null. 參數不應為空值。");
-            if (!entityManager.HasComponent<PrefabRef>(feature)) throw new ArgumentException("The feature should be an instance of the prefab. 圖徵應為預製部件的實例。");
-            Feature featureType = Feature.None;
-
-            Entity prefabRef = entityManager.GetComponentData<PrefabRef>(feature).m_Prefab;
-
-            // Area features.（區域圖徵。）
-            if (entityManager.HasComponent<Area>(feature))
-            {
-                if (entityManager.HasComponent<District>(feature))
-                {
-                    featureType |= Feature.District;
-                }
-                else if (entityManager.HasComponent<Extractor>(feature))
-                {
-                    featureType |= Feature.Extractor;
-                }
-                else if (entityManager.HasComponent<Storage>(feature))
-                {
-                    featureType |= Feature.Landfill;
-                }
-                else if (entityManager.HasComponent<MapTile>(feature))
-                {
-                    featureType |= Feature.MapTile;
-                }
-                else if (entityManager.HasComponent<Surface>(feature))
-                {
-                    featureType |= Feature.Surface;
-                }
-            }
-
-            // Building features.（建築圖徵。）
-            if (entityManager.HasComponent<Building>(feature))
-            {
-                featureType |= Feature.Building;
-            }
-
-            // Network features.（網路圖徵。）
-            if (entityManager.HasChunkComponent<Curve>(feature))
-            {
-                bool isMarker = entityManager.HasComponent<Marker>(feature);
-                bool isRoad = entityManager.HasComponent<Road>(feature);
-                bool isTaxiway = entityManager.HasComponent<Taxiway>(feature);
-                bool isTrack = entityManager.HasComponent<SubwayTrack>(feature) ||
-                               entityManager.HasComponent<TrainTrack>(feature) ||
-                               entityManager.HasComponent<TramTrack>(feature);
-                bool isWaterway = entityManager.HasComponent<Waterway>(feature);
-
-                // Stand-alone networks.（獨立網路。）
-                if (!isMarker & !isRoad & !isTaxiway & !isTrack & !isWaterway)
-                {
-                    if (entityManager.HasComponent<PathwayData>(prefabRef))
-                    {
-                        featureType |= Feature.Pathway;
-                    }
-                    else if (entityManager.HasComponent<Game.Net.ElectricityConnection>(feature))
-                    {
-                        featureType |= Feature.Cable;
-                    }
-                    else if (entityManager.HasComponent<Game.Net.WaterPipeConnection>(feature))
-                    {
-                        featureType |= Feature.Pipe;
-                    }
-                }
-                if (isRoad)
-                {
-                    featureType |= Feature.Road;
-                }
-                if (isTaxiway)
-                {
-                    if (entityManager.HasComponent<TaxiwayData>(prefabRef))
-                    {
-                        TaxiwayFlags flag = entityManager.GetComponentData<TaxiwayData>(prefabRef).m_Flags;
-
-                        if (flag.HasFlag(TaxiwayFlags.Runway))
-                        {
-                            featureType |= Feature.Runway;
-                        }
-                        else if (!flag.HasFlag(TaxiwayFlags.Airspace))
-                        {
-                            featureType |= Feature.Taxiway;
-                        }
-                    }
-                }
-                if (isTrack)
-                {
-                    featureType |= Feature.Track;
-                }
-                if (isWaterway)
-                {
-                    featureType |= Feature.Waterway;
-                }
-
-                // Lanes.（車道。）
-                if (entityManager.HasComponent<Game.Net.UtilityLane>(feature))
-                {
-                    if (entityManager.HasComponent<UtilityLaneData>(prefabRef))
-                    {
-                        UtilityTypes flag = entityManager.GetComponentData<UtilityLaneData>(prefabRef).m_UtilityTypes;
-
-                        if (flag.HasFlag(UtilityTypes.Catenary) ||
-                            flag.HasFlag(UtilityTypes.LowVoltageLine) ||
-                            flag.HasFlag(UtilityTypes.HighVoltageLine))
-                        {
-                            featureType |= Feature.Cable;
-                        }
-                        if (flag.HasFlag(UtilityTypes.Fence))
-                        {
-                            featureType |= Feature.Fence;
-                        }
-                        if (flag.HasFlag(UtilityTypes.SewagePipe) ||
-                            flag.HasFlag(UtilityTypes.StormwaterPipe) ||
-                            flag.HasFlag(UtilityTypes.WaterPipe))
-                        {
-                            featureType |= Feature.Pipe;
-                        }
-                    }
-                }
-            }
-
-            // Route features.（路線圖徵。）
-            if (entityManager.HasComponent<TransportLine>(feature))
-            {
-                if (entityManager.HasComponent<TransportLineData>(prefabRef))
-                {
-                    TransportLineData transportLineData = entityManager.GetComponentData<TransportLineData>(prefabRef);
-                    if (transportLineData.m_CargoTransport) featureType |= Feature.RouteCargo;
-                    if (transportLineData.m_PassengerTransport) featureType |= Feature.RoutePassenger;
-                }
-            }
-
-            // Zoning features.（分區圖徵。）
-            if (entityManager.HasComponent<Block>(feature))
-            {
-                featureType |= Feature.Zoning;
-            }
-
-            // Fallback value.（後備回傳值。）
-            return featureType;
-        }
-
-        /// <summary>
         /// Retrieve the embedded JSON resource as a dictionary.
         /// （獲得代表嵌入 JSON 資源的字典。）
         /// </summary>
@@ -359,6 +200,33 @@ namespace Carto.Utils
             long position = writer.BaseStream.Position;
             if (position > int.MaxValue) return int.MaxValue;
             return Convert.ToInt32(position);
+        }
+
+        /// <summary>
+        /// Retrieve the target projection details fro the export options.
+        /// （由輸出設定獲得目標投影的資訊。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="targetCRS">The target Coordinate Reference System.（目標坐標參考系統。）</param>
+        /// <param name="targetProjection">The target projection defintion.（目標投影定義。）</param>
+        public static void GetTargetProjections(Options options, out Geodata.CRS targetCRS, out Geodata.ProjectionDefinition targetProjection)
+        {
+            targetCRS = Geodata.CRS.WGS84;
+            targetProjection = default;
+
+            switch (options.VectorFormat)
+            {
+                case FileFormat.GeoJSON:
+                    break;
+
+                case FileFormat.Shapefile:
+                    targetCRS = options.TargetProjection;
+                    targetProjection = options.TargetProjectionDefinition;
+                    break;
+
+                default:
+                    break;
+            }
         }
 
         /// <summary>

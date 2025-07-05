@@ -1133,7 +1133,7 @@ namespace Carto.Systems
                     entity = area,
                     address = Address.Null,
                     age = 0f,
-                    brand = 0,
+                    brand = -1,
                     category = BuildingCategory.None,
                     company = 0,
                     elevation = geometry.m_CenterPosition.y,

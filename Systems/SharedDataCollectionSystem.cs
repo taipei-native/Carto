@@ -1524,7 +1524,7 @@ namespace Carto.Systems
                     entity = building,
                     address = Address.Null,
                     age = 0f,
-                    brand = 0,
+                    brand = -1,
                     category = GetBuildingCategory(building,
                                                    ref abandonedLookup, ref adminBuildingLookup,
                                                    ref batteryLookup, ref commercialPropertyLookup,
