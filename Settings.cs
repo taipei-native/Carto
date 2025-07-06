@@ -12,9 +12,13 @@ namespace Carto
     /// The class that manages the mod's options.
     /// （管理模組設定的類別。）
     /// </summary>
-    [SettingsUIGroupOrder(FeatureVectorGroup, FeatureRasterGroup, ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup)]
-    [SettingsUIShowGroupName(FeatureVectorGroup, FeatureRasterGroup, ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup)]
-    [SettingsUITabOrder(GeneralTab, FeatureTab, ProjectionTab)]
+    [SettingsUIGroupOrder(FeatureVectorGroup, FeatureRasterGroup,
+                          ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup,
+                          MiscellaneousFileGroup, MiscellaneousGeometryGroup, MiscellaneousPropertyGroup)]
+    [SettingsUIShowGroupName(FeatureVectorGroup, FeatureRasterGroup,
+                             ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup,
+                             MiscellaneousFileGroup, MiscellaneousGeometryGroup, MiscellaneousPropertyGroup)]
+    [SettingsUITabOrder(GeneralTab, FeatureTab, ProjectionTab, MiscellaneousTab)]
     [FileLocation("ModsSettings/" + nameof(Carto) + "/" + nameof(Carto) + "_v1")]
     public class Settings : ModSetting
     {
@@ -24,7 +28,63 @@ namespace Carto
         /// Reset all mod default settings.
         /// （重置所有模組設定。）
         /// </summary>
-        public override void SetDefaults() { }
+        public override void SetDefaults()
+        {
+            ExportVectorFormat = 2;
+            ExportGeoTiffFormat = IO.GeoTiffFormat.Int16;
+            SystemArea = true;
+            FeatureDistrict = true;
+            FeatureMapTile = true;
+            SystemBuilding = true;
+            FeatureBuilding = true;
+            FeatureLandfill = true;
+            FeatureExtractor = true;
+            SystemNetwork = true;
+            FeaturePathway = true;
+            FeatureRoad = true;
+            FeatureRunwayAndTaxiway = true;
+            FeatureWaterway = true;
+            FeatureTrack = true;
+            SystemPOI = true;
+            FeaturePOIPrivate = true;
+            FeaturePOIPublic = true;
+            FeaturePOITransport = true;
+            FeaturePOIUtility = true;
+            SystemRoute = true;
+            FeatureRouteCargo = true;
+            FeatureRoutePassenger = true;
+            SystemZoning = true;
+            FeatureTerrain = true;
+            FeatureWater = true;
+            SourceCRS = IO.CRS.WGS84;
+            SourceXCoord = "0";
+            SourceYCoord = "0";
+            SourceHemisphere = Geodata.Hemisphere.North;
+            SourceUTMZone = "31";
+            SourceEllipsoid = IO.Ellipsoid.GRS80;
+            SourceEllipsoidSemiMajorAxis = "6378137";
+            SourceEllipsoidInverseFlattening = "298.257222101";
+            SourceCRSOriginLongitude = "0";
+            SourceCRSOriginLatitude = "0";
+            SourceCRSFalseEasting = "0";
+            SourceCRSFalseNorthing = "0";
+            SourceCRSScaleFactor = "0.9996";
+            SourceCRSTransform = "0 0 0 0 0 0 0";
+            OutputElevation = false;
+            OutputMinimizedGeoJSON = false;
+            GeometrySeparateServiceUpgrade = false;
+            GeometryUnzoned = false;
+            PropertyGeneralHomeless = true;
+            PropertyGeneralMapTileStatistics = true;
+            PropertyCategoryBuildingDisplayMode = IO.Display.All;
+            PropertyCategoryNetworkDisplayMode = IO.Display.All;
+            PropertyCategoryPOIDisplayMode = IO.Display.All;
+            PropertyColorZcc = true;
+            PropertyResidentSeparateBySex = false;
+            PropertyThemeAssetPack = true;
+            PropertyWageTaxable = false;
+            PropertyZoningDisplayMode = IO.Display.All;
+        }
 
         public const string GeneralTab = "GeneralTab";
         public const string GeneralGeneralGroup = "GeneralGeneralGroup";
@@ -36,6 +96,10 @@ namespace Carto
         public const string ProjectionEllipsoidGroup = "ProjectionEllipsoidGroup";
         public const string ProjectionProjectionGroup = "ProjectionProjectionGroup";
         public const string ProjectionUTMGroup = "ProjectionUTMGroup";
+        public const string MiscellaneousTab = "MiscellaneousTab";
+        public const string MiscellaneousFileGroup = "MiscellaneousFileGroup";
+        public const string MiscellaneousGeometryGroup = "MiscellaneousGeometryGroup";
+        public const string MiscellaneousPropertyGroup = "MiscellaneousPropertyGroup";
 
         /// <summary>
         /// The file format of the vector files.
@@ -403,6 +467,105 @@ namespace Carto
         [SettingsUIHideByCondition(typeof(Settings), nameof(IsTransverseMercator), invert: true)]
         public string SourceCRSTransform { get; set; } = "0 0 0 0 0 0 0";
 
+        /// <summary>
+        /// Whether to export elevation of the coordinate in the file.
+        /// （是否輸出坐標高程至檔案中？。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousFileGroup)]
+        public bool OutputElevation { get; set; } = false;
+
+        /// <summary>
+        /// Whether to export minimized GeoJSON file.
+        /// （是否輸出最小化的 GeoJSON 檔案。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousFileGroup)]
+        public bool OutputMinimizedGeoJSON { get; set; } = false;
+
+        /// <summary>
+        /// Whether to export service upgrade buildings separately.
+        /// （是否獨立輸出服務升級建築。)
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGeometryGroup)]
+        public bool GeometrySeparateServiceUpgrade { get; set; } = false;
+
+        /// <summary>
+        /// Whether to exported unzoned zoning cells.
+        /// （是否輸出無分區的分區單元。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGeometryGroup)]
+        public bool GeometryUnzoned { get; set; } = false;
+
+        /// <summary>
+        /// Whether to count homeless households and residents.
+        /// （是否計入無家可歸的家庭與居民。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public bool PropertyGeneralHomeless { get; set; } = true;
+
+        /// <summary>
+        /// Whether to count region statistics for the map tiles.
+        /// （是否要輸出地圖區塊的區域統計資料。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public bool PropertyGeneralMapTileStatistics { get; set; } = true;
+
+        /// <summary>
+        /// The display mode for the category field of the building features.
+        /// （建築圖徵的分類欄位顯示模式。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public IO.Display PropertyCategoryBuildingDisplayMode { get; set; } = IO.Display.All;
+
+        /// <summary>
+        /// The display mode for the category field of the network features.
+        /// （網路圖徵的分類欄位顯示模式。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public IO.Display PropertyCategoryNetworkDisplayMode { get; set; } = IO.Display.All;
+
+        /// <summary>
+        /// The display mode for the category field of the POI features.
+        /// （興趣點圖徵的分類欄位顯示模式。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public IO.Display PropertyCategoryPOIDisplayMode { get; set; } = IO.Display.All;
+
+        /// <summary>
+        /// Whether to use Zone Color Changer's zone color, instead of vanilla's.
+        /// （是否使用 Zone Color Chanager 的顏色，而非遊戲原版的分區色彩。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsZccEnabled), invert: true)]
+        public bool PropertyColorZcc { get; set; } = true;
+
+        /// <summary>
+        /// Whether to separate resident statistics by sex.
+        /// （是否依生理性別分離居民統計資料。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public bool PropertyResidentSeparateBySex { get; set; } = false;
+
+        /// <summary>
+        /// Whether to classify the asset packs as individual themes.
+        /// （是否將資產包視為獨立的風格。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public bool PropertyThemeAssetPack { get; set; } = true;
+
+        /// <summary>
+        /// Whether to count building's or area's taxable income, instead of the gross income.
+        /// （是否計算建築或區域的可納稅所得，而非總所得。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public bool PropertyWageTaxable { get; set; } = false;
+
+        /// <summary>
+        /// The display mode for the zoning field.
+        /// （分區欄位顯示模式。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public IO.Display PropertyZoningDisplayMode { get; set; } = IO.Display.All;
+
         [SettingsUIHidden]
         public bool IsCustomEllipsoid => IsTransverseMercator && (SourceEllipsoid == IO.Ellipsoid.Custom);
 
@@ -414,6 +577,9 @@ namespace Carto
 
         [SettingsUIHidden]
         public bool IsUTM => SourceCRS == IO.CRS.UTM;
+
+        [SettingsUIHidden]
+        public bool IsZccEnabled => Instance.Zcc.TryGet(false);
 
         /// <summary>
         /// Retrieve export options from the current settings.
@@ -529,22 +695,22 @@ namespace Carto
 
             return new()
             {
-                AssetPack = true,
+                AssetPack = PropertyThemeAssetPack,
                 Created = DateTime.Now,
                 Display = new Dictionary<(IO.Property, IO.System), bool>
                 {
-                    { (IO.Property.Category, IO.System.Building), true },
-                    { (IO.Property.Category, IO.System.Network), true },
-                    { (IO.Property.Category, IO.System.POI), true },
-                    { (IO.Property.Object, IO.System.Unknown), false },
-                    { (IO.Property.Zoning, IO.System.Unknown), true }
+                    { (IO.Property.Category, IO.System.Building), Utils.IOUtils.DisplayModeToBoolean(PropertyCategoryBuildingDisplayMode) },
+                    { (IO.Property.Category, IO.System.Network),  Utils.IOUtils.DisplayModeToBoolean(PropertyCategoryNetworkDisplayMode) },
+                    { (IO.Property.Category, IO.System.POI),      Utils.IOUtils.DisplayModeToBoolean(PropertyCategoryPOIDisplayMode) },
+                    { (IO.Property.Object, IO.System.Unknown),    false },
+                    { (IO.Property.Zoning, IO.System.Unknown),    Utils.IOUtils.DisplayModeToBoolean(PropertyZoningDisplayMode) }
                 },
-                Elevation = false,
+                Elevation = OutputElevation,
                 Features = feature,
                 FileName = "OPZ_{Feature}",
                 GeoTiffFormat = ExportGeoTiffFormat,
-                Homeless = true,
-                Minimized = false,
+                Homeless = PropertyGeneralHomeless,
+                Minimized = OutputMinimizedGeoJSON,
                 Properties = new Dictionary<IO.System, HashSet<IO.Property>>
                 {
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
@@ -554,18 +720,18 @@ namespace Carto
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,
                 RasterKinds = IO.RasterKind.WorldDepth | IO.RasterKind.WorldElevation | IO.RasterKind.Depth | IO.RasterKind.Elevation,
-                SeparateResident = false,
-                SeparateServiceUpgrade = false,
+                SeparateResident = PropertyResidentSeparateBySex,
+                SeparateServiceUpgrade = GeometrySeparateServiceUpgrade,
                 SourceCoordinates = sourceCoordinates,
                 SourceProjection = sourceCRS,
                 SourceProjectionDefinition = projectionDefinition,
-                StatisticsMapTile = true,
+                StatisticsMapTile = PropertyGeneralMapTileStatistics,
                 Systems = system,
                 TargetEllipsoid = ellipsoid,
                 TargetProjection = targetCRS,
                 TargetProjectionDefinition = projectionDefinition,
-                Taxable = false,
-                Unzoned = true,
+                Taxable = PropertyWageTaxable,
+                Unzoned = GeometryUnzoned,
                 VectorFormat = vectorFileFormat,
                 VectorKinds = new Dictionary<IO.System, IO.VectorKind>
                 {
@@ -575,7 +741,7 @@ namespace Carto
                     { IO.System.POI, IO.VectorKind.Location },
                     { IO.System.Zoning, IO.VectorKind.Boundary }
                 },
-                ZccColor = true
+                ZccColor = PropertyColorZcc
             };
         }
     }

@@ -37,6 +37,22 @@ namespace Carto.Utils
             };
         }
 
+        /// <summary>
+        /// Convert the <see cref="Display"/> to boolean.
+        /// （將 <see cref="Display"/> 轉換為布林值。）
+        /// </summary>
+        /// <param name="displayMode">The input enum value.（輸入的枚舉值。）</param>
+        /// <returns>Whether to assign all tags.（是否要列出所有標籤？）</returns>
+        public static bool DisplayModeToBoolean(Display displayMode)
+        {
+            return displayMode switch
+            {
+                Display.All => true,
+                Display.Single => false,
+                _ => false,
+            };
+        }
+
         public static byte[] GetBytes<T>(T value, bool stringify = false)
         {
             switch (value)

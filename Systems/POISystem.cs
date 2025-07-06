@@ -3,6 +3,7 @@ using Carto.Geodata;
 using Carto.IO;
 using Carto.Utils;
 using Colossal.Logging;
+using Colossal.Mathematics;
 using Game;
 using Game.Areas;
 using Game.Buildings;
@@ -15,6 +16,7 @@ using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Unity.Burst;
@@ -114,6 +116,12 @@ namespace Carto.Systems
         /// （儲存於本地系統的 <see cref="POI"/> 列表。）
         /// </summary>
         private NativeList<POI> _localPOIs;
+
+        /// <summary>
+        /// The map between POI entities and their categories.
+        /// （興趣點實體與其分類的映射表。）
+        /// </summary>
+        private NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> _categoryEntityMap;
 
         /// <summary>
         /// The object types that can be considered as POIs.
@@ -263,43 +271,6 @@ namespace Carto.Systems
         protected override void OnUpdate() { }
 
         /// <summary>
-        /// Try disposing of all properties stored in unmanaged memory.
-        /// （嘗試丟棄儲存於未控管記憶體的屬性。）
-        /// </summary>
-        public void Dispose()
-        {
-            CommonUtils.Dispose(ref _localPOIs);
-        }
-
-        /// <summary>
-        /// Retrieve the string of comma-separated list of <see cref="POICategory"/>.
-        /// （獲得逗號分隔的 <see cref="POICategory"/> 列表字串。）
-        /// </summary>
-        /// <param name="categories">The input array.（輸入的陣列。）</param>
-        /// <returns>The comma-separated string.（逗號分隔字串。）</returns>
-        private static string GetCategoryString(POICategory[] categories)
-        {
-            StringBuilder POICategoryNames = new();
-
-            for (int i = 0; i < categories.Length; i++)
-            {
-                if (categories[i] == POICategory.None)
-                {
-                    continue;
-                }
-                
-                POICategoryNames.Append(categories[i].ToString("G"));
-
-                if (i < categories.Length - 1)
-                {
-                    POICategoryNames.Append(", ");
-                }
-            }
-
-            return POICategoryNames.ToString();
-        }
-
-        /// <summary>
         /// The container for the prefab's UI group information.
         /// （預製模板的 UI 組別資訊容器。）
         /// </summary>
@@ -323,11 +294,9 @@ namespace Carto.Systems
         /// （獲得運一般的興趣點。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
-        /// <param name="categoryEntityMap">The map between the entity and their POI categories.（實體與其興趣點分類的映射表。）</param>
         /// <param name="buildingStats">The list of building statistics.（建築統計的列表。）</param>
         /// <param name="zoningTypes">The list of zoning types.（分區類型的列表。）</param>
-        private void CollectGeneralPOIs(Options options, ref NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap,
-                                        ref NativeList<BuildingStat> buildingStats, ref NativeList<ZoningType> zoningTypes)
+        private void CollectGeneralPOIs(Options options, ref NativeList<BuildingStat> buildingStats, ref NativeList<ZoningType> zoningTypes)
         {
             IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
 
@@ -396,7 +365,7 @@ namespace Carto.Systems
                 sourceProjection = options.GetTMProjectionDefinition(),
                 targetProjection = targetProjection,
                 POIs = _localPOIs.AsParallelWriter(),
-                POICategories = categoryEntityMap.AsParallelWriter()
+                POICategories = _categoryEntityMap.AsParallelWriter()
             };
             JobHandle collectFromBuildingStatsHandle = collectFromBuildingStatsJob.Schedule(buildingStats.Length, 32);
             collectFromBuildingStatsHandle.Complete();
@@ -409,8 +378,7 @@ namespace Carto.Systems
         /// （獲得運輸相關的興趣點。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
-        /// <param name="categoryEntityMap">The map between the entity and their POI categories.（實體與其興趣點分類的映射表。）</param>
-        private void CollectTransportPOIs(Options options, ref NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap)
+        private void CollectTransportPOIs(Options options)
         {
             bool hasAddress = options.Contains(Property.Address, IO.System.POI);
             IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
@@ -437,7 +405,7 @@ namespace Carto.Systems
                 sourceProjection = options.GetTMProjectionDefinition(),
                 targetProjection = targetProjection,
                 POIs = _localPOIs.AsParallelWriter(),
-                POICategories = categoryEntityMap.AsParallelWriter()
+                POICategories = _categoryEntityMap.AsParallelWriter()
             };
             JobHandle collectHelipadsHandle = collectHelipadsJob.ScheduleParallel(_helipadQuery, default);
             collectHelipadsHandle.Complete();
@@ -462,7 +430,7 @@ namespace Carto.Systems
                 sourceProjection = options.GetTMProjectionDefinition(),
                 targetProjection = targetProjection,
                 POIs = _localPOIs.AsParallelWriter(),
-                POICategories = categoryEntityMap.AsParallelWriter()
+                POICategories = _categoryEntityMap.AsParallelWriter()
             };
             JobHandle collectTrafficLightsHandle = collectTrafficLightsJob.ScheduleParallel(_trafficLightQuery, default);
             collectTrafficLightsHandle.Complete();
@@ -497,7 +465,7 @@ namespace Carto.Systems
                 sourceProjection = options.GetTMProjectionDefinition(),
                 targetProjection = targetProjection,
                 POIs = _localPOIs.AsParallelWriter(),
-                POICategories = categoryEntityMap.AsParallelWriter()
+                POICategories = _categoryEntityMap.AsParallelWriter()
             };
             JobHandle collectTransportStopMarkersHandle = collectTransportStopMarkersJob.ScheduleParallel(_transportStopMarkerQuery, default);
             collectTransportStopMarkersHandle.Complete();
@@ -510,8 +478,7 @@ namespace Carto.Systems
         /// （獲得公用事業相關的興趣點。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
-        /// <param name="categoryEntityMap">The map between the entity and their POI categories.（實體與其興趣點分類的映射表。）</param>
-        private void CollectUtilityPOIs(Options options, ref NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap)
+        private void CollectUtilityPOIs(Options options)
         {
             IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
             int utilityObjectPrefabCount = _utilityObjectPrefabQuery.CalculateEntityCount();
@@ -536,13 +503,23 @@ namespace Carto.Systems
                 sourceProjection = options.GetTMProjectionDefinition(),
                 targetProjection = targetProjection,
                 POIs = _localPOIs.AsParallelWriter(),
-                POICategories = categoryEntityMap.AsParallelWriter()
+                POICategories = _categoryEntityMap.AsParallelWriter()
             };
             JobHandle collectPylonsHandle = collectPylonsJob.ScheduleParallel(_pylonQuery, default);
             collectPylonsHandle.Complete();
 
             CommonUtils.Dispose(ref poles);
             CommonUtils.Dispose(ref pylons);
+        }
+
+        /// <summary>
+        /// Try disposing of all properties stored in unmanaged memory.
+        /// （嘗試丟棄儲存於未控管記憶體的屬性。）
+        /// </summary>
+        public void Dispose()
+        {
+            CommonUtils.Dispose(ref _categoryEntityMap);
+            CommonUtils.Dispose(ref _localPOIs);
         }
 
         /// <summary>
@@ -583,6 +560,34 @@ namespace Carto.Systems
             }
 
             CommonUtils.Dispose(ref parkPrefabs);
+        }
+
+        /// <summary>
+        /// Retrieve the string of comma-separated list of <see cref="POICategory"/>.
+        /// （獲得逗號分隔的 <see cref="POICategory"/> 列表字串。）
+        /// </summary>
+        /// <param name="categories">The input array.（輸入的陣列。）</param>
+        /// <returns>The comma-separated string.（逗號分隔字串。）</returns>
+        private static string GetCategoryString(POICategory[] categories)
+        {
+            StringBuilder POICategoryNames = new();
+
+            for (int i = 0; i < categories.Length; i++)
+            {
+                if (categories[i] == POICategory.None)
+                {
+                    continue;
+                }
+
+                POICategoryNames.Append(categories[i].ToString("G"));
+
+                if (i < categories.Length - 1)
+                {
+                    POICategoryNames.Append(", ");
+                }
+            }
+
+            return POICategoryNames.ToString();
         }
 
         /// <summary>
@@ -1053,7 +1058,6 @@ namespace Carto.Systems
             }
             if (((buildingCategory & BuildingCategory.Transportation) != 0) || isSubBuilding)
             {
-                poiTransport = true;
                 bool hasAnyTransportationSubCategory = false;
                 if (transportDepotLookup.HasComponent(entity) && hasPrefabRef)
                 {
@@ -1095,16 +1099,17 @@ namespace Carto.Systems
                         categories.Add(new(POICategory.DepotGeneric));
                     }
 
+                    poiTransport = true;
                     hasAnyTransportationSubCategory = true;
                 }
                 if ((transportStationLookup.HasComponent(entity) || isSubBuilding) && subObjectBufferLookup.TryGetBuffer(entity, out DynamicBuffer<SubObject> subObjects))
                 {
-                    poiTransport = true;
                     for (int i = 0; i < subObjects.Length; i++)
                     {
                         if (prefabRefLookup.TryGetComponent(subObjects[i].m_SubObject, out Game.Prefabs.PrefabRef subObjectPrefab) &&
                             transportStopDataLookup.TryGetComponent(subObjectPrefab, out Game.Prefabs.TransportStopData transportStop))
                         {
+                            poiTransport = true;
                             Game.Prefabs.TransportType transportType = transportStop.m_TransportType;
                             bool isCargo = transportStop.m_CargoTransport;
                             bool isPassenger = transportStop.m_PassengerTransport;
@@ -1246,6 +1251,221 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Write location attributes to the designated file.
+        /// （寫出位置屬性至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
+        /// <param name="fieldMap">The map between the property and the fields.（屬性與欄位的映射表。）</param>
+        public void WriteLocationDBF(BinaryWriter writer, Options options, HashSet<Property> validatedFields, List<Entity> entitySyncList, out Dictionary<Property, FieldInfo> fieldMap)
+        {
+            bool hasName = options.Contains(Property.Name, IO.System.POI) && validatedFields.Contains(Property.Name);
+            bool hasAddress = options.Contains(Property.Address, IO.System.POI) && validatedFields.Contains(Property.Address);
+            bool hasCategory = options.Contains(Property.Category, IO.System.POI) && validatedFields.Contains(Property.Category);
+            bool hasObject = options.Contains(Property.Object, IO.System.POI) && validatedFields.Contains(Property.Object);
+
+            // Validate native containers integrity.（驗證原生容器的完整性。）
+            CommonUtils.ValidateIntegrity(ref _categoryEntityMap, true);
+            CommonUtils.ValidateIntegrity(ref _localPOIs, true);
+
+            // Initialize native containers.（初始化原生容器。）
+            NativeParallelHashMap<Entity, int> syncMap = new(_localPOIs.Length, Allocator.Persistent);
+
+            // Initialize managed containers.（初始化控管容器。）
+            List<Brand> brands = _shared.Brands;
+            List<LiteralAddress> POIAddresses = new();
+            List<string> POINames = new();
+            Dictionary<Property, FieldInfo> _fieldMap = new();
+
+            try
+            {
+                FieldInfo addressField = new(0, 0, false, FieldType.String);
+                FieldInfo categoryField = new(0, 0, false, FieldType.String);
+                FieldInfo nameField = new(0, 0, false, FieldType.String);
+                FieldInfo objectField = new(0, 0, false, FieldType.String);
+
+                for (int i = 0; i < _localPOIs.Length; i++)
+                {
+                    POI poi = _localPOIs[i];
+                    Entity entity = poi.entity;
+                    Feature originalObject = poi.objectType;
+                    if ((poi.location.x == double.MaxValue) || !IsAllowedPOIType(originalObject, options.Features)) continue;
+
+                    if (hasName)
+                    {
+                        if (poi.isPrivate && (poi.brand >= 0) && (poi.brand < brands.Count))
+                        {
+                            POINames.Add(brands[poi.brand].name);
+                        }
+                        else if (_categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories) && categories.IsCreated)
+                        {
+                            int entityIndex = entity.Index;
+
+                            if (categories.Contains(POICategory.Helipad))
+                            {
+                                POINames.Add($"Helipad {entityIndex}");
+                            }
+                            else if (categories.Contains(POICategory.LevelCrossing))
+                            {
+                                POINames.Add($"Level Crossing {entityIndex}");
+                            }
+                            else if (categories.Contains(POICategory.TrafficLight))
+                            {
+                                POINames.Add($"Traffic Light {entityIndex}");
+                            }
+                            else if (categories.Contains(POICategory.UtilityPylon))
+                            {
+                                POINames.Add($"Utility Pylon {entityIndex}");
+                            }
+                            else if (categories.Contains(POICategory.UtilityPole))
+                            {
+                                POINames.Add($"Utility Pole {entityIndex}");
+                            }
+                            else
+                            {
+                                POINames.Add(_name.GetRenderedLabelName(entity));
+                            }
+                        }
+                        else
+                        {
+                            POINames.Add(_name.GetRenderedLabelName(entity));
+                        }
+
+                        nameField += new FieldInfo(POINames[^1]);
+                    }
+                    if (hasAddress)
+                    {
+                        LiteralAddress address = poi.address.ToLiteral(_name);
+                        POIAddresses.Add(address);
+                        addressField += new FieldInfo(address.district);
+                        addressField += new FieldInfo(address.street);
+                    }
+                    if (hasCategory)
+                    {
+                        string category = string.Empty;
+                        if (_categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories))
+                        {
+                            POICategory[] categoriesArray = CommonUtils.Copy(ref categories);
+
+                            if (options.Display[(Property.Category, IO.System.POI)])
+                            {
+                                category = GetCategoryString(categoriesArray);
+                            }
+                            else
+                            {
+                                category = CommonUtils.GetFirstMatch(categoriesArray, IO.IO.POICategoryDisplayOrder).ToString("G");
+                            }
+                        }
+                        else
+                        {
+                            category = POICategory.None.ToString("G");
+                        }
+
+                        categoryField += new FieldInfo(category);
+                    }
+                    if (hasObject)
+                    {
+                        Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? originalObject : CommonUtils.GetFirstMatch(originalObject, IO.IO.FeatureDisplayOrder);
+                        objectField += new FieldInfo(displayType.ToString("G"));
+                    }
+                }
+
+                if (hasName)
+                {
+                    _fieldMap.Add(Property.Name, nameField);
+                }
+                if (hasAddress)
+                {
+                    _fieldMap.Add(Property.Address, addressField);
+                }
+                if (hasCategory)
+                {
+                    _fieldMap.Add(Property.Category, categoryField);
+                }
+                if (hasObject)
+                {
+                    _fieldMap.Add(Property.Object, objectField);
+                }
+
+                // Sync the entity order with that of the .shp file.（與 .shp 檔案的實體順序同步。）
+                Shapefile.SyncStatsToIndex(entitySyncList, ref _localPOIs, ref syncMap);
+
+                // Initialize the writer thread.（初始化負責寫出的執行緒。）
+                Task writerThread = Task.Run(() =>
+                {
+                    for (int index = 0; index < entitySyncList.Count; index++)
+                    {
+                        if (!syncMap.TryGetValue(entitySyncList[index], out int i))
+                        {
+                            _log.Error($"Couldn't find the statistical object of {entitySyncList[index]} at index {index}. 無法找到位於索引值 {index} 的實體 {entitySyncList[index]} 之統計物件。");
+                        }
+
+                        POI poi = _localPOIs[i];
+                        Entity entity = poi.entity;
+                        Feature originalObject = poi.objectType;
+                        writer.Write((byte)32);
+
+                        if (hasName)
+                        {
+                            // Use `index` as the index, since the length and the order of `POINames` is the same as `entitySyncList`.
+                            //（使用 `index` 作為索引，因為 `POINames` 的長度與順序與 `entitySyncList` 順序相同。）
+                            Shapefile.WriteRecord(writer, nameField, POINames[index]);
+                        }
+                        if (hasAddress)
+                        {
+                            // Use `index` as the index, since the length and the order of `POINames` is the same as `entitySyncList`.
+                            //（使用 `index` 作為索引，因為 `POINames` 的長度與順序與 `entitySyncList` 順序相同。）
+                            LiteralAddress address = POIAddresses[index];
+                            Shapefile.WriteRecord(writer, addressField, address.district);
+                            Shapefile.WriteRecord(writer, addressField, address.street);
+                            Shapefile.WriteRecord(writer, new(100000), address.number);
+                        }
+                        if (hasCategory)
+                        {
+                            string category = string.Empty;
+                            if (_categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories))
+                            {
+                                POICategory[] categoriesArray = CommonUtils.Copy(ref categories);
+
+                                if (options.Display[(Property.Category, IO.System.POI)])
+                                {
+                                    category = GetCategoryString(categoriesArray);
+                                }
+                                else
+                                {
+                                    category = CommonUtils.GetFirstMatch(categoriesArray, IO.IO.POICategoryDisplayOrder).ToString("G");
+                                }
+                            }
+                            else
+                            {
+                                category = POICategory.None.ToString("G");
+                            }
+                            Shapefile.WriteRecord(writer, categoryField, category);
+                        }
+                        if (hasObject)
+                        {
+                            Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? originalObject : CommonUtils.GetFirstMatch(originalObject, IO.IO.FeatureDisplayOrder);
+                            Shapefile.WriteRecord(writer, objectField, displayType.ToString("G"));
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                fieldMap = _fieldMap;
+                CommonUtils.Dispose(ref syncMap);
+                Dispose();
+            }
+        }
+
+        /// <summary>
         /// Write location features (geometries and properties) to the designated file.
         /// （寫出位置圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
@@ -1282,7 +1502,7 @@ namespace Carto.Systems
             int maxPOICount = buildingStatsCount;
             if (useTransport) maxPOICount += helipadsCount + trafficLightsCount + transportStopMarkersCount;
             if (useUtility) maxPOICount += pylonsCount;
-            NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap = new(maxPOICount, Allocator.Persistent);
+            CommonUtils.Reset(ref _categoryEntityMap, maxPOICount, Allocator.Persistent);
             CommonUtils.Reset(ref _localPOIs, maxPOICount, Allocator.Persistent);
 
             // Initialize managed containers.（初始化控管容器。）
@@ -1293,16 +1513,16 @@ namespace Carto.Systems
             try
             {
                 // Collect POIs from the building statistics.（由建築統計資料收集興趣點。）
-                CollectGeneralPOIs(options, ref categoryEntityMap, ref buildingStats, ref zoningTypes);
+                CollectGeneralPOIs(options, ref buildingStats, ref zoningTypes);
 
                 if (useTransport)
                 {
-                    CollectTransportPOIs(options, ref categoryEntityMap);
+                    CollectTransportPOIs(options);
                 }
 
                 if (useUtility)
                 {
-                    CollectUtilityPOIs(options, ref categoryEntityMap);
+                    CollectUtilityPOIs(options);
                 }
 
                 // Map the district to POIs.（將行政區映射至興趣點。）
@@ -1314,6 +1534,7 @@ namespace Carto.Systems
                     for (int i = 0; i < _localPOIs.Length; i++)
                     {
                         POI poi = _localPOIs[i];
+                        Entity entity = poi.entity;
 
                         if (hasName)
                         {
@@ -1321,9 +1542,9 @@ namespace Carto.Systems
                             {
                                 POINames.Add(brands[poi.brand].name);
                             }
-                            else if (categoryEntityMap.TryGetValue(poi.entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories) && categories.IsCreated)
+                            else if (_categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories) && categories.IsCreated)
                             {
-                                int entityIndex = poi.entity.Index;
+                                int entityIndex = entity.Index;
 
                                 if (categories.Contains(POICategory.Helipad))
                                 {
@@ -1347,12 +1568,12 @@ namespace Carto.Systems
                                 }
                                 else
                                 {
-                                    POINames.Add(_name.GetRenderedLabelName(poi.entity));
+                                    POINames.Add(_name.GetRenderedLabelName(entity));
                                 }
                             }
                             else
                             {
-                                POINames.Add(_name.GetRenderedLabelName(poi.entity));
+                                POINames.Add(_name.GetRenderedLabelName(entity));
                             }
                         }
 
@@ -1394,7 +1615,7 @@ namespace Carto.Systems
                         }
                         if (hasCategory)
                         {
-                            if (categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories))
+                            if (_categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories))
                             {
                                 POICategory[] categoriesArray = CommonUtils.Copy(ref categories);
 
@@ -1433,8 +1654,120 @@ namespace Carto.Systems
             }
             finally
             {
-                CommonUtils.Dispose(ref categoryEntityMap);
-                CommonUtils.Dispose(ref _localPOIs);
+                Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Write location geometries to the designated file.
+        /// （寫出位置幾何至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
+        /// <param name="bounds">The bounding box.（定界框。）</param>
+        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
+        public void WriteLocationSHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds, out List<Entity> entitySyncList)
+        {
+            Feature featureFlag = options.Features;
+            bool usePrivate = featureFlag.HasFlag(Feature.POIPrivate);
+            bool usePublic = featureFlag.HasFlag(Feature.POIPublic);
+            bool useTransport = featureFlag.HasFlag(Feature.POITransport);
+            bool useUtility = featureFlag.HasFlag(Feature.POIUtility);
+
+            // Create alias for fields.（創造欄位的別名。）
+            ref NativeList<BuildingStat> buildingStats = ref _shared.BuildingStats;
+            ref NativeList<ZoningType> zoningTypes = ref _shared.ZoningTypes;
+
+            // Validate native containers integrity.（驗證原生容器的完整性。）
+            CommonUtils.ValidateIntegrity(ref buildingStats, true);
+            CommonUtils.ValidateIntegrity(ref zoningTypes);
+
+            // Initialize native containers.（初始化原生容器。）
+            int buildingStatsCount = buildingStats.Length;
+            int helipadsCount = _helipadQuery.CalculateEntityCount();
+            int pylonsCount = _pylonQuery.CalculateEntityCount();
+            int trafficLightsCount = _trafficLightQuery.CalculateEntityCount();
+            int transportStopMarkersCount = _transportStopMarkerQuery.CalculateEntityCount();
+            int maxPOICount = buildingStatsCount;
+            if (useTransport) maxPOICount += helipadsCount + trafficLightsCount + transportStopMarkersCount;
+            if (useUtility) maxPOICount += pylonsCount;
+            CommonUtils.Reset(ref _categoryEntityMap, maxPOICount, Allocator.Persistent);
+            CommonUtils.Reset(ref _localPOIs, maxPOICount, Allocator.Persistent);
+
+            // Initialize out parameters.（初始化回傳參數。）
+            Bounds3 _bounds = new();
+            _bounds.Reset();
+            List<Entity> _entitySyncList = new();
+            List<Shapefile.IndexPair> _indexPairs = new();
+
+            try
+            {
+                // Collect POIs from the building statistics.（由建築統計資料收集興趣點。）
+                CollectGeneralPOIs(options, ref buildingStats, ref zoningTypes);
+
+                if (useTransport)
+                {
+                    CollectTransportPOIs(options);
+                }
+
+                if (useUtility)
+                {
+                    CollectUtilityPOIs(options);
+                }
+
+                // Map the district to POIs.（將行政區映射至興趣點。）
+                MapDistrictsToPOIs(ref _localPOIs, ref _districtQuery);
+
+                Task writerThread = Task.Run(() =>
+                {
+                    int enumeratorIndex = 0;
+                    int shapeId = Shapefile.GetShapeType(VectorKind.Location, options.Elevation);
+
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        for (int i = 0; i < _localPOIs.Length; i++)
+                        {
+                            POI poi = _localPOIs[i];
+                            Feature originalObject = poi.objectType;
+                            if ((poi.location.x == double.MaxValue) || !IsAllowedPOIType(originalObject, options.Features)) continue;
+
+                            enumeratorIndex++;
+                            Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(poi.location), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            _bounds |= featureBounds;
+                            _entitySyncList.Add(poi.entity);
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < _localPOIs.Length; i++)
+                        {
+                            POI poi = _localPOIs[i];
+                            Feature originalObject = poi.objectType;
+                            if ((poi.location.x == double.MaxValue) || !IsAllowedPOIType(originalObject, options.Features)) continue;
+
+                            enumeratorIndex++;
+                            Shapefile.WriteGeometryBE(writer, enumeratorIndex, shapeId, new(poi.location), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            _bounds |= featureBounds;
+                            _entitySyncList.Add(poi.entity);
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+            }
+            finally
+            {
+                // Don't dispose `_localPOIs` and `_categoryEntityMap`, both of them are required in `WriteLocationDBF()`.
+                // （不要拋棄 `_localPOIs` 及 `_categoryEntityMap` ，它們仍會被 `WriteLocationDBF()` 呼叫。）
+                bounds = _bounds;
+                entitySyncList = _entitySyncList;
+                indexPairs = _indexPairs;
             }
         }
 

@@ -8,8 +8,13 @@ namespace Carto.Domain
     /// The container of POI's information.
     /// （興趣點資訊的容器。）
     /// </summary>
-    public struct POI
+    public struct POI : IStat
     {
+        /// <summary>
+        /// See <see cref="entity"/>.（詳見 <see cref="entity"/>。）
+        /// </summary>
+        public Entity Entity { readonly get => entity; set => entity = value; }
+
         /// <summary>
         /// The entity that the POI refers to.
         /// （興趣點指涉的實體。）
@@ -62,6 +67,5 @@ namespace Carto.Domain
         {
             return $"POI({entity.Index}:{entity.Version}) - Brand [{brand}]; IsAddressVerified [{isAddressVerified}]; IsPrivte [{isPrivate}]; ObjectType [{objectType}]";
         }
-
     }
 }

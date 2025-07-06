@@ -28,6 +28,23 @@ namespace Carto.IO
     }
     
     /// <summary>
+    /// The display mode of the tags.
+    /// （標籤的顯示模式。）
+    /// </summary>
+    public enum Display
+    {
+        /// <summary>
+        /// Assign all applicable tags.（列出所有合適的標籤。）
+        /// </summary>
+        All,
+
+        /// <summary>
+        /// Assign one applicable tag to each feature, and if there are multiple tags applicable to the feature, only the best one will be selected.（為美個圖徵列出一個最適合的標籤。）
+        /// </summary>
+        Single
+    }
+
+    /// <summary>
     /// The reference ellipsoids of popular datums.
     /// （受歡迎的大地基準的參考橢球體。）
     /// </summary>

@@ -488,7 +488,10 @@ namespace Carto.IO
                             }
                             if (usePOI)
                             {
-
+                                if (poiHasLocation)
+                                {
+                                    Shapefile.Write<Entity>(options, System.POI, VectorKind.Location, Instance.POI.WriteLocationSHP, Instance.POI.WriteLocationDBF, OnReport);
+                                }
                             }
                             if (useBuilding)
                             {
@@ -558,6 +561,8 @@ namespace Carto.IO
             }
             finally
             {
+                Instance.Building.Dispose();
+                Instance.POI.Dispose();
                 Instance.Shared.Dispose();
             }
         }
