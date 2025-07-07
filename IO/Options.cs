@@ -70,10 +70,22 @@ namespace Carto.IO
         public bool Homeless { get; set; } = true;
 
         /// <summary>
+        /// Whether to export inactive transportation routes or not.<br/>
+        /// （是否要輸出未啟用的運輸服務路線？）
+        /// </summary>
+        public bool InactiveRoute { get; set; } = false;
+
+        /// <summary>
         /// Whether to export the minimized JSON file or not.
         /// （是否要輸出最小化的 JSON？）
         /// </summary>
         public bool Minimized { get; set; } = true;
+
+        /// <summary>
+        /// Whether to regard the pets as regular passengers.
+        /// （是否將寵物視為一般乘客。）
+        /// </summary>
+        public bool PetPassenger { get; set; } = false;
 
         /// <summary>
         /// The properties about to export.

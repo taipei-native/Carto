@@ -291,7 +291,7 @@ namespace Carto.Systems
 
         /// <summary>
         /// Retrieve the general POIs.
-        /// （獲得運一般的興趣點。）
+        /// （獲得一般的興趣點。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="buildingStats">The list of building statistics.（建築統計的列表。）</param>

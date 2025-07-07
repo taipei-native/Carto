@@ -558,6 +558,11 @@ namespace Carto.IO
         Resident,
 
         /// <summary>
+        /// The serial number of the transportation route.（路線編號，路線被賦予的流水號。）
+        /// </summary>
+        Route,
+
+        /// <summary>
         /// The ratio of males to females in the area in percentage (%).（性別比，區域內男性對女性的比值，單位為百分比（%）。）
         /// </summary>
         SexRatio,

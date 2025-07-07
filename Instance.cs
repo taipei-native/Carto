@@ -131,6 +131,12 @@ namespace Carto
         public static RasterSystem Raster => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<RasterSystem>();
 
         /// <summary>
+        /// The system that searches transportation routes.
+        /// （搜尋運輸服務路線的系統。）
+        /// </summary>
+        public static RouteSystem Route => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<RouteSystem>();
+
+        /// <summary>
         /// The options to change mod behaviors.
         /// （改變模組執行方式的設定。）
         /// </summary>

@@ -72,6 +72,7 @@ namespace Carto
             SourceCRSTransform = "0 0 0 0 0 0 0";
             OutputElevation = false;
             OutputMinimizedGeoJSON = false;
+            GeometryInactiveRoute = false;
             GeometrySeparateServiceUpgrade = false;
             GeometryUnzoned = false;
             PropertyGeneralHomeless = true;
@@ -80,6 +81,7 @@ namespace Carto
             PropertyCategoryNetworkDisplayMode = IO.Display.All;
             PropertyCategoryPOIDisplayMode = IO.Display.All;
             PropertyColorZcc = true;
+            PropertyPassengerPet = false;
             PropertyResidentSeparateBySex = false;
             PropertyThemeAssetPack = true;
             PropertyWageTaxable = false;
@@ -482,6 +484,13 @@ namespace Carto
         public bool OutputMinimizedGeoJSON { get; set; } = false;
 
         /// <summary>
+        /// Whether to export inactive transportation routes.
+        /// （是否輸出未啟用的運輸服務路線。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGeometryGroup)]
+        public bool GeometryInactiveRoute { get; set; } = false;
+
+        /// <summary>
         /// Whether to export service upgrade buildings separately.
         /// （是否獨立輸出服務升級建築。)
         /// </summary>
@@ -496,18 +505,18 @@ namespace Carto
         public bool GeometryUnzoned { get; set; } = false;
 
         /// <summary>
-        /// Whether to count homeless households and residents.
-        /// （是否計入無家可歸的家庭與居民。）
-        /// </summary>
-        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
-        public bool PropertyGeneralHomeless { get; set; } = true;
-
-        /// <summary>
         /// Whether to count region statistics for the map tiles.
         /// （是否要輸出地圖區塊的區域統計資料。）
         /// </summary>
         [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
         public bool PropertyGeneralMapTileStatistics { get; set; } = true;
+
+        /// <summary>
+        /// Whether to count homeless households and residents.
+        /// （是否計入無家可歸的家庭與居民。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public bool PropertyGeneralHomeless { get; set; } = true;
 
         /// <summary>
         /// The display mode for the category field of the building features.
@@ -537,6 +546,13 @@ namespace Carto
         [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
         [SettingsUIHideByCondition(typeof(Settings), nameof(IsZccEnabled), invert: true)]
         public bool PropertyColorZcc { get; set; } = true;
+
+        /// <summary>
+        /// Whether to regard the pets as regular passengers.
+        /// （是否將寵物視為一般乘客。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public bool PropertyPassengerPet { get; set; } = false;
 
         /// <summary>
         /// Whether to separate resident statistics by sex.
@@ -710,7 +726,9 @@ namespace Carto
                 FileName = "OPZ_{Feature}",
                 GeoTiffFormat = ExportGeoTiffFormat,
                 Homeless = PropertyGeneralHomeless,
+                InactiveRoute = GeometryInactiveRoute,
                 Minimized = OutputMinimizedGeoJSON,
+                PetPassenger = PropertyPassengerPet,
                 Properties = new Dictionary<IO.System, HashSet<IO.Property>>
                 {
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
@@ -739,6 +757,7 @@ namespace Carto
                     { IO.System.Building, IO.VectorKind.Boundary },
                     { IO.System.Network, IO.VectorKind.Centerline },
                     { IO.System.POI, IO.VectorKind.Location },
+                    { IO.System.Route, IO.VectorKind.Centerline },
                     { IO.System.Zoning, IO.VectorKind.Boundary }
                 },
                 ZccColor = PropertyColorZcc

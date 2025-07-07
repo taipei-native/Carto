@@ -393,6 +393,20 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Checks whether the target enum is a subset of another enum.
+        /// （確認目標枚舉為另一個枚舉的子集。）
+        /// </summary>
+        /// <typeparam name="T">The type of the enum.（枚舉的型別。）</typeparam>
+        /// <param name="target">The input enum value.（輸入的枚舉值。）</param>
+        /// <param name="rule">The allowed enum flags.（允許的枚舉值。）</param>
+        /// <returns>If true, the target enum is a subset of <paramref name="rule"/>.（若為真，目標枚舉為 <paramref name="rule"/> 的子集。）</returns>
+        public static bool IsSubSetOf<T>(T target, T rule) where T : struct, Enum
+        {
+            int targetValue = UnsafeUtility.EnumToInt(target);
+            return (targetValue & UnsafeUtility.EnumToInt(rule)) == targetValue;
+        }
+
+        /// <summary>
         /// Replace the tokens into pre-defined texts.
         /// （將代號轉換為預先定義的文字。）
         /// </summary>
@@ -614,6 +628,58 @@ namespace Carto.Utils
             count = counter.Value;
             Dispose(ref counter);
             return count;
+        }
+
+        /// <summary>
+        /// Copy a managed hashset to a unmanaged one.
+        /// （將一個受控管集合複製至未控管集合。）
+        /// </summary>
+        /// <typeparam name="T">The type of the hashset items.（集合物件的型別。）</typeparam>
+        /// <param name="source">The managed hashset.（受控管的集合。）</param>
+        /// <param name="target">The target unmanaged hashset.（目標未控管集合。）</param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static void UnmanagedCopy<T>(HashSet<T> source, ref NativeParallelHashSet<T> target) where T : unmanaged, IEquatable<T>
+        {
+            if (!target.IsCreated)
+            {
+                throw new InvalidOperationException("The target hashset is not initialized. 集合未初始化。");
+            }
+
+            if (source.Count > target.Capacity)
+            {
+                throw new InvalidOperationException("The capacity of the target hashset is smaller than the managed hashset. 目標集合的容量較受控管集合小。");
+            }
+
+            foreach (T item in source)
+            {
+                target.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Copy a managed hashset to a unmanaged one.
+        /// （將一個受控管集合複製至未控管集合。）
+        /// </summary>
+        /// <typeparam name="T">The type of the hashset items.（集合物件的型別。）</typeparam>
+        /// <param name="source">The managed hashset.（受控管的集合。）</param>
+        /// <param name="target">The target unmanaged hashset.（目標未控管集合。）</param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static void UnmanagedCopy<T>(HashSet<T> source, ref NativeParallelHashSet<EnumWrapper<T>> target) where T : unmanaged, Enum
+        {
+            if (!target.IsCreated)
+            {
+                throw new InvalidOperationException("The target hashset is not initialized. 集合未初始化。");
+            }
+
+            if (source.Count > target.Capacity)
+            {
+                throw new InvalidOperationException("The capacity of the target hashset is smaller than the managed hashset. 目標集合的容量較受控管集合小。");
+            }
+
+            foreach (T item in source)
+            {
+                target.Add(item);
+            }
         }
 
         /// <summary>

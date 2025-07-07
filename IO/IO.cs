@@ -30,7 +30,7 @@ namespace Carto.IO
             { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zone } },
             { System.Network, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
-            { System.Route, new() { Property.Name, Property.Object, Property.Length, Property.Model, Property.Passenger, Property.Stop, Property.Transport, Property.Vehicle} },
+            { System.Route, new() { Property.Name, Property.Object, Property.Color, Property.Length, Property.Model, Property.Passenger, Property.Route, Property.Stop, Property.Transport, Property.Vehicle} },
             { System.Zoning, new() { Property.Name, Property.Object, Property.Color, Property.Density, Property.Theme, Property.Zoning} }
         };
 
@@ -66,7 +66,7 @@ namespace Carto.IO
         public static readonly HashSet<Property> BurstImcompatiblePropertyTable = new()
         {
             Property.Asset, Property.Brand, Property.Category, Property.Color, Property.Density, Property.Direction, Property.Form, Property.Model, Property.Name, Property.Object,
-            Property.Product, Property.Theme, Property.Transport, Property.Zone, Property.Zoning
+            Property.Product, Property.Route, Property.Theme, Property.Transport, Property.Zone, Property.Zoning
         };
 
         /// <summary>
@@ -315,6 +315,7 @@ namespace Carto.IO
             { Property.Product, typeof(string) },
             { Property.Profit, typeof(float) },
             { Property.Resident, typeof(int) },
+            { Property.Route, typeof(string) },
             { Property.SexRatio, typeof(float) },
             { Property.Stop, typeof(int) },
             { Property.Story, typeof(int) },
@@ -438,6 +439,7 @@ namespace Carto.IO
                     bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
                     bool buildingHasBoundary = options.Has(System.Building, VectorKind.Boundary);
                     bool poiHasLocation = options.Has(System.POI, VectorKind.Location);
+                    bool routeHasCenterline = options.Has(System.Route, VectorKind.Centerline);
                     bool zoningHasBoundary = options.Has(System.Zoning, VectorKind.Boundary);
 
                     // Write vector data.（寫入向量資料。）
@@ -475,6 +477,13 @@ namespace Carto.IO
                             if (useNetwork)
                             {
 
+                            }
+                            if (useRoute)
+                            {
+                                if (routeHasCenterline)
+                                {
+                                    GeoJson.Write(options, System.Route, VectorKind.Centerline, Instance.Route.WriteCenterlineFeatures, OnReport);
+                                }
                             }
                             break;
 
