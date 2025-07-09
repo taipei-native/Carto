@@ -1,6 +1,7 @@
 using Carto.Domain;
 using Carto.Geodata;
 using Colossal.Logging;
+using Game.Modding;
 using System;
 using System.Collections.Generic;
 using Unity.Entities;
@@ -389,6 +390,9 @@ namespace Carto.IO
                 bool useZoning = options.Systems.HasFlag(System.Zoning);
                 bool useVector = useArea || useBuilding || useNetwork || usePOI || useRoute || useZoning;
 
+                // The error collection.（錯誤集合。）
+                Dictionary<string, Error> errors = new();
+
                 // TODO: Check file sharing violation.
 
                 if (useVector)
@@ -537,15 +541,24 @@ namespace Carto.IO
                             // Handle the grids using shared data first.（首先處理使用共享資料的網格。）
                             if (hasWorldTerrain)
                             {
-                                Instance.Shared.GetWorldElevation(options);
+                                Instance.Shared.GetWorldElevation(options, out Error worldHeightmapError);
+                                bool worldHeightmapIntegrity = worldHeightmapError == Error.None;
 
-                                if (hasWorldDepth)
+                                if (worldHeightmapIntegrity)
                                 {
-                                    GeoTiff.Write(options, RasterKind.WorldDepth, Instance.Raster.WriteWorldDepth, OnReport);
+                                    if (hasWorldDepth)
+                                    {
+                                        GeoTiff.Write(options, RasterKind.WorldDepth, Instance.Raster.WriteWorldDepth, OnReport);
+                                    }
+                                    if (hasWorldElevation)
+                                    {
+                                        GeoTiff.Write(options, RasterKind.WorldElevation, Instance.Raster.WriteWorldElevation, OnReport);
+                                    }
                                 }
-                                if (hasWorldElevation)
+                                else
                                 {
-                                    GeoTiff.Write(options, RasterKind.WorldElevation, Instance.Raster.WriteWorldElevation, OnReport);
+                                    if (hasWorldDepth) errors.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldDepth), worldHeightmapError);
+                                    if (hasWorldElevation) errors.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldElevation), worldHeightmapError);
                                 }
 
                                 Instance.Shared.Dispose(DisposePhase.AfterTerrainRelated);

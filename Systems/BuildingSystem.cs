@@ -912,7 +912,7 @@ namespace Carto.Systems
             ref NativeList<BuildingStat> localBuildingStats = ref _localBuildingStats;
 
             // Validate native containers integrity.（驗證原生容器的完整性。）
-            Utils.CommonUtils.ValidateIntegrity(ref buildingStats);
+            Utils.CommonUtils.ValidateIntegrity(ref buildingStats, true);
 
             // Build area feature queries.（建立區域圖徵查詢。）
             List<ComponentType> areaFilters = new(_areaFilters);

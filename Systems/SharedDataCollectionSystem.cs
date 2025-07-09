@@ -1119,17 +1119,27 @@ namespace Carto.Systems
         /// （獲取世界高度圖。）
         /// </summary>
         /// <param name="options">The export options.（檔案輸出設定。）</param>
-        public void GetWorldElevation(Options options)
+        /// <param name="error">The error encountered when retrieving the world heightmap.（獲得世界高度圖時遇到的錯誤。）</param>
+        public void GetWorldElevation(Options options, out IO.Error error)
         {
             // Create alias for fields.（創造欄位的別名。）
             ref NativeArray<ushort> worldElevation = ref _worldElevation;
             Texture map = _terrain.worldHeightmap;
 
-            // Reset output containers.（重置輸出容器。）
-            Utils.CommonUtils.Reset(ref worldElevation, map.width * map.height);
+            if (map == null)
+            {
+                error = IO.Error.MissingWorldHeightmap;
+            }
+            else
+            {
+                error = IO.Error.None;
+                
+                // Reset output containers.（重置輸出容器。）
+                Utils.CommonUtils.Reset(ref worldElevation, map.width * map.height);
 
-            // Convert the texture into array.（將材質貼圖轉為陣列。）
-            AsyncGPUReadback.RequestIntoNativeArray(ref worldElevation, map).WaitForCompletion();
+                // Convert the texture into array.（將材質貼圖轉為陣列。）
+                AsyncGPUReadback.RequestIntoNativeArray(ref worldElevation, map).WaitForCompletion();
+            }
         }
 
         /// <summary>

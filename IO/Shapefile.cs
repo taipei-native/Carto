@@ -450,8 +450,15 @@ namespace Carto.IO
                 using BinaryWriter writer = new(fs);
                 WriteSHPHeader(writer, shape);
                 writeSHPMethod.Invoke(writer, options, out indexPairs, out bounds, out syncList);
-                IndexPair lastIndexPair = indexPairs[indexPairs.Count - 1];
-                UpdateSHPHeader(fs, writer, bounds, lastIndexPair.offset + lastIndexPair.length + 4, options.Elevation);
+                if (indexPairs.Count > 0)
+                {
+                    IndexPair lastIndexPair = indexPairs[^1];
+                    UpdateSHPHeader(fs, writer, bounds, lastIndexPair.offset + lastIndexPair.length + 4, options.Elevation);
+                }
+                else
+                {
+                    UpdateSHPHeader(fs, writer, bounds, 50, options.Elevation); // The empty header.（空白標頭。）
+                }
             }
 
             using (FileStream fs = new(shxPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))

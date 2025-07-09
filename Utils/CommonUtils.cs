@@ -481,7 +481,7 @@ namespace Carto.Utils
         /// <param name="allocator">The memory allocator.（記憶體分配器。）</param>
         public static void Reset<T>(ref NativeArray<T> array, int capacity = 16, Allocator allocator = Allocator.Persistent) where T : struct
         {
-            Dispose(ref array);
+            Dispose(ref array, false);
             array = new(capacity, allocator);
         }
 

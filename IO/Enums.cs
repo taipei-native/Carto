@@ -112,6 +112,12 @@ namespace Carto.IO
         Longitude,
 
         /// <summary>
+        /// The world heightmap is missing from the editor/save.
+        /// （編輯器／存檔缺少世界高度圖。）
+        /// </summary>
+        MissingWorldHeightmap,
+
+        /// <summary>
         /// The value is not a number.
         /// （輸入值不是數字。）
         /// </summary>
@@ -661,79 +667,84 @@ namespace Carto.IO
         FertileDeposit = 1 << 3,
 
         /// <summary>
+        /// The deposit of the fish.（水產的蘊藏量。）
+        /// </summary>
+        FishDeposit = 1 << 4,
+
+        /// <summary>
         /// The direction in which surface water towards to.（地表水的移動方向。）
         /// </summary>
-        FlowDirection = 1 << 4,
+        FlowDirection = 1 << 5,
 
         /// <summary>
         /// The speed of the surface water.（地表水的流速。）
         /// </summary>
-        FlowSpeed = 1 << 5,
+        FlowSpeed = 1 << 6,
 
         /// <summary>
         /// The pollution that spread in the soil.（在土壤中擴散的汙染。）
         /// </summary>
-        GroundPollution = 1 << 6,
+        GroundPollution = 1 << 7,
 
         /// <summary>
         /// The deposit of the ground water.（地下水的蘊藏量。）
         /// </summary>
-        GroundWaterDeposit = 1 << 7,
+        GroundWaterDeposit = 1 << 8,
 
         /// <summary>
         /// The pollution that emits in the ground water.（排放至地下水中的汙染。）
         /// </summary>
-        GroundWaterPollution = 1 << 8,
+        GroundWaterPollution = 1 << 9,
 
         /// <summary>
         /// The value of the land.（土地的價格。）
         /// </summary>
-        LandValue = 1 << 9,
+        LandValue = 1 << 10,
 
         /// <summary>
         /// The pollution spread in the form of sound.（以聲音形式傳播的汙染。）
         /// </summary>
-        NoisePollution = 1 << 10,
+        NoisePollution = 1 << 11,
 
         /// <summary>
         /// The deposit of the crude oil.（原油的蘊藏量。）
         /// </summary>
-        OilDeposit = 1 << 11,
+        OilDeposit = 1 << 12,
 
         /// <summary>
         /// The deposit of the ore.（礦物的蘊藏量。）
         /// </summary>
-        OreDeposit = 1 << 12,
+        OreDeposit = 1 << 13,
 
         /// <summary>
         /// The pollution that emits in the water.（排放至水中的汙染。）
         /// </summary>
-        WaterPollution = 1 << 13,
+        WaterPollution = 1 << 14,
 
         /// <summary>
         /// The direction in which wind towards to.（風吹拂的方向。）
         /// </summary>
-        WindDirection = 1 << 14,
+        WindDirection = 1 << 15,
 
         /// <summary>
         /// The speed of the wind.（風的速度。） 
         /// </summary>
-        WindSpeed = 1 << 15,
+        WindSpeed = 1 << 16,
 
         /// <summary>
         /// The deposit of the wood.（木材的蘊藏量。）
         /// </summary>
-        WoodDeposit = 1 << 16,
+        WoodDeposit = 1 << 17,
 
         /// <summary>
         /// The depth of the water bodies in the worldmap.（世界地形圖中的水體深度。）
         /// </summary>
-        WorldDepth = 1 << 17,
+        WorldDepth = 1 << 18,
 
         /// <summary>
         /// The elevation of the terrain in the worldmap.（世界地形圖中的地形高程。）
         /// </summary>
-        WorldElevation = 1 << 18
+        WorldElevation = 1 << 19
     }
 
     /// <summary>

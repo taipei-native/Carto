@@ -44,6 +44,12 @@ namespace Carto.Systems
         static readonly Game.Prefabs.PrefabSystem _prefab = Instance.Prefab;
 
         /// <summary>
+        /// The query to collect human instances.
+        /// （收集人類實例的查詢。）
+        /// </summary>
+        static EntityQuery _humanQuery;
+
+        /// <summary>
         /// The query to collect transportation route instances.
         /// （收集運輸服務路線實例的查詢。）
         /// </summary>
@@ -82,6 +88,24 @@ namespace Carto.Systems
 
         protected override void OnCreate()
         {
+            _humanQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Creature>(),
+                    ComponentType.ReadOnly<Human>(),
+                    ComponentType.ReadOnly<HumanCurrentLane>(),
+                    ComponentType.ReadOnly<PathElement>(),
+                    ComponentType.ReadOnly<PathOwner>(),
+                    ComponentType.ReadOnly<Queue>()
+                },
+                None = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Game.Common.Deleted>(),
+                    ComponentType.ReadOnly<Temp>()
+                }
+            });
+            
             _routeQuery = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
@@ -178,6 +202,10 @@ namespace Carto.Systems
         /// <param name="options">The export options.（輸出設定。）</param>
         private void GetRouteStats(Options options)
         {
+            bool countPets = options.PetPassenger;
+            bool includeInactive = options.InactiveRoute;
+            NativeList<Entity> queueRoutes = new(_humanQuery.CalculateEntityCount(), Allocator.Persistent);
+            NativeParallelHashMap<Entity, int> routeStopWaitingPassengersMap = new(_routeQuery.CalculateEntityCount(), Allocator.Persistent);
             NativeParallelHashMap<Entity, Game.Prefabs.TransportLineData> validRoutePrefabsDataMap = new(_routePrefabQuery.CalculateEntityCount(), Allocator.Persistent);
             NativeParallelHashSet<EnumWrapper<Game.Prefabs.TransportType>> exportableTransportTypes = new(ExportableTransportTypes.Count, Allocator.Persistent);
             CommonUtils.UnmanagedCopy(ExportableTransportTypes, ref exportableTransportTypes);
@@ -191,10 +219,37 @@ namespace Carto.Systems
             JobHandle collectRoutesHandle = collectPrefabsJob.ScheduleParallel(_routePrefabQuery, default);
             collectRoutesHandle.Complete();
 
+            if (!countPets)
+            {
+                MapWaitingPassengersToRoutesJob mapJob = new()
+                {
+                    includeInactive = includeInactive,
+                    connectedLookup = GetComponentLookup<Connected>(true),
+                    ownerLookup = GetComponentLookup<Game.Common.Owner>(true),
+                    prefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(true),
+                    routeLookup = GetComponentLookup<Route>(true),
+                    taxiStandLookup = GetComponentLookup<TaxiStand>(true),
+                    transportStopLookup = GetComponentLookup<TransportStop>(true),
+                    waypointLookup = GetComponentLookup<Waypoint>(true),
+                    validRoutePrefabsDataMap = validRoutePrefabsDataMap,
+                    queueRoutes = queueRoutes.AsParallelWriter(),
+                };
+                JobHandle mapHandle = mapJob.ScheduleParallel(_humanQuery, default);
+                mapHandle.Complete();
+
+                AggregateRouteWaitingPassengersJob aggregatePassengersJob = new()
+                {
+                    queueRoutes = queueRoutes,
+                    routeStopWaitingPassengersMap = routeStopWaitingPassengersMap
+                };
+                JobHandle aggregatePassengersHandle = aggregatePassengersJob.Schedule();    // To avoid race-conditions, only use single thread here.（為了避免競合情形，在此僅使用一個執行緒。）
+                aggregatePassengersHandle.Complete();
+            }
+
             CollectRouteStatsJob collectStatsJob = new()
             {
-                countPets = options.PetPassenger,
-                includeInactive = options.InactiveRoute,
+                countPets = countPets,
+                includeInactive = includeInactive,
                 layoutElementBufferLookup = GetBufferLookup<LayoutElement>(true),
                 passengerBufferLookup = GetBufferLookup<Passenger>(true),
                 cargoTransportLookup = GetComponentLookup<CargoTransport>(true),
@@ -206,6 +261,8 @@ namespace Carto.Systems
                 publicTransportLookup = GetComponentLookup<PublicTransport>(true),
                 taxiStandLookup = GetComponentLookup<TaxiStand>(true),
                 transportStopLookup = GetComponentLookup<TransportStop>(true),
+                waitingPassengersLookup = GetComponentLookup<WaitingPassengers>(true),
+                routeStopWaitingPassengersMap = routeStopWaitingPassengersMap,
                 validRoutePrefabsDataMap = validRoutePrefabsDataMap,
                 routeStats = _localRouteStats.AsParallelWriter()
             };
@@ -213,6 +270,8 @@ namespace Carto.Systems
             collectStatsHandle.Complete();
 
             CommonUtils.Dispose(ref exportableTransportTypes);
+            CommonUtils.Dispose(ref queueRoutes);
+            CommonUtils.Dispose(ref routeStopWaitingPassengersMap);
             CommonUtils.Dispose(ref validRoutePrefabsDataMap);
         }
 
@@ -241,6 +300,40 @@ namespace Carto.Systems
                     if (transportStopLookup.HasComponent(connected) && !taxiStandLookup.HasComponent(connected))
                     {
                         count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="routeWaypoints"></param>
+        /// <param name="connectedLookup"></param>
+        /// <param name="taxiStandLookup"></param>
+        /// <param name="transportStopLookup"></param>
+        /// <param name="waitingPassengersLookup"></param>
+        /// <returns></returns>
+        private static int GetStopPassengerCount(DynamicBuffer<RouteWaypoint> routeWaypoints, ref ComponentLookup<Connected> connectedLookup,
+                                                 ref ComponentLookup<TaxiStand> taxiStandLookup, ref ComponentLookup<TransportStop> transportStopLookup,
+                                                 ref ComponentLookup<WaitingPassengers> waitingPassengersLookup)
+        {
+            ///  This is the Carto version of <see cref="Game.UI.InGame.LinesSection.LinesJob"/>.
+            /// （這是 Carto 版本的 <see cref="Game.UI.InGame.LinesSection.LinesJob"/>。）
+
+            int count = 0;
+
+            for (int i = 0; i < routeWaypoints.Length; i++)
+            {
+                if (connectedLookup.TryGetComponent(routeWaypoints[i].m_Waypoint, out Connected connectedComponent))
+                {
+                    Entity connected = connectedComponent.m_Connected;
+                    if (transportStopLookup.HasComponent(connected) && !taxiStandLookup.HasComponent(connected) &&
+                        waitingPassengersLookup.TryGetComponent(routeWaypoints[i].m_Waypoint, out WaitingPassengers waitingPassengersComponent))
+                    {
+                        count += waitingPassengersComponent.m_Count;
                     }
                 }
             }
@@ -381,6 +474,58 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Checks whether a stop is valid, and returns the route it belongs to.
+        /// （確認運輸站點是否有效，並回傳奇屬於的運輸服務路線。）
+        /// </summary>
+        /// <param name="stop">The transportation waypoint entity.（運輸路徑點實體。）</param>
+        /// <param name="includeInactive">Whether to export inactive transportation routes or not.（是否要輸出未啟用的運輸服務路線？）</param>
+        /// <param name="connectedLookup">The lookup that searches for <see cref="Connected"/>.（搜尋 <see cref="Connected"/> 的查詢。）</param>
+        /// <param name="ownerLookup">The lookup that searches for <see cref="Game.Common.Owner"/>.（搜尋 <see cref="Game.Common.Owner"/> 的查詢。）</param>
+        /// <param name="prefabRefLookup">The lookup that searches for <see cref="Game.Prefabs.PrefabRef"/>.（搜尋 <see cref="Game.Prefabs.PrefabRef"/> 的查詢。）</param>
+        /// <param name="routeLookup">The lookup that searches for <see cref="Route"/>.（搜尋 <see cref="Route"/> 的查詢。）</param>
+        /// <param name="taxiStandLookup">The lookup that searches for <see cref="TaxiStand"/>.（搜尋 <see cref="TaxiStand"/> 的查詢。）</param>
+        /// <param name="transportStopLookup">The lookup that searches for <see cref="TransportStop"/>.（搜尋 <see cref="TransportStop"/> 的查詢。）</param>
+        /// <param name="waypointLookup">The lookup that searches for <see cref="Waypoint"/>.（搜尋 <see cref="Waypoint"/> 的查詢。）</param>
+        /// <param name="validRoutePrefabsDataMap">The exportable transportation route prefabs.（可輸出的運輸服務路線預製模板。）</param>
+        /// <param name="route">The route entity.（路線實體。）</param>
+        /// <returns>If true, the stop is a valid stop.（若為真，該站點為有效的運輸站點。）</returns>
+        private static bool IsValidStop(Entity stop, bool includeInactive,
+                                        ref ComponentLookup<Connected> connectedLookup, ref ComponentLookup<Game.Common.Owner> ownerLookup,
+                                        ref ComponentLookup<Game.Prefabs.PrefabRef> prefabRefLookup, ref ComponentLookup<Route> routeLookup,
+                                        ref ComponentLookup<TaxiStand> taxiStandLookup, ref ComponentLookup<TransportStop> transportStopLookup,
+                                        ref ComponentLookup<Waypoint> waypointLookup, ref NativeParallelHashMap<Entity, Game.Prefabs.TransportLineData> validRoutePrefabsDataMap,
+                                        out Entity route)
+        {
+            route = Entity.Null;
+
+            // Ensure transport stop integrity.（確保運輸場站完整性。）
+            if (stop != Entity.Null)
+            {
+                if (!waypointLookup.HasComponent(stop) ||
+                    !connectedLookup.TryGetComponent(stop, out Connected connectedComponent) ||
+                    !transportStopLookup.HasComponent(connectedComponent.m_Connected) ||
+                    taxiStandLookup.HasComponent(connectedComponent.m_Connected))
+                {
+                    return false;
+                }
+            }
+
+            // Ensure route integrity.（確保運輸服務路線完整性。）
+            if (ownerLookup.TryGetComponent(stop, out Game.Common.Owner ownerComponent) &&
+                routeLookup.TryGetComponent(ownerComponent.m_Owner, out Route routeComponent) &&
+                prefabRefLookup.TryGetComponent(ownerComponent.m_Owner, out Game.Prefabs.PrefabRef prefabRef))
+            {
+                if (IsValidRoute(includeInactive, prefabRef, routeComponent, ref validRoutePrefabsDataMap, out _))
+                {
+                    route = ownerComponent.m_Owner;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Write centerline features (geometries and properties) to the designated file.
         /// （寫出中線圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
@@ -515,6 +660,12 @@ namespace Carto.Systems
             public ComponentLookup<TransportStop> transportStopLookup;
 
             [ReadOnly]
+            public ComponentLookup<WaitingPassengers> waitingPassengersLookup;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, int> routeStopWaitingPassengersMap;
+
+            [ReadOnly]
             public NativeParallelHashMap<Entity, Game.Prefabs.TransportLineData> validRoutePrefabsDataMap;
 
             [WriteOnly]
@@ -531,6 +682,20 @@ namespace Carto.Systems
                                      ref cargoTransportLookup, ref currentRouteLookup,
                                      ref petLookup, ref publicTransportLookup,
                                      out int passengerCount, out int vehicleCount);
+
+                if (countPets)
+                {
+                    passengerCount += GetStopPassengerCount(routeWaypoints, ref connectedLookup,
+                                                            ref taxiStandLookup, ref transportStopLookup,
+                                                            ref waitingPassengersLookup);
+                }
+                else
+                {
+                    if (routeStopWaitingPassengersMap.TryGetValue(route, out int waitingHumanPassengerCount))
+                    {
+                        passengerCount += waitingHumanPassengerCount;
+                    }
+                }
 
                 RouteStat stat = new()
                 {
@@ -561,7 +726,7 @@ namespace Carto.Systems
         //{
         //    [ReadOnly]
         //    public bool includeInactive;
-            
+
         //    [ReadOnly]
         //    public BufferLookup<CurveElement> curveElementBufferLookup;
 
@@ -593,6 +758,35 @@ namespace Carto.Systems
         //        queue.Enqueue(validCurveElementsCount);
         //    }
         //}
+
+        /// <summary>
+        /// The job to aggregate the number of waiting passengers at the stops.
+        /// （聚合在運輸站點等待的乘客數量的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct AggregateRouteWaitingPassengersJob : IJob
+        {
+            [ReadOnly]
+            public NativeList<Entity> queueRoutes;
+
+            public NativeParallelHashMap<Entity, int> routeStopWaitingPassengersMap;
+
+            public void Execute()
+            {
+                for (int i = 0; i < queueRoutes.Length; i++)
+                {
+                    Entity route = queueRoutes[i];
+                    if (routeStopWaitingPassengersMap.TryGetValue(route, out int waitingCount))
+                    {
+                        routeStopWaitingPassengersMap[route] = waitingCount + 1;
+                    }
+                    else
+                    {
+                        routeStopWaitingPassengersMap.TryAdd(route, 1);
+                    }
+                }
+            }
+        }
 
         /// <summary>
         /// The job to map each route pieces to the routes.
@@ -635,5 +829,89 @@ namespace Carto.Systems
         //        }
         //    }
         //}
+
+        /// <summary>
+        /// The job to help mapping waiting passengers to the routes.
+        /// （協助將等待的乘客映射至運輸服務路線的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct MapWaitingPassengersToRoutesJob : IJobEntity
+        {
+            [ReadOnly]
+            public bool includeInactive;
+
+            [ReadOnly]
+            public ComponentLookup<Connected> connectedLookup;
+            
+            [ReadOnly]
+            public ComponentLookup<Game.Common.Owner> ownerLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Game.Prefabs.PrefabRef> prefabRefLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Route> routeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<TaxiStand> taxiStandLookup;
+
+            [ReadOnly]
+            public ComponentLookup<TransportStop> transportStopLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Waypoint> waypointLookup;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, Game.Prefabs.TransportLineData> validRoutePrefabsDataMap;
+
+            [WriteOnly]
+            public NativeList<Entity>.ParallelWriter queueRoutes;
+            
+            public void Execute(in Creature creature, in HumanCurrentLane humanCurrentLane, in PathOwner pathOwner,
+                                in DynamicBuffer<PathElement> pathElements, in DynamicBuffer<Queue> queues)
+            {
+                ///  This is the Carto version of <see cref="Game.Simulation.WaitingPassengersSystem.CountWaitingPassengersJob"/>.
+                /// （這是 Carto 版本的 <see cref="Game.Simulation.WaitingPassengersSystem.CountWaitingPassengersJob"/>。）
+                 
+                if (CreatureUtils.TransportStopReached(humanCurrentLane))
+                {
+                    // Ensure passenger path integrity.（確保乘客路徑完整性。）
+                    int pathIndex = pathOwner.m_ElementIndex;
+                    if ((pathElements.Length < pathIndex + 2) || pathElements[pathIndex].m_Target == Entity.Null)
+                    {
+                        return;
+                    }
+
+                    if ((creature.m_QueueEntity != Entity.Null) &&
+                        IsValidStop(creature.m_QueueEntity, includeInactive,
+                                    ref connectedLookup, ref ownerLookup,
+                                    ref prefabRefLookup, ref routeLookup,
+                                    ref taxiStandLookup, ref transportStopLookup,
+                                    ref waypointLookup, ref validRoutePrefabsDataMap,
+                                    out Entity route))
+                    {
+                        queueRoutes.AddNoResize(route);
+                    }
+
+                    return;
+                }
+
+                for (int i = 0; i < queues.Length; i++)
+                {
+                    Queue queue = queues[i];
+                    if ((queue.m_TargetArea.radius > 0f) && (queue.m_TargetEntity != Entity.Null) &&
+                        IsValidStop(creature.m_QueueEntity, includeInactive,
+                                    ref connectedLookup, ref ownerLookup,
+                                    ref prefabRefLookup, ref routeLookup,
+                                    ref taxiStandLookup, ref transportStopLookup,
+                                    ref waypointLookup, ref validRoutePrefabsDataMap,
+                                    out Entity route))
+                    {
+                        queueRoutes.AddNoResize(route);
+                        break;
+                    }
+                }
+            }
+        }
     }
 }

@@ -13,12 +13,14 @@ namespace Carto
     /// （管理模組設定的類別。）
     /// </summary>
     [SettingsUIGroupOrder(FeatureVectorGroup, FeatureRasterGroup,
+                          PropertiesSelectorGroup, PropertiesGeometryGroup, PropertiesPropertyGroup,
                           ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup,
                           MiscellaneousFileGroup, MiscellaneousGeometryGroup, MiscellaneousPropertyGroup)]
     [SettingsUIShowGroupName(FeatureVectorGroup, FeatureRasterGroup,
+                             PropertiesGeometryGroup, PropertiesPropertyGroup,
                              ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup,
                              MiscellaneousFileGroup, MiscellaneousGeometryGroup, MiscellaneousPropertyGroup)]
-    [SettingsUITabOrder(GeneralTab, FeatureTab, ProjectionTab, MiscellaneousTab)]
+    [SettingsUITabOrder(GeneralTab, FeatureTab, PropertiesTab, ProjectionTab, MiscellaneousTab)]
     [FileLocation("ModsSettings/" + nameof(Carto) + "/" + nameof(Carto) + "_v1")]
     public class Settings : ModSetting
     {
@@ -56,6 +58,18 @@ namespace Carto
             SystemZoning = true;
             FeatureTerrain = true;
             FeatureWater = true;
+            PropertiesSystemSelector = SelectorValueArea;
+            GeometryBoundaryArea = true;
+            GeometryBoundaryBuilding = true;
+            GeometryBoundaryNetwork = true;
+            GeometryBoundaryZoning = true;
+            GeometryCenterlineNetwork = true;
+            GeometryCenterlineRoute = true;
+            GeometryLocationPOI = true;
+            GeometryDepthWater = true;
+            GeometryElevationTerrain = true;
+            GeometryWorldDepthWater = false;
+            GeometryWorldElevationTerrain = false;
             SourceCRS = IO.CRS.WGS84;
             SourceXCoord = "0";
             SourceYCoord = "0";
@@ -88,11 +102,16 @@ namespace Carto
             PropertyZoningDisplayMode = IO.Display.All;
         }
 
+        // The tab and group names.（分頁與群組名稱。）
         public const string GeneralTab = "GeneralTab";
         public const string GeneralGeneralGroup = "GeneralGeneralGroup";
         public const string FeatureTab = "FeatureTab";
         public const string FeatureVectorGroup = "FeatureVectorGroup";
         public const string FeatureRasterGroup = "FeatureRasterGroup";
+        public const string PropertiesTab = "PropertiesTab";
+        public const string PropertiesSelectorGroup = "PropertiesSelectorGroup";
+        public const string PropertiesGeometryGroup = "PropertiesGeometryGroup";
+        public const string PropertiesPropertyGroup = "PropertiesPropertyGroup";
         public const string ProjectionTab = "ProjectionTab";
         public const string ProjectionBasicGroup = "ProjectionBasicGroup";
         public const string ProjectionEllipsoidGroup = "ProjectionEllipsoidGroup";
@@ -102,6 +121,46 @@ namespace Carto
         public const string MiscellaneousFileGroup = "MiscellaneousFileGroup";
         public const string MiscellaneousGeometryGroup = "MiscellaneousGeometryGroup";
         public const string MiscellaneousPropertyGroup = "MiscellaneousPropertyGroup";
+
+        // The assigned values used in the properties tab.（屬性分頁中指定的值。）
+        public const int SelectorValueArea = (int)IO.System.Area;
+        public const int SelectorValueBuilding = (int)IO.System.Building;
+        public const int SelectorValueNetwork = (int)IO.System.Network;
+        public const int SelectorValuePOI = (int)IO.System.POI;
+        public const int SelectorValueRoute = (int)IO.System.Route;
+        public const int SelectorValueZoning = (int)IO.System.Zoning;
+        public const int SelectorValueDeposit = (int)IO.System.Raster + 1;
+        public const int SelectorValueLandValue = (int)IO.System.Raster + 2;
+        public const int SelectorValuePollution = (int)IO.System.Raster + 3;
+        public const int SelectorValueTerrain = (int)IO.System.Raster + 4;
+        public const int SelectorValueWater = (int)IO.System.Raster + 5;
+        public const int SelectorValueWind = (int)IO.System.Raster + 6;
+
+        // The shared locale ids used in the properties tab.（屬性分頁中共用的語系檔案代碼。）
+        public const string GeometryBoundary = "Carto.Carto.Mod.Settings.GeometryBoundary";
+        public const string GeometryCenterline = "Carto.Carto.Mod.Settings.GeometryCenterline";
+        public const string GeometryFootprint = "Carto.Carto.Mod.Settings.GeometryFootprint";
+        public const string GeometryLocation = "Carto.Carto.Mod.Settings.GeometryLocation";
+        public const string GeometryAirPollution = "Carto.Carto.Mod.Settings.GeometryAirPollution";
+        public const string GeometryDepth = "Carto.Carto.Mod.Settings.GeometryDepth";
+        public const string GeometryElevation = "Carto.Carto.Mod.Settings.GeometryElevation";
+        public const string GeometryFertileDeposit = "Carto.Carto.Mod.Settings.GeometryFertileDeposit";
+        public const string GeometryFishDeposit = "Carto.Carto.Mod.Settings.GeometryFishDeposit";
+        public const string GeometryFlowDirection = "Carto.Carto.Mod.Settings.GeometryFlowDirection";
+        public const string GeometryFlowSpeed = "Carto.Carto.Mod.Settings.GeometryFlowSpeed";
+        public const string GeometryGroundPollution = "Carto.Carto.Mod.Settings.GeometryGroundPollution";
+        public const string GeometryGroundWaterDeposit = "Carto.Carto.Mod.Settings.GeometryGroundWaterDeposit";
+        public const string GeometryGroundWaterPollution = "Carto.Carto.Mod.Settings.GeometryGroundWaterPollution";
+        public const string GeometryLandValue = "Carto.Carto.Mod.Settings.GeometryLandValue";
+        public const string GeometryNoisePollution = "Carto.Carto.Mod.Settings.GeometryNoisePollution";
+        public const string GeometryOilDeposit = "Carto.Carto.Mod.Settings.GeometryOilDeposit";
+        public const string GeometryOreDeposit = "Carto.Carto.Mod.Settings.GeometryOreDeposit";
+        public const string GeometryWaterPollution = "Carto.Carto.Mod.Settings.GeometryWaterPollution";
+        public const string GeometryWindDirection = "Carto.Carto.Mod.Settings.GeometryWindDirection";
+        public const string GeometryWindSpeed = "Carto.Carto.Mod.Settings.GeometryWindSpeed";
+        public const string GeometryWoodDeposit = "Carto.Carto.Mod.Settings.GeometryWoodDeposit";
+        public const string GeometryWorldDepth = "Carto.Carto.Mod.Settings.GeometryWorldDepth";
+        public const string GeometryWorldElevation = "Carto.Carto.Mod.Settings.GeometryWorldElevation";
 
         /// <summary>
         /// The file format of the vector files.
@@ -350,6 +409,148 @@ namespace Carto
         public bool FeatureWater { get; set; } = true;
 
         /// <summary>
+        /// The drop-down menu to configure each system.
+        /// （用於調整各系統的下拉式選單。）
+        /// </summary>
+        [SettingsUISection(PropertiesTab, PropertiesSelectorGroup)]
+        [SettingsUIDropdown(typeof(Settings), nameof(GetSystems))]
+        public int PropertiesSystemSelector { get; set; } = SelectorValueArea;
+
+        public DropdownItem<int>[] GetSystems()
+        {
+            return new DropdownItem<int>[]
+            {
+                new()
+                {
+                    value = SelectorValueArea,
+                    displayName = GetOptionLabelLocaleID(nameof(SystemArea))
+                },
+                new()
+                {
+                    value = SelectorValueBuilding,
+                    displayName = GetOptionLabelLocaleID(nameof(SystemBuilding))
+                },
+                new()
+                {
+                    value = SelectorValueNetwork,
+                    displayName = GetOptionLabelLocaleID(nameof(SystemNetwork))
+                },
+                new()
+                {
+                    value = SelectorValuePOI,
+                    displayName = GetOptionLabelLocaleID(nameof(SystemPOI))
+                },
+                new()
+                {
+                    value = SelectorValueRoute,
+                    displayName = GetOptionLabelLocaleID(nameof(SystemRoute))
+                },
+                new()
+                {
+                    value = SelectorValueZoning,
+                    displayName = GetOptionLabelLocaleID(nameof(SystemZoning))
+                },
+                // TODO: Uncommet when the relevant export functions are implemented.
+                /*new()
+                {
+                    value = SelectorValueDeposit,
+                    displayName = GetOptionLabelLocaleID(nameof(FeatureDeposit))
+                },*/
+                /*new()
+                {
+                    value = SelectorValueLandValue,
+                    displayName = GetOptionLabelLocaleID(nameof(FeatureLandValue))
+                },*/
+                /*new()
+                {
+                    value = SelectorValuePollution,
+                    displayName = GetOptionLabelLocaleID(nameof(FeaturePollution))
+                },*/
+                new()
+                {
+                    value = SelectorValueTerrain,
+                    displayName = GetOptionLabelLocaleID(nameof(FeatureTerrain))
+                },
+                new()
+                {
+                    value = SelectorValueWater,
+                    displayName = GetOptionLabelLocaleID(nameof(FeatureWater))
+                },
+                /*new()
+                {
+                    value = SelectorValueWind,
+                    displayName = GetOptionLabelLocaleID(nameof(FeatureWind))
+                },*/
+            };
+        }
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryBoundary)]
+        [SettingsUIDescription(overrideId: GeometryBoundary)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool GeometryBoundaryArea { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryBoundary)]
+        [SettingsUIDescription(overrideId: GeometryBoundary)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool GeometryBoundaryBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryBoundary)]
+        [SettingsUIDescription(overrideId: GeometryBoundary)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool GeometryBoundaryNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryBoundary)]
+        [SettingsUIDescription(overrideId: GeometryBoundary)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectZoning), invert: true)]
+        public bool GeometryBoundaryZoning { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryCenterline)]
+        [SettingsUIDescription(overrideId: GeometryCenterline)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool GeometryCenterlineNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryCenterline)]
+        [SettingsUIDescription(overrideId: GeometryCenterline)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool GeometryCenterlineRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryLocation)]
+        [SettingsUIDescription(overrideId: GeometryLocation)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectPOI), invert: true)]
+        public bool GeometryLocationPOI { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryDepth)]
+        [SettingsUIDescription(overrideId: GeometryDepth)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectWater), invert: true)]
+        public bool GeometryDepthWater { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryElevation)]
+        [SettingsUIDescription(overrideId: GeometryElevation)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectTerrain), invert: true)]
+        public bool GeometryElevationTerrain { get; set; } = true;
+        
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryWorldDepth)]
+        [SettingsUIDescription(overrideId: GeometryWorldDepth)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectWater), invert: true)]
+        public bool GeometryWorldDepthWater { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesGeometryGroup)]
+        [SettingsUIDisplayName(overrideId: GeometryWorldElevation)]
+        [SettingsUIDescription(overrideId: GeometryWorldElevation)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectTerrain), invert: true)]
+        public bool GeometryWorldElevationTerrain { get; set; } = false;
+
+        /// <summary>
         /// The source coordinate reference system.
         /// （來源的坐標參考系統。）
         /// </summary>
@@ -583,6 +784,42 @@ namespace Carto
         public IO.Display PropertyZoningDisplayMode { get; set; } = IO.Display.All;
 
         [SettingsUIHidden]
+        public bool DoesUserSelectArea => PropertiesSystemSelector == SelectorValueArea;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectBuilding => PropertiesSystemSelector == SelectorValueBuilding;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectNetwork => PropertiesSystemSelector == SelectorValueNetwork;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectPOI => PropertiesSystemSelector == SelectorValuePOI;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectRoute => PropertiesSystemSelector == SelectorValueRoute;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectZoning => PropertiesSystemSelector == SelectorValueZoning;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectDeposit => PropertiesSystemSelector == SelectorValueDeposit;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectLandValue => PropertiesSystemSelector == SelectorValueLandValue;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectPollution => PropertiesSystemSelector == SelectorValuePollution;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectTerrain => PropertiesSystemSelector == SelectorValueTerrain;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectWater => PropertiesSystemSelector == SelectorValueWater;
+
+        [SettingsUIHidden]
+        public bool DoesUserSelectWind => PropertiesSystemSelector == SelectorValueWind;
+
+        [SettingsUIHidden]
         public bool IsCustomEllipsoid => IsTransverseMercator && (SourceEllipsoid == IO.Ellipsoid.Custom);
 
         [SettingsUIHidden]
@@ -611,6 +848,7 @@ namespace Carto
             IO.Ellipsoid ellipsoid = IO.Ellipsoid.WGS84;
             IO.Feature feature = IO.Feature.None;
             IO.FileFormat vectorFileFormat = IO.FileFormat.Shapefile;
+            IO.RasterKind rasterKinds = IO.RasterKind.Unknown;
             IO.System system = IO.System.Unknown;
             Geodata.ProjectionDefinition projectionDefinition = default;
             projectionDefinition.transform = new(new double[0]);
@@ -619,6 +857,7 @@ namespace Carto
                 { GetOptionLabelLocaleID(nameof(SourceXCoord)), Utils.IOUtils.TryGetNumber(SourceXCoord, out double sourceX) },
                 { GetOptionLabelLocaleID(nameof(SourceYCoord)), Utils.IOUtils.TryGetNumber(SourceYCoord, out double sourceY) }
             };
+            Dictionary<IO.System, IO.VectorKind> vectorKinds = new();
 
             switch (ExportVectorFormat)
             {
@@ -635,12 +874,37 @@ namespace Carto
                     break;
             }
 
-            if (SystemArea) system |= IO.System.Area;
-            if (SystemBuilding) system |= IO.System.Building;
-            if (SystemNetwork) system |= IO.System.Network;
-            if (SystemPOI) system |= IO.System.POI;
-            if (SystemRoute) system |= IO.System.Route;
-            if (SystemZoning) system |= IO.System.Zoning;
+            if (SystemArea)
+            {
+                system |= IO.System.Area;
+                if (GeometryBoundaryArea) TryAddVectorKindEntry(vectorKinds, IO.System.Area, IO.VectorKind.Boundary);
+            }
+            if (SystemBuilding)
+            {
+                system |= IO.System.Building;
+                if (GeometryBoundaryBuilding) TryAddVectorKindEntry(vectorKinds, IO.System.Building, IO.VectorKind.Boundary);
+            }
+            if (SystemNetwork)
+            {
+                system |= IO.System.Network;
+                if (GeometryBoundaryNetwork) TryAddVectorKindEntry(vectorKinds, IO.System.Network, IO.VectorKind.Boundary);
+                if (GeometryCenterlineNetwork) TryAddVectorKindEntry(vectorKinds, IO.System.Network, IO.VectorKind.Centerline);
+            }
+            if (SystemPOI)
+            {
+                system |= IO.System.POI;
+                if (GeometryLocationPOI) TryAddVectorKindEntry(vectorKinds, IO.System.POI, IO.VectorKind.Location);
+            }
+            if (SystemRoute)
+            {
+                system |= IO.System.Route;
+                if (GeometryCenterlineRoute) TryAddVectorKindEntry(vectorKinds, IO.System.Route, IO.VectorKind.Centerline);
+            }
+            if (SystemZoning)
+            {
+                system |= IO.System.Zoning;
+                if (GeometryBoundaryZoning) TryAddVectorKindEntry(vectorKinds, IO.System.Zoning, IO.VectorKind.Boundary);
+            }
             if (FeatureTerrain || FeatureWater) system |= IO.System.Raster;
 
             if (FeatureBuilding) feature |= IO.Feature.Building;
@@ -660,6 +924,11 @@ namespace Carto
             if (FeatureTrack) feature |= IO.Feature.Track;
             if (FeatureWaterway) feature |= IO.Feature.Waterway;
             if (SystemZoning) feature |= IO.Feature.Zoning;
+
+            if (GeometryDepthWater) rasterKinds |= IO.RasterKind.Depth;
+            if (GeometryElevationTerrain) rasterKinds |= IO.RasterKind.Elevation;
+            if (GeometryWorldDepthWater) rasterKinds |= IO.RasterKind.WorldDepth;
+            if (GeometryWorldElevationTerrain) rasterKinds |= IO.RasterKind.WorldElevation;
 
             switch (SourceCRS)
             {
@@ -737,7 +1006,7 @@ namespace Carto
                     { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,
-                RasterKinds = IO.RasterKind.WorldDepth | IO.RasterKind.WorldElevation | IO.RasterKind.Depth | IO.RasterKind.Elevation,
+                RasterKinds = rasterKinds,
                 SeparateResident = PropertyResidentSeparateBySex,
                 SeparateServiceUpgrade = GeometrySeparateServiceUpgrade,
                 SourceCoordinates = sourceCoordinates,
@@ -751,17 +1020,30 @@ namespace Carto
                 Taxable = PropertyWageTaxable,
                 Unzoned = GeometryUnzoned,
                 VectorFormat = vectorFileFormat,
-                VectorKinds = new Dictionary<IO.System, IO.VectorKind>
-                {
-                    { IO.System.Area, IO.VectorKind.Boundary },
-                    { IO.System.Building, IO.VectorKind.Boundary },
-                    { IO.System.Network, IO.VectorKind.Centerline },
-                    { IO.System.POI, IO.VectorKind.Location },
-                    { IO.System.Route, IO.VectorKind.Centerline },
-                    { IO.System.Zoning, IO.VectorKind.Boundary }
-                },
+                VectorKinds = vectorKinds,
                 ZccColor = PropertyColorZcc
             };
+        }
+
+        /// <summary>
+        /// Try to add a <see cref="IO.VectorKind"/> to the target dictionary.
+        /// （嘗試添加一個 <see cref="IO.VectorKind"/> 至指定的字典中。）
+        /// </summary>
+        /// <param name="vectorKindsDictionary">The dictionary storing each vector system's vector kinds.（儲存各向量系統向量種類的字典。）</param>
+        /// <param name="system">The system enum.（系統枚舉。）</param>
+        /// <param name="vectorKind">The vector geometry type.（向量幾何類別。）</param>
+        private void TryAddVectorKindEntry(Dictionary<IO.System, IO.VectorKind> vectorKindsDictionary, IO.System system, IO.VectorKind vectorKind)
+        {
+            vectorKindsDictionary ??= new();
+
+            if (vectorKindsDictionary.TryGetValue(system, out IO.VectorKind previousVectorKind))
+            {
+                vectorKindsDictionary[system] = previousVectorKind | vectorKind;
+            }
+            else
+            {
+                vectorKindsDictionary.Add(system, vectorKind);
+            }
         }
     }
 }
