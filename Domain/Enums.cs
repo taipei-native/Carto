@@ -7,7 +7,7 @@ namespace Carto.Domain
     /// （遊戲內的建築類別。）
     /// </summary>
     [Flags]
-    public enum BuildingCategory : uint
+    public enum BuildingCategory : long
     {
         /// <summary>
         /// The fallback value for unknown or unregistered building type.（用於未知或未註冊建築類別的後備值。）
@@ -75,7 +75,16 @@ namespace Carto.Domain
         Sewage = 1 << 23,
         Transportation = 1 << 24,
         Waste = 1 << 25,
-        Water = 1 << 26
+        Water = 1 << 26,
+
+        // Extractor tags（特殊工業標籤）
+        Farmland = 1 << 27,
+        Fishery = 1 << 28,
+        Forestry = 1 << 29,
+        Landfill = 1 << 30,
+        OilField = 1L << 31,
+        Quarry = 1L << 32,
+        Ranch = 1L << 33
     }
 
     /// <summary>

@@ -95,7 +95,7 @@ namespace Carto
             PropertyCategoryNetworkDisplayMode = IO.Display.All;
             PropertyCategoryPOIDisplayMode = IO.Display.All;
             PropertyColorZcc = true;
-            PropertyPassengerPet = false;
+            PropertyPassengerPet = true;
             PropertyResidentSeparateBySex = false;
             PropertyThemeAssetPack = true;
             PropertyWageTaxable = false;
@@ -753,7 +753,7 @@ namespace Carto
         /// （是否將寵物視為一般乘客。）
         /// </summary>
         [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
-        public bool PropertyPassengerPet { get; set; } = false;
+        public bool PropertyPassengerPet { get; set; } = true;
 
         /// <summary>
         /// Whether to separate resident statistics by sex.
@@ -1001,8 +1001,9 @@ namespace Carto
                 Properties = new Dictionary<IO.System, HashSet<IO.Property>>
                 {
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
-                    { IO.System.Building, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Age, IO.Property.Asset, IO.Property.Brand, IO.Property.Category, IO.Property.Elevation, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Level, IO.Property.Product, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Theme, IO.Property.Wage, IO.Property.Zone } },
+                    { IO.System.Building, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Age, IO.Property.Asset, IO.Property.Brand, IO.Property.Category, IO.Property.Elevation, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Level, IO.Property.Product, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Theme, IO.Property.Wage, IO.Property.Zone, IO.Property.Zoning } },
                     { IO.System.POI, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Category} },
+                    { IO.System.Route, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Length, IO.Property.Model, IO.Property.Passenger, IO.Property.Route, IO.Property.Stop, IO.Property.Transport, IO.Property.Vehicle} },
                     { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,

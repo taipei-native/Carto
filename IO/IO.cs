@@ -28,7 +28,7 @@ namespace Carto.IO
         {
             { System.Unknown, new() { } },
             { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
-            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zone } },
+            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zone, Property.Zoning } },
             { System.Network, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
             { System.Route, new() { Property.Name, Property.Object, Property.Color, Property.Length, Property.Model, Property.Passenger, Property.Route, Property.Stop, Property.Transport, Property.Vehicle} },
@@ -53,10 +53,14 @@ namespace Carto.IO
             // Group C: Other tags（C 組：其他標籤）
             BuildingCategory.Extractor, BuildingCategory.Decoration,
 
-            // Group D: Building status（D 組：建築狀態）
+            // Group D: Special industries（D 組：特殊工業）
+            BuildingCategory.Landfill, BuildingCategory.OilField, BuildingCategory.Quarry, BuildingCategory.Forestry, BuildingCategory.Ranch,
+            BuildingCategory.Farmland, BuildingCategory.Fishery,
+
+            // Group E: Building status（E 組：建築狀態）
             BuildingCategory.Destroyed, BuildingCategory.Condemned, BuildingCategory.Abandoned, BuildingCategory.Construction, BuildingCategory.Extension,
 
-            // Group E: Fallback value（E 組：後備值）
+            // Group F: Fallback value（F 組：後備值）
             BuildingCategory.None
         };
 

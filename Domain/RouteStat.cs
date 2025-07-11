@@ -51,6 +51,12 @@ namespace Carto.Domain
         public float length;
 
         /// <summary>
+        /// The model used on the route.
+        /// （在運輸服務路線上服務的車型。）
+        /// </summary>
+        public Entity model;
+
+        /// <summary>
         /// The serial number of the route.
         /// （運輸服務路線的流水號。）
         /// </summary>
@@ -70,12 +76,13 @@ namespace Carto.Domain
 
         /// <summary>
         /// The number of stops along the route.
-        /// （運輸服務路線的站眼數量。）
+        /// （運輸服務路線的站點數量。）
         /// </summary>
         public int stop;
 
         /// <summary>
-        /// The type of the transport.（運輸路線的種類。）
+        /// The type of the transport.
+        /// （運輸路線的種類。）
         /// </summary>
         public Game.Prefabs.TransportType transport;
 
@@ -85,9 +92,24 @@ namespace Carto.Domain
         /// </summary>
         public int vehicle;
 
+        /// <summary>
+        /// The feature type of the route.
+        /// （運輸服務路線的圖徵類別。）
+        /// </summary>
+        public readonly IO.Feature Object
+        {
+            get
+            {
+                IO.Feature feature = IO.Feature.None;
+                if (isCargo) feature |= IO.Feature.RouteCargo;
+                if (isPassenger) feature |= IO.Feature.RoutePassenger;
+                return feature;
+            }
+        }
+
         public override readonly string ToString()
         {
-            return $"Route({entity.Index}:{entity.Version}) - Color [{color}], Has Custom Name [{hasCustomName}], Is Cargo [{isCargo}], Is Passenger [{isPassenger}], Length [{length}], Number [{number}], Passenger [{passenger}], Prefab [{prefab.Index}:{prefab.Version}], Stop [{stop}], Transport [{transport}], Vehicle [{vehicle}]";
+            return $"Route({entity.Index}:{entity.Version}) - Color [{color}], Has Custom Name [{hasCustomName}], Is Cargo [{isCargo}], Is Passenger [{isPassenger}], Length [{length}], Model [{model.Index}:{model.Version}], Number [{number}], Passenger [{passenger}], Prefab [{prefab.Index}:{prefab.Version}], Stop [{stop}], Transport [{transport}], Vehicle [{vehicle}]";
         }
     }
 }

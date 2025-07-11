@@ -59,6 +59,46 @@ namespace Carto.Geodata
             ExclusionIndexTable = new Dictionary<int, int> { };
         }
 
+        public Geometry(ref NativeList<double3> inclusions)
+        {
+            double3[] inclusionArray;
+
+            if (inclusions.Length == 0)
+            {
+                inclusionArray = new double3[0];
+            }
+            else
+            {
+                double3 lastInclusion = inclusions[0];
+                NativeList<double3> inclusionsCopy = new(inclusions.Length, Allocator.TempJob);
+                inclusionsCopy.Add(lastInclusion);
+
+                for (int i = 1; i < inclusions.Length; i++)
+                {
+                    double3 latest = inclusions[i];
+
+                    if (!latest.Equals(lastInclusion))
+                    {
+                        inclusionsCopy.Add(latest);
+                        lastInclusion = latest;
+                    }
+                }
+                
+                inclusionArray = new double3[inclusionsCopy.Length];
+
+                for (int i = 0; i < inclusionsCopy.Length; i++)
+                {
+                    inclusionArray[i] = inclusionsCopy[i];
+                }
+
+                Utils.CommonUtils.Dispose(ref inclusionsCopy);
+            }
+
+            Inclusions = new double3[1][] { inclusionArray };
+            Exclusions = new double3[0][][];
+            ExclusionIndexTable = new Dictionary<int, int> { };
+        }
+
         /// <summary>
         /// Whether the polygon has exclusion parts?
         /// （這個多邊形是否有排除的部分？）

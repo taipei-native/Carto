@@ -196,6 +196,7 @@ namespace Carto.Systems
             bool hasValue = options.Contains(Property.Value, IO.System.Building) && validatedFields.Contains(Property.Value);
             bool hasWage = options.Contains(Property.Wage, IO.System.Building) && validatedFields.Contains(Property.Wage);
             bool hasZone = options.Contains(Property.Zone, IO.System.Building) && validatedFields.Contains(Property.Zone);
+            bool hasZoning = options.Contains(Property.Zoning, IO.System.Building) && validatedFields.Contains(Property.Zoning);
 
             // Create alias for fields.（創造欄位的別名。）
             ref NativeList<ZoningType> zoningTypes = ref _shared.ZoningTypes;
@@ -244,6 +245,7 @@ namespace Carto.Systems
                 //FieldInfo valueField = new(0f); // TODO: Not available in 1.0.0 release.
                 FieldInfo wageField = new(0f);
                 FieldInfo zoneField = new(0, 0, false, FieldType.String);
+                FieldInfo zoningField = new(0, 0, false, FieldType.String);
 
                 for (int i = 0; i < _localBuildingStats.Length; i++)
                 {
@@ -338,6 +340,11 @@ namespace Carto.Systems
                         string zoningTypeName = hasValidZoningType ? zoningTypesNamesManaged[stat.zoning] : zoningTypesNamesManaged[^1];
                         zoneField += new FieldInfo(zoningTypeName);
                     }
+                    if (hasZoning)
+                    {
+                        ZoningCategory zoning = options.Display[(Property.Zoning, IO.System.Unknown)] ? zoningType.category : Utils.CommonUtils.GetFirstMatch(zoningType.category, IO.IO.ZoningDisplayOrder);
+                        zoningField += new FieldInfo(zoning.ToString("G"));
+                    }
                 }
 
                 if (hasName)
@@ -424,6 +431,10 @@ namespace Carto.Systems
                 if (hasZone)
                 {
                     _fieldMap.Add(Property.Zone, zoneField);
+                }
+                if (hasZoning)
+                {
+                    _fieldMap.Add(Property.Zoning, zoningField);
                 }
 
                 // Sync the entity order with that of the .shp file.（與 .shp 檔案的實體順序同步。）
@@ -549,6 +560,11 @@ namespace Carto.Systems
                             string zoningTypeName = hasValidZoningType ? zoningTypesNamesManaged[stat.zoning] : zoningTypesNamesManaged[^1];
                             Shapefile.WriteRecord(writer, zoneField, zoningTypeName);
                         }
+                        if (hasZoning)
+                        {
+                            ZoningCategory zoning = options.Display[(Property.Zoning, IO.System.Unknown)] ? zoningType.category : Utils.CommonUtils.GetFirstMatch(zoningType.category, IO.IO.ZoningDisplayOrder);
+                            Shapefile.WriteRecord(writer, zoningField, zoning.ToString("G"));
+                        }
                     }
                 });
                 writerThread.Wait();
@@ -613,6 +629,7 @@ namespace Carto.Systems
             bool hasValue = options.Contains(Property.Value, IO.System.Building);
             bool hasWage = options.Contains(Property.Wage, IO.System.Building);
             bool hasZone = options.Contains(Property.Zone, IO.System.Building);
+            bool hasZoning = options.Contains(Property.Zoning, IO.System.Building);
 
             // Create alias for fields.（創造欄位的別名。）
             ref NativeList<BuildingStat> buildingStats = ref _shared.BuildingStats;
@@ -867,6 +884,11 @@ namespace Carto.Systems
                             // The fallback value is "Unzoned".（後備值是「無分區」。）
                             string zoningTypeName = hasValidZoningType ? zoningTypesNamesManaged[buildingStat.zoning] : zoningTypesNamesManaged[^1];
                             GeoJson.WriteProperty(writer, Property.Zone, zoningTypeName);
+                        }
+                        if (hasZoning)
+                        {
+                            ZoningCategory zoning = options.Display[(Property.Zoning, IO.System.Unknown)] ? zoningType.category : Utils.CommonUtils.GetFirstMatch(zoningType.category, IO.IO.ZoningDisplayOrder);
+                            GeoJson.WriteProperty(writer, Property.Zoning, zoning.ToString("G"));
                         }
 
                         writer.WriteEndObject();
@@ -1168,7 +1190,13 @@ namespace Carto.Systems
                     if (storageAreaDataLookup.TryGetComponent(prefabRef.m_Prefab, out StorageAreaData prefabStorageData))
                     {
                         stat.objectType = Feature.Landfill;
-                        stat.product = prefabStorageData.m_Resources;
+                        Resource productTitle = prefabStorageData.m_Resources;
+                        stat.product = productTitle;
+
+                        if ((productTitle & Resource.Garbage) != 0)
+                        {
+                            stat.category |= BuildingCategory.Landfill;
+                        }
                     }
                 }
                 else
@@ -1179,7 +1207,49 @@ namespace Carto.Systems
 
                     if (prefabRefLookup.TryGetComponent(owner.m_Owner, out PrefabRef ownerPrefabRef) && buildingPropertyDataLookup.TryGetComponent(ownerPrefabRef.m_Prefab, out BuildingPropertyData ownerPrefabProperty))
                     {
-                        stat.product = ownerPrefabProperty.m_AllowedManufactured;
+                        Resource productTitle = ownerPrefabProperty.m_AllowedManufactured;
+                        stat.product = productTitle;
+
+                        if ((productTitle & Resource.Coal) != 0)
+                        {
+                            stat.category |= BuildingCategory.Quarry;
+                        }
+                        if ((productTitle & Resource.Cotton) != 0)
+                        {
+                            stat.category |= BuildingCategory.Farmland;
+                        }
+                        if ((productTitle & Resource.Fish) != 0)
+                        {
+                            stat.category |= BuildingCategory.Fishery;
+                        }
+                        if ((productTitle & Resource.Grain) != 0)
+                        {
+                            stat.category |= BuildingCategory.Farmland;
+                        }
+                        if ((productTitle & Resource.Livestock) != 0)
+                        {
+                            stat.category |= BuildingCategory.Ranch;
+                        }
+                        if ((productTitle & Resource.Oil) != 0)
+                        {
+                            stat.category |= BuildingCategory.OilField;
+                        }
+                        if ((productTitle & Resource.Ore) != 0)
+                        {
+                            stat.category |= BuildingCategory.Quarry;
+                        }
+                        if ((productTitle & Resource.Stone) != 0)
+                        {
+                            stat.category |= BuildingCategory.Quarry;
+                        }
+                        if ((productTitle & Resource.Vegetables) != 0)
+                        {
+                            stat.category |= BuildingCategory.Farmland;
+                        }
+                        if ((productTitle & Resource.Wood) != 0)
+                        {
+                            stat.category |= BuildingCategory.Forestry;
+                        }
                     }
                 }
 
