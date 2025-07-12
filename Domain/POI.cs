@@ -40,6 +40,12 @@ namespace Carto.Domain
         public float3 inGamePosition;
 
         /// <summary>
+        /// Whether this POI has a custom name or not.
+        /// （這個興趣點是否有客製化的名稱？）
+        /// </summary>
+        public bool hasCustomName;
+
+        /// <summary>
         /// Whether the address of this `POI` is mapped to a district or not.
         /// （這個 `POI` 是否已映射至一個行政區？）
         /// </summary>
@@ -65,7 +71,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"POI({entity.Index}:{entity.Version}) - Brand [{brand}]; IsAddressVerified [{isAddressVerified}]; IsPrivte [{isPrivate}]; ObjectType [{objectType}]";
+            return $"POI({entity.Index}:{entity.Version}) - Brand [{brand}], Has Custom Name [{hasCustomName}], Is Address Verified [{isAddressVerified}], Is Privte [{isPrivate}], Object Type [{objectType}]";
         }
     }
 }

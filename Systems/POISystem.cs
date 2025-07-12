@@ -314,6 +314,7 @@ namespace Carto.Systems
                 batteryLookup = GetComponentLookup<Battery>(true),
                 commercialPropertyLookup = GetComponentLookup<CommercialProperty>(true),
                 condemnedLookup = GetComponentLookup<Condemned>(true),
+                customNameLookup = GetComponentLookup<CustomName>(true),
                 deathcareFacilityLookup = GetComponentLookup<DeathcareFacility>(true),
                 deathcareFacilityDataLookup = GetComponentLookup<Game.Prefabs.DeathcareFacilityData>(true),
                 destroyedLookup = GetComponentLookup<Game.Common.Destroyed>(true),
@@ -452,6 +453,7 @@ namespace Carto.Systems
                 buildingDataLookup = GetComponentLookup<Game.Prefabs.BuildingData>(true),
                 compositionLookup = GetComponentLookup<Composition>(true),
                 curveLookup = GetComponentLookup<Curve>(true),
+                customNameLookup = GetComponentLookup<CustomName>(true),
                 edgeLookup = GetComponentLookup<Edge>(true),
                 netCompositionDataLookup = GetComponentLookup<Game.Prefabs.NetCompositionData>(true),
                 ownerLookup = GetComponentLookup<Game.Common.Owner>(true),
@@ -1198,6 +1200,27 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Check whether the input POI includes transport stop POI categories.
+        /// （確認輸入的興趣點是否包含運輸場站興趣點分類。）
+        /// </summary>
+        /// <param name="categories">The input hashset.（輸入的集合。）</param>
+        /// <returns>If true, the input set has transport stop POI categories.（若為真，則該集合包含運輸場站興趣點分類。）</returns>
+        private bool HasTransportStopPOI(ref NativeParallelHashSet<EnumWrapper<POICategory>> categories)
+        {
+            return categories.Contains(POICategory.StopBus) ||
+                   categories.Contains(POICategory.StopCargoAirplane) ||
+                   categories.Contains(POICategory.StopCargoShip) ||
+                   categories.Contains(POICategory.StopCargoTrain) ||
+                   categories.Contains(POICategory.StopHelicopter) ||
+                   categories.Contains(POICategory.StopPassengerAirplane) ||
+                   categories.Contains(POICategory.StopPassengerShip) ||
+                   categories.Contains(POICategory.StopPassengerTrain) ||
+                   categories.Contains(POICategory.StopSubway) ||
+                   categories.Contains(POICategory.StopTaxi) ||
+                   categories.Contains(POICategory.StopTram);
+        }
+
+        /// <summary>
         /// Check whether the input POI's type is allowed to be exported.
         /// （確認輸入興趣點的種類是否允許被輸出。）
         /// </summary>
@@ -1322,6 +1345,12 @@ namespace Carto.Systems
                             else if (categories.Contains(POICategory.UtilityPole))
                             {
                                 POINames.Add($"Utility Pole {entityIndex}");
+                            }
+                            else if (HasTransportStopPOI(ref categories) && !poi.hasCustomName)
+                            {
+                                string streetName = _name.GetRenderedLabelName(poi.address.street);
+                                string stopName = LocaleUtils.TryTranslate($"Assets.ADDRESS_NAME_FORMAT", out string translated) ? translated : _name.GetRenderedLabelName(entity);
+                                POINames.Add(stopName.Replace("{ROAD}", streetName).Replace("{NUMBER}", poi.address.number.ToString("G")));
                             }
                             else
                             {
@@ -1565,6 +1594,12 @@ namespace Carto.Systems
                                 else if (categories.Contains(POICategory.UtilityPole))
                                 {
                                     POINames.Add($"Utility Pole {entityIndex}");
+                                }
+                                else if (HasTransportStopPOI(ref categories) && !poi.hasCustomName)
+                                {
+                                    string streetName = _name.GetRenderedLabelName(poi.address.street);
+                                    string stopName = LocaleUtils.TryTranslate($"Assets.ADDRESS_NAME_FORMAT", out string translated) ? translated : _name.GetRenderedLabelName(entity);
+                                    POINames.Add(stopName.Replace("{ROAD}", streetName).Replace("{NUMBER}", poi.address.number.ToString("G")));
                                 }
                                 else
                                 {
@@ -2116,6 +2151,9 @@ namespace Carto.Systems
             public ComponentLookup<Curve> curveLookup;
 
             [ReadOnly]
+            public ComponentLookup<CustomName> customNameLookup;
+
+            [ReadOnly]
             public ComponentLookup<Edge> edgeLookup;
 
             [ReadOnly]
@@ -2164,6 +2202,7 @@ namespace Carto.Systems
                     entity = stop,
                     address = default,
                     brand = -1,
+                    hasCustomName = customNameLookup.HasComponent(stop),
                     inGamePosition = transform.m_Position,
                     isAddressVerified = false,
                     isPrivate = false,
@@ -2171,37 +2210,34 @@ namespace Carto.Systems
                     objectType = Feature.POITransport
                 };
 
-                if (useAddress)
+                Entity stopOwner = stop;
+
+                while (ownerLookup.HasComponent(stopOwner))
                 {
-                    Entity stopOwner = stop;
+                    ownerLookup.TryGetComponent(stopOwner, out Game.Common.Owner owner);
+                    stopOwner = owner.m_Owner;
+                }
 
-                    while (ownerLookup.HasComponent(stopOwner))
+                if (buildingLookup.TryGetComponent(stopOwner, out Building ownerBuilding))
+                {
+                    if (SharedDataCollectionSystem.GetAddress(stopOwner, ownerBuilding.m_RoadEdge, ownerBuilding.m_CurvePosition, out Entity road, out int number,
+                                                              ref aggregateElementBufferLookup, ref aggregatedLookup, ref buildingDataLookup,
+                                                              ref curveLookup, ref compositionLookup, ref edgeLookup,
+                                                              ref netCompositionDataLookup, ref prefabRefLookup, ref roundaboutLookup,
+                                                              ref transformLookup))
                     {
-                        ownerLookup.TryGetComponent(stopOwner, out Game.Common.Owner owner);
-                        stopOwner = owner.m_Owner;
+                        poi.address = new(road, number);
                     }
-
-                    if (buildingLookup.TryGetComponent(stopOwner, out Building ownerBuilding))
+                }
+                else if (attachedLookup.TryGetComponent(stopOwner, out Attached attachedComponent))
+                {
+                    if (SharedDataCollectionSystem.GetAddress(stopOwner, attachedComponent.m_Parent, attachedComponent.m_CurvePosition, out Entity road, out int number,
+                                                              ref aggregateElementBufferLookup, ref aggregatedLookup, ref buildingDataLookup,
+                                                              ref curveLookup, ref compositionLookup, ref edgeLookup,
+                                                              ref netCompositionDataLookup, ref prefabRefLookup, ref roundaboutLookup,
+                                                              ref transformLookup))
                     {
-                        if (SharedDataCollectionSystem.GetAddress(stopOwner, ownerBuilding.m_RoadEdge, ownerBuilding.m_CurvePosition, out Entity road, out int number,
-                                                                  ref aggregateElementBufferLookup, ref aggregatedLookup, ref buildingDataLookup,
-                                                                  ref curveLookup, ref compositionLookup, ref edgeLookup,
-                                                                  ref netCompositionDataLookup, ref prefabRefLookup, ref roundaboutLookup,
-                                                                  ref transformLookup))
-                        {
-                            poi.address = new(road, number);
-                        }
-                    }
-                    else if (attachedLookup.TryGetComponent(stopOwner, out Attached attachedComponent))
-                    {
-                        if (SharedDataCollectionSystem.GetAddress(stopOwner, attachedComponent.m_Parent, attachedComponent.m_CurvePosition, out Entity road, out int number,
-                                                                  ref aggregateElementBufferLookup, ref aggregatedLookup, ref buildingDataLookup,
-                                                                  ref curveLookup, ref compositionLookup, ref edgeLookup,
-                                                                  ref netCompositionDataLookup, ref prefabRefLookup, ref roundaboutLookup,
-                                                                  ref transformLookup))
-                        {
-                            poi.address = new(road, number);
-                        }
+                        poi.address = new(road, number);
                     }
                 }
 
@@ -2324,6 +2360,9 @@ namespace Carto.Systems
 
             [ReadOnly]
             public ComponentLookup<Condemned> condemnedLookup;
+
+            [ReadOnly]
+            public ComponentLookup<CustomName> customNameLookup;
 
             [ReadOnly]
             public ComponentLookup<DeathcareFacility> deathcareFacilityLookup;
@@ -2543,6 +2582,7 @@ namespace Carto.Systems
                     entity = entity,
                     address = building.address,
                     brand = building.brand,
+                    hasCustomName = customNameLookup.HasComponent(entity),
                     inGamePosition = poiLocation,
                     isAddressVerified = true,
                     isPrivate = building.brand >= 0,

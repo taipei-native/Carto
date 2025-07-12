@@ -149,6 +149,12 @@ namespace Carto
         public static SharedDataCollectionSystem Shared => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SharedDataCollectionSystem>();
 
         /// <summary>
+        /// The wrapper of the assembly of Extended Transport Manager mod developed by klyte45.<br/>
+        /// （由 klyte45 開發的 Extended Transport Manager 模組組件的包裝器。）
+        /// </summary>
+        public static ExtendedTransportManager Xtm { get; set; } = new(); 
+
+        /// <summary>
         /// The wrapper of the assembly of Zone Color Changer mod developed by TDW.<br/>
         /// （由 TDW 開發的 Zone Color Changer 模組組件的包裝器。）
         /// </summary>

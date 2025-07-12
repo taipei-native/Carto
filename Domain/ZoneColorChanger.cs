@@ -72,8 +72,10 @@ namespace Carto.Domain
             {
                 if (mod.name.StartsWith(_assemblyName))
                 {
-                    _accessible = true;
                     _assembly = mod.asset.assembly;
+                    if (_assembly == null) return false;    // In case of the assembly is not yet initiated but presented.（預防組件雖出現但未初始化。）
+
+                    _accessible = true;
                     _version = _assembly.GetName().Version.ToString();
                     if (verbose) Instance.Log.Debug($"Successfully retrieve the assembly of Zone Color Changer [{_version}]. 成功獲取 Zone Color Changer [{_version}] 模組組件。");
                     return true;

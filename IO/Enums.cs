@@ -599,6 +599,11 @@ namespace Carto.IO
         Unlocked,
 
         /// <summary>
+        /// The usage rate of the route.（使用率，使用量與容量的比值。）
+        /// </summary>
+        Usage,
+
+        /// <summary>
         /// The land value of the property.（價值，建築的地價。）
         /// </summary>
         Value,
@@ -617,6 +622,11 @@ namespace Carto.IO
         /// The average wage of all labors in the area in ₡ per month (₡/month).（薪資，區域內所有勞工的平均薪資金額，單位為₡／月（₡/month）。）
         /// </summary>
         Wage,
+
+        /// <summary>
+        /// The total weight of the cargo transported on the route.（重量，透過路線運輸的貨物總重量。）
+        /// </summary>
+        Weight,
 
         /// <summary>
         /// The width of the networks in meters (m).（寬度，網路的寬度，單位為公尺（m）。）

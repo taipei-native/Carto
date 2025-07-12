@@ -3,10 +3,12 @@ using Colossal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities;
 using Unity.Jobs;
 
 namespace Carto.Utils
@@ -628,6 +630,36 @@ namespace Carto.Utils
             count = counter.Value;
             Dispose(ref counter);
             return count;
+        }
+
+        /// <summary>
+        /// Try to create <see cref="EntityManager.GetComponentData{T}(Entity)"/> for types which are unknown in compile time.<br/>
+        /// （嘗試為編譯時的未知型別創造 <see cref="EntityManager.GetComponentData{T}(Entity)"/> 方法。）
+        /// </summary>
+        /// <param name="componentType">The type that implements <see cref="IComponentData"/>.（實作 <see cref="IComponentData"/> 的型別。）</param>
+        /// <param name="getComponentDataFunction">The function that returns the component.（回傳組件的函式。）</param>
+        /// <returns>Whether the method creation was successful.（方法是否被成功創造。）</returns>
+        public static bool TryGetComponentDataMethod(Type componentType, out Func<EntityManager, Entity, object> getComponentDataFunction)
+        {
+            getComponentDataFunction = null;
+            if (!typeof(IComponentData).IsAssignableFrom(componentType)) return false;
+
+            MethodInfo getComponentDataGenericMethod = null;
+            foreach (MethodInfo method in typeof(EntityManager).GetMethods())
+            {
+                if (method.Name == nameof(EntityManager.GetComponentData) && method.IsGenericMethod && (method.GetParameters().Length == 1) && (method.GetParameters()[0].ParameterType == typeof(Entity)))
+                {
+                    getComponentDataGenericMethod = method;
+                    if (getComponentDataGenericMethod == null) return false;
+                    break;
+                }
+            }
+
+            MethodInfo getComponentDataMethod = getComponentDataGenericMethod.MakeGenericMethod(componentType);
+            if (getComponentDataMethod == null) return false;
+
+            getComponentDataFunction = (entityManager, entity) => getComponentDataMethod.Invoke(entityManager, new object[] { entity });
+            return true;
         }
 
         /// <summary>

@@ -1,3 +1,4 @@
+using System;
 using Unity.Entities;
 using UnityEngine;
 
@@ -19,6 +20,12 @@ namespace Carto.Domain
         /// （路線實體。）
         /// </summary>
         public Entity entity;
+
+        /// <summary>
+        /// The capacity of the route.
+        /// （路線的容量。）
+        /// </summary>
+        public int capacity;
 
         /// <summary>
         /// The color of the route.
@@ -93,6 +100,12 @@ namespace Carto.Domain
         public int vehicle;
 
         /// <summary>
+        /// The weight of the cargo transported on the route.
+        /// （透過運輸服務路線輸送的貨物重量。）
+        /// </summary>
+        public int weight;
+
+        /// <summary>
         /// The feature type of the route.
         /// （運輸服務路線的圖徵類別。）
         /// </summary>
@@ -107,9 +120,23 @@ namespace Carto.Domain
             }
         }
 
+        /// <summary>
+        /// The usage rate of the route.
+        /// （運輸服務路線的使用率。）
+        /// </summary>
+        public readonly float Usage
+        {
+            get
+            {
+                if (capacity == 0) return 0f;
+                if (isCargo) return (float)Math.Round((float)weight / capacity, 4);
+                return (float)Math.Round((float)passenger / capacity, 4);
+            }
+        }
+
         public override readonly string ToString()
         {
-            return $"Route({entity.Index}:{entity.Version}) - Color [{color}], Has Custom Name [{hasCustomName}], Is Cargo [{isCargo}], Is Passenger [{isPassenger}], Length [{length}], Model [{model.Index}:{model.Version}], Number [{number}], Passenger [{passenger}], Prefab [{prefab.Index}:{prefab.Version}], Stop [{stop}], Transport [{transport}], Vehicle [{vehicle}]";
+            return $"Route({entity.Index}:{entity.Version}) - Capacity [{capacity}], Color [{color}], Has Custom Name [{hasCustomName}], Is Cargo [{isCargo}], Is Passenger [{isPassenger}], Length [{length}], Model [{model.Index}:{model.Version}], Number [{number}], Passenger [{passenger}], Prefab [{prefab.Index}:{prefab.Version}], Stop [{stop}], Transport [{transport}], Vehicle [{vehicle}], Weight [{weight}]";
         }
     }
 }

@@ -97,6 +97,7 @@ namespace Carto
             PropertyColorZcc = true;
             PropertyPassengerPet = true;
             PropertyResidentSeparateBySex = false;
+            PropertyRouteXtm = true;
             PropertyThemeAssetPack = true;
             PropertyWageTaxable = false;
             PropertyZoningDisplayMode = IO.Display.All;
@@ -179,7 +180,7 @@ namespace Carto
                     value = 0,
                     displayName = "Options.Carto.Carto.Mod.FILEFORMAT[GeoJSON]"
                 },
-                // TODO: Uncommet when the GeoPackage the export function is implemented.
+                // TODO: Uncomment when the GeoPackage the export function is implemented.
                 /*new()
                 {
                     value = 1,
@@ -450,7 +451,7 @@ namespace Carto
                     value = SelectorValueZoning,
                     displayName = GetOptionLabelLocaleID(nameof(SystemZoning))
                 },
-                // TODO: Uncommet when the relevant export functions are implemented.
+                // TODO: Uncomment when the relevant export functions are implemented.
                 /*new()
                 {
                     value = SelectorValueDeposit,
@@ -763,6 +764,14 @@ namespace Carto
         public bool PropertyResidentSeparateBySex { get; set; } = false;
 
         /// <summary>
+        /// Whether to use Extended Transport Manager's route acronym, instead of vanilla's route number.
+        /// （是否使用 Extended Transport Manager 的路線縮寫，而非遊戲原版的路線編號。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsXtmEnabled), invert: true)]
+        public bool PropertyRouteXtm { get; set; } = true;
+
+        /// <summary>
         /// Whether to classify the asset packs as individual themes.
         /// （是否將資產包視為獨立的風格。）
         /// </summary>
@@ -830,6 +839,9 @@ namespace Carto
 
         [SettingsUIHidden]
         public bool IsUTM => SourceCRS == IO.CRS.UTM;
+
+        [SettingsUIHidden]
+        public bool IsXtmEnabled => Instance.Xtm.TryGet(false);
 
         [SettingsUIHidden]
         public bool IsZccEnabled => Instance.Zcc.TryGet(false);
@@ -1003,7 +1015,7 @@ namespace Carto
                     { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
                     { IO.System.Building, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Age, IO.Property.Asset, IO.Property.Brand, IO.Property.Category, IO.Property.Elevation, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Level, IO.Property.Product, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Theme, IO.Property.Wage, IO.Property.Zone, IO.Property.Zoning } },
                     { IO.System.POI, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Category} },
-                    { IO.System.Route, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Length, IO.Property.Model, IO.Property.Passenger, IO.Property.Route, IO.Property.Stop, IO.Property.Transport, IO.Property.Vehicle} },
+                    { IO.System.Route, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Length, IO.Property.Model, IO.Property.Passenger, IO.Property.Route, IO.Property.Stop, IO.Property.Transport, IO.Property.Usage, IO.Property.Vehicle, IO.Property.Weight} },
                     { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
                 },
                 RasterFormat = IO.FileFormat.GeoTIFF,
@@ -1022,6 +1034,7 @@ namespace Carto
                 Unzoned = GeometryUnzoned,
                 VectorFormat = vectorFileFormat,
                 VectorKinds = vectorKinds,
+                XtmAcronym = PropertyRouteXtm,
                 ZccColor = PropertyColorZcc
             };
         }

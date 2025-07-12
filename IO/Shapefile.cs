@@ -726,7 +726,16 @@ namespace Carto.IO
 
             WriteBoxBE(writer, bounds);                                     // Box.（定界框。）
             writer.Write(IOUtils.GetFlippedBytes(numParts));                // NumParts.（部件的數量。）
-            writer.Write(IOUtils.GetFlippedBytes(numPoints + numParts));    // NumPoints.（點的數量。）
+
+            // NumPoints.（點的數量。）
+            if ((shape == shapeTypePolyLine) || (shape == shapeTypePolyLineZ))
+            {
+                writer.Write(IOUtils.GetFlippedBytes(numPoints));
+            }
+            else
+            {
+                writer.Write(IOUtils.GetFlippedBytes(numPoints + numParts));
+            }
 
             WritePointArraysBE(writer, geometry, pointCounts, (shape == shapeTypePolygon) || (shape == shapeTypePolygonZ), out List<double> zArray);
 
@@ -798,7 +807,16 @@ namespace Carto.IO
             
             WriteBoxLE(writer, bounds);                                 // Box.（定界框。）
             writer.Write(BitConverter.GetBytes(numParts));              // NumParts.（部件的數量。）
-            writer.Write(BitConverter.GetBytes(numPoints + numParts));  // NumPoints.（點的數量。）
+
+            // NumPoints.（點的數量。）
+            if ((shape == shapeTypePolyLine) || (shape == shapeTypePolyLineZ))
+            {
+                writer.Write(BitConverter.GetBytes(numPoints));  
+            }
+            else
+            {
+                writer.Write(BitConverter.GetBytes(numPoints + numParts));
+            }
 
             WritePointArraysLE(writer, geometry, pointCounts, (shape == shapeTypePolygon) || (shape == shapeTypePolygonZ), out List<double> zArray);
 

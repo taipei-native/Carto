@@ -1,7 +1,6 @@
 using Carto.Domain;
 using Carto.Geodata;
 using Colossal.Logging;
-using Game.Modding;
 using System;
 using System.Collections.Generic;
 using Unity.Entities;
@@ -31,7 +30,7 @@ namespace Carto.IO
             { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zone, Property.Zoning } },
             { System.Network, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
-            { System.Route, new() { Property.Name, Property.Object, Property.Color, Property.Length, Property.Model, Property.Passenger, Property.Route, Property.Stop, Property.Transport, Property.Vehicle} },
+            { System.Route, new() { Property.Name, Property.Object, Property.Color, Property.Length, Property.Model, Property.Passenger, Property.Route, Property.Stop, Property.Transport, Property.Usage, Property.Vehicle, Property.Weight} },
             { System.Zoning, new() { Property.Name, Property.Object, Property.Color, Property.Density, Property.Theme, Property.Zoning} }
         };
 
@@ -327,10 +326,12 @@ namespace Carto.IO
             { Property.Theme, typeof(string) },
             { Property.Transport, typeof(string) },
             { Property.Unlocked, typeof(bool) },
+            { Property.Usage, typeof(float) },
             { Property.Value, typeof(float) },
             { Property.Vehicle, typeof(int) },
             { Property.Volume, typeof(float) },
             { Property.Wage, typeof(float) },
+            { Property.Weight, typeof(int) },
             { Property.Width, typeof(float) },
             { Property.Zone, typeof(string) },
             { Property.Zoning, typeof(string) }
@@ -352,6 +353,7 @@ namespace Carto.IO
             { Property.Load, 2 },
             { Property.Profit, 2 },
             { Property.SexRatio, 4 },
+            { Property.Usage, 4 },
             { Property.Value, 2 },
             { Property.Volume, 2 },
             { Property.Wage, 2 },
@@ -527,6 +529,13 @@ namespace Carto.IO
                             if (useNetwork)
                             {
 
+                            }
+                            if (useRoute)
+                            {
+                                if (routeHasCenterline)
+                                {
+                                    Shapefile.Write<Entity>(options, System.Route, VectorKind.Centerline, Instance.Route.WriteCenterlineSHP, Instance.Route.WriteCenterlineDBF, OnReport);
+                                }
                             }
                             break;
                     }

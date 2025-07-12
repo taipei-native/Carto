@@ -200,6 +200,12 @@ namespace Carto.IO
         public Dictionary<System, VectorKind> VectorKinds { get; set; }
 
         /// <summary>
+        /// Whether to use the route acronyms from the Extended Transport Manager mod.
+        /// （是否要使用 Extended Transport Manager 模組的路線縮寫？）
+        /// </summary>
+        public bool XtmAcronym { get; set; } = true;
+
+        /// <summary>
         /// Whether to use the zone color from the Zone Color Changer mod.
         /// （是否要使用 Zone Color Changer 模組的分區顏色？）
         /// </summary>
