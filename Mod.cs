@@ -43,6 +43,10 @@ namespace Carto
             updateSystem.UpdateBefore<SharedDataCollectionSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<ZoningSystem>(SystemUpdatePhase.GameSimulation);
 
+            // Create neccessary folders.
+            //（創造必要的資料夾。）
+            IOUtils.CreateUserDataDirectories();
+
             _log.Info("Mod instance loaded. 模組實例載入完成。");
         }
 

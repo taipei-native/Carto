@@ -14,12 +14,7 @@ namespace Carto.Domain
     /// </summary>
     public class ZoneColorChanger : IAssembly
     {
-        /// <summary>
-        /// The name of the assembly.
-        /// （組件的名稱。）
-        /// </summary>
         private const string _assemblyName = "ZoneColorChanger";
-
         private const string _groupThemesPropertyName = "GroupThemes";
         private const string _hslColorTypeName = "ZoneColorChanger.Domain.HslColor";
         private const string _implicitOperator = "op_Implicit";
@@ -51,7 +46,9 @@ namespace Carto.Domain
 
         public bool Accessible => _accessible;
 
-        public string VerifiedVersion => "1.2.2.0";
+        public string Name => _assemblyName;
+
+        public string VerifiedVersion => "1.2.3.0";
 
         public string Version => _version;
 

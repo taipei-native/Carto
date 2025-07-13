@@ -1,6 +1,5 @@
 using Carto.Geodata;
 using Carto.Utils;
-using Colossal.PSI.Environment;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -35,7 +34,7 @@ namespace Carto.IO
         /// The path to the target directory.
         /// （目標目錄的路徑。）
         /// </summary>
-        public string Directory { get; set; } = IOUtils.CombinePath(EnvPath.kUserDataPath, "ModsData", nameof(Carto));
+        public string Directory { get; set; } = Instance.CartoDataPath;
 
         /// <summary>
         /// Whether to export all applicable categories for the specific property or not.<br/>
@@ -60,6 +59,8 @@ namespace Carto.IO
         /// （目標檔案的名稱。）
         /// </summary>
         public string FileName { get; set; } = "output";
+
+        public NamingFormat FileNameFormat { get; set; } = NamingFormat.Feature;
 
         public GeoTiffFormat GeoTiffFormat { get; set; } = GeoTiffFormat.Int16;
 
@@ -354,8 +355,8 @@ namespace Carto.IO
         private string GetFileBaseName(string text)
         {
             DateTime gameTime = Instance.Time.GetCurrentDateTime();
-            string cityName = (Instance.GameMode == Game.GameMode.Game) ? IOUtils.RemoveInvalidChars(Instance.City.cityName) : "Unknown City"; // TODO : Replace string into LocaleUtils.Translate() strings
-            string mapName = (Instance.GameMode == Game.GameMode.Game) ? IOUtils.RemoveInvalidChars(Instance.Map.mapName) : "Unknwon Map"; // TODO : Replace string into LocaleUtils.Translate() strings
+            string cityName = (Instance.GameMode == Game.GameMode.Game) ? IOUtils.RemoveInvalidChars(Instance.City.cityName) : LocaleUtils.Translate("Carto.Address.NULL[City]");
+            string mapName = (Instance.GameMode == Game.GameMode.Game) ? IOUtils.RemoveInvalidChars(Instance.Map.mapName) : LocaleUtils.Translate("Carto.Address.NULL[Map]");
             string name = CommonUtils.ReplaceTokens(text, @"\{(\w+)\}", new()
             {
                 { "City", cityName },

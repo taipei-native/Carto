@@ -2,9 +2,11 @@
 using Game;
 using Game.Modding;
 using Game.Settings;
+using Game.UI;
 using Game.UI.Widgets;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Carto
 {
@@ -12,7 +14,8 @@ namespace Carto
     /// The class that manages the mod's options.
     /// （管理模組設定的類別。）
     /// </summary>
-    [SettingsUIGroupOrder(FeatureVectorGroup, FeatureRasterGroup,
+    [SettingsUIGroupOrder(GeneralGeneralGroup, GeneralDangerGroup,
+                          FeatureVectorGroup, FeatureRasterGroup,
                           PropertiesSelectorGroup, PropertiesGeometryGroup, PropertiesPropertyGroup,
                           ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup,
                           MiscellaneousFileGroup, MiscellaneousGeometryGroup, MiscellaneousPropertyGroup)]
@@ -32,6 +35,8 @@ namespace Carto
         /// </summary>
         public override void SetDefaults()
         {
+            CustomNamingFormat = "{City}_{Now}_{Feature}";
+            ExportNamingFormat = IO.NamingFormat.Feature;
             ExportVectorFormat = 2;
             ExportGeoTiffFormat = IO.GeoTiffFormat.Int16;
             SystemArea = true;
@@ -70,6 +75,73 @@ namespace Carto
             GeometryElevationTerrain = true;
             GeometryWorldDepthWater = false;
             GeometryWorldElevationTerrain = false;
+            PropertyNameArea = true;
+            PropertyNameBuilding = true;
+            PropertyNameNetwork = true;
+            PropertyNamePOI = true;
+            PropertyNameRoute = true;
+            PropertyNameZoning = true;
+            PropertyAddressBuilding = true;
+            PropertyAddressPOI = true;
+            PropertyAgeArea = false;
+            PropertyAgeBuilding = false;
+            PropertyAreaArea = false;
+            PropertyAssetBuilding = true;
+            PropertyAssetNetwork = true;
+            PropertyBrandBuilding = false;
+            PropertyCategoryBuilding = true;
+            PropertyCategoryNetwork = true;
+            PropertyCategoryPOI = true;
+            PropertyColorRoute = true;
+            PropertyColorZoning = true;
+            PropertyCompanyArea = false;
+            PropertyDensityZoning = false;
+            PropertyDirectionNetwork = true;
+            PropertyElevationBuilding = false;
+            PropertyElevationNetwork = true;
+            PropertyEmployeeArea = true;
+            PropertyEmployeeBuilding = true;
+            PropertyFormNetwork = true;
+            PropertyHouseholdArea = false;
+            PropertyHouseholdBuilding = false;
+            PropertyLaborArea = false;
+            PropertyLaborBuilding = false;
+            PropertyLaneNetwork = true;
+            PropertyLengthNetwork = false;
+            PropertyLengthRoute = true;
+            PropertyLevelBuilding = false;
+            PropertyLimitNetwork = true;
+            PropertyModelRoute = false;
+            PropertyObjectArea = true;
+            PropertyObjectBuilding = true;
+            PropertyObjectNetwork = true;
+            PropertyObjectPOI = true;
+            PropertyObjectRoute = true;
+            PropertyObjectZoning = true;
+            PropertyPassengerRoute = true;
+            PropertyProductBuilding = false;
+            PropertyProfitArea = false;
+            PropertyProfitBuilding = false;
+            PropertyResidentArea = true;
+            PropertyResidentBuilding = true;
+            PropertyRouteRoute = false;
+            PropertySexRatioArea = false;
+            PropertySexRatioBuilding = false;
+            PropertyStopRoute = true;
+            PropertyThemeBuilding = false;
+            PropertyThemeZoning = false;
+            PropertyTransportRoute = true;
+            PropertyUnlockedArea = true;
+            PropertyUsageRoute = true;
+            PropertyVehicleRoute = true;
+            PropertyVolumeNetwork = false;
+            PropertyWageArea = false;
+            PropertyWageBuilding = false;
+            PropertyWeightRoute = true;
+            PropertyWidthNetwork = false;
+            PropertyZoneBuilding = false;
+            PropertyZoningBuilding = true;
+            PropertyZoningZoning = true;
             SourceCRS = IO.CRS.WGS84;
             SourceXCoord = "0";
             SourceYCoord = "0";
@@ -106,6 +178,9 @@ namespace Carto
         // The tab and group names.（分頁與群組名稱。）
         public const string GeneralTab = "GeneralTab";
         public const string GeneralGeneralGroup = "GeneralGeneralGroup";
+        public const string GeneralGeneralGroupButtons = "GeneralGeneralGroupButtons";
+        public const string GeneralDangerGroup = "GeneralDangerGroup";
+        public const string GeneralDangerGroupButtons = "GeneralDangerGroupButtons";
         public const string FeatureTab = "FeatureTab";
         public const string FeatureVectorGroup = "FeatureVectorGroup";
         public const string FeatureRasterGroup = "FeatureRasterGroup";
@@ -162,6 +237,68 @@ namespace Carto
         public const string GeometryWoodDeposit = "Carto.Carto.Mod.Settings.GeometryWoodDeposit";
         public const string GeometryWorldDepth = "Carto.Carto.Mod.Settings.GeometryWorldDepth";
         public const string GeometryWorldElevation = "Carto.Carto.Mod.Settings.GeometryWorldElevation";
+        public const string PropertyAddress = "Carto.Carto.Mod.Settings.PropertyAddress";
+        public const string PropertyAge = "Carto.Carto.Mod.Settings.PropertyAge";
+        public const string PropertyArea = "Carto.Carto.Mod.Settings.PropertyArea";
+        public const string PropertyAsset = "Carto.Carto.Mod.Settings.PropertyAsset";
+        public const string PropertyBrand = "Carto.Carto.Mod.Settings.PropertyBrand";
+        public const string PropertyCapacity = "Carto.Carto.Mod.Settings.PropertyCapacity";
+        public const string PropertyCategory = "Carto.Carto.Mod.Settings.PropertyCategory";
+        public const string PropertyColor = "Carto.Carto.Mod.Settings.PropertyColor";
+        public const string PropertyCompany = "Carto.Carto.Mod.Settings.PropertyCompany";
+        public const string PropertyDensity = "Carto.Carto.Mod.Settings.PropertyDensity";
+        public const string PropertyDirection = "Carto.Carto.Mod.Settings.PropertyDirection";
+        public const string PropertyDischarge = "Carto.Carto.Mod.Settings.PropertyDischarge";
+        public const string PropertyElevation = "Carto.Carto.Mod.Settings.PropertyElevation";
+        public const string PropertyEmployee = "Carto.Carto.Mod.Settings.PropertyEmployee";
+        public const string PropertyForm = "Carto.Carto.Mod.Settings.PropertyForm";
+        public const string PropertyHeight = "Carto.Carto.Mod.Settings.PropertyHeight";
+        public const string PropertyHousehold = "Carto.Carto.Mod.Settings.PropertyHousehold";
+        public const string PropertyLabor = "Carto.Carto.Mod.Settings.PropertyLabor";
+        public const string PropertyLane = "Carto.Carto.Mod.Settings.PropertyLane";
+        public const string PropertyLength = "Carto.Carto.Mod.Settings.PropertyLength";
+        public const string PropertyLevel = "Carto.Carto.Mod.Settings.PropertyLevel";
+        public const string PropertyLimit = "Carto.Carto.Mod.Settings.PropertyLimit";
+        public const string PropertyLoad = "Carto.Carto.Mod.Settings.PropertyLoad";
+        public const string PropertyModel = "Carto.Carto.Mod.Settings.PropertyModel";
+        public const string PropertyName = "Carto.Carto.Mod.Settings.PropertyName";
+        public const string PropertyObject = "Carto.Carto.Mod.Settings.PropertyObject";
+        public const string PropertyPassenger = "Carto.Carto.Mod.Settings.PropertyPassenger";
+        public const string PropertyProduct = "Carto.Carto.Mod.Settings.PropertyProduct";
+        public const string PropertyProfit = "Carto.Carto.Mod.Settings.PropertyProfit";
+        public const string PropertyResident = "Carto.Carto.Mod.Settings.PropertyResident";
+        public const string PropertyRoute = "Carto.Carto.Mod.Settings.PropertyRoute";
+        public const string PropertySexRatio = "Carto.Carto.Mod.Settings.PropertySexRatio";
+        public const string PropertyStop = "Carto.Carto.Mod.Settings.PropertyStop";
+        public const string PropertyStory = "Carto.Carto.Mod.Settings.PropertyStory";
+        public const string PropertyTheme = "Carto.Carto.Mod.Settings.PropertyTheme";
+        public const string PropertyTransport = "Carto.Carto.Mod.Settings.PropertyTransport";
+        public const string PropertyUnlocked = "Carto.Carto.Mod.Settings.PropertyUnlocked";
+        public const string PropertyUsage = "Carto.Carto.Mod.Settings.PropertyUsage";
+        public const string PropertyValue = "Carto.Carto.Mod.Settings.PropertyValue";
+        public const string PropertyVehicle = "Carto.Carto.Mod.Settings.PropertyVehicle";
+        public const string PropertyVolume = "Carto.Carto.Mod.Settings.PropertyVolume";
+        public const string PropertyWage = "Carto.Carto.Mod.Settings.PropertyWage";
+        public const string PropertyWeight = "Carto.Carto.Mod.Settings.PropertyWeight";
+        public const string PropertyWidth = "Carto.Carto.Mod.Settings.PropertyWidth";
+        public const string PropertyZone = "Carto.Carto.Mod.Settings.PropertyZone";
+        public const string PropertyZoning = "Carto.Carto.Mod.Settings.PropertyZoning";
+
+        /// <summary>
+        /// The file naming format.
+        /// （檔案命名格式。）
+        /// </summary>
+        [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
+        public IO.NamingFormat ExportNamingFormat { get; set; } = IO.NamingFormat.Feature;
+
+        /// <summary>
+        /// The custom file naming format.
+        /// （自訂檔案命名格式。）
+        /// </summary>
+        [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
+        [SettingsUITextInput]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsCustomNamingFormat), invert: true)]
+        public string CustomNamingFormat { get; set; } = "{City}_{Now}_{Feature}";
 
         /// <summary>
         /// The file format of the vector files.
@@ -201,12 +338,73 @@ namespace Carto
         [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
         public IO.GeoTiffFormat ExportGeoTiffFormat { get; set; } = IO.GeoTiffFormat.Int16;
 
+        /// <summary>
+        /// The button to reveal the export file directory.
+        /// （開啟輸出檔案目錄的按鈕。）
+        /// </summary>
         [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
         [SettingsUIButton]
+        [SettingsUIButtonGroup(GeneralGeneralGroupButtons)]
+        public bool OpenButton
+        {
+            set { Utils.IOUtils.RevealInFileExplorer(Instance.CartoDataPath); }
+        }
+
+        /// <summary>
+        /// The button to export files.
+        /// （輸出檔案的按鈕。）
+        /// </summary>
+        [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
+        [SettingsUIButton]
+        [SettingsUIButtonGroup(GeneralGeneralGroupButtons)]
         [SettingsUIDisableByCondition(typeof(Settings), nameof(IsInGameOrEditor), invert: true)]
         public bool ExportButton
         {
             set { IO.IO.Export(); }
+        }
+
+        /// <summary>
+        /// The current running Carto version.
+        /// （目前執行中的Carto版本。）
+        /// </summary>
+        [SettingsUISection(GeneralTab, GeneralDangerGroup)]
+        public string ModVersion => Instance.Version;
+
+        /// <summary>
+        /// The button to open user manual.
+        /// （開啟使用手冊的按鈕。）
+        /// </summary>
+        [SettingsUIButton]
+        [SettingsUISection(GeneralTab, GeneralDangerGroup)]
+        [SettingsUIButtonGroup(GeneralDangerGroupButtons)]
+        public bool ManualButton
+        {
+            set
+            {
+                try
+                {
+                    Application.OpenURL("https://github.com/taipei-native/Carto/wiki");
+                }
+                catch
+                {
+                    MessageDialog urlErrorDialog = new("Common.WARNING", "Carto.Common.ERROR[Manual]", "Common.OK");
+                    Instance.UI.appBindings.ShowMessageDialog(urlErrorDialog, null);
+                    Instance.Log.Debug($"Settings.ManualButton: Cannot open user manual. 無法開啟使用手冊。");
+                }
+            }
+        }
+
+        /// <summary>
+        /// The button to reset settings.
+        /// （用以重置設定的按鈕。）
+        /// </summary>
+        [SettingsUISection(GeneralTab, GeneralDangerGroup)]
+        [SettingsUIButton]
+        [SettingsUIButtonGroup(GeneralDangerGroupButtons)]
+        [SettingsUIConfirmation]
+        public bool ResetButton
+        {
+            set { SetDefaults(); }
         }
 
         /// <summary>
@@ -551,6 +749,408 @@ namespace Carto
         [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectTerrain), invert: true)]
         public bool GeometryWorldElevationTerrain { get; set; } = false;
 
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyName)]
+        [SettingsUIDescription(overrideId: PropertyName)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyNameArea { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyName)]
+        [SettingsUIDescription(overrideId: PropertyName)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyNameBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyName)]
+        [SettingsUIDescription(overrideId: PropertyName)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyNameNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyName)]
+        [SettingsUIDescription(overrideId: PropertyName)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectPOI), invert: true)]
+        public bool PropertyNamePOI { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyName)]
+        [SettingsUIDescription(overrideId: PropertyName)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyNameRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyName)]
+        [SettingsUIDescription(overrideId: PropertyName)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectZoning), invert: true)]
+        public bool PropertyNameZoning { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyAddress)]
+        [SettingsUIDescription(overrideId: PropertyAddress)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyAddressBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyAddress)]
+        [SettingsUIDescription(overrideId: PropertyAddress)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectPOI), invert: true)]
+        public bool PropertyAddressPOI { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyAge)]
+        [SettingsUIDescription(overrideId: PropertyAge)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyAgeArea { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyAge)]
+        [SettingsUIDescription(overrideId: PropertyAge)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyAgeBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyArea)]
+        [SettingsUIDescription(overrideId: PropertyArea)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyAreaArea { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyAsset)]
+        [SettingsUIDescription(overrideId: PropertyAsset)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyAssetBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyAsset)]
+        [SettingsUIDescription(overrideId: PropertyAsset)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyAssetNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyBrand)]
+        [SettingsUIDescription(overrideId: PropertyBrand)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyBrandBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyCategory)]
+        [SettingsUIDescription(overrideId: PropertyCategory)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyCategoryBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyCategory)]
+        [SettingsUIDescription(overrideId: PropertyCategory)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyCategoryNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyCategory)]
+        [SettingsUIDescription(overrideId: PropertyCategory)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectPOI), invert: true)]
+        public bool PropertyCategoryPOI { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyColor)]
+        [SettingsUIDescription(overrideId: PropertyColor)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyColorRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyColor)]
+        [SettingsUIDescription(overrideId: PropertyColor)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectZoning), invert: true)]
+        public bool PropertyColorZoning { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyCompany)]
+        [SettingsUIDescription(overrideId: PropertyCompany)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyCompanyArea { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyDensity)]
+        [SettingsUIDescription(overrideId: PropertyDensity)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectZoning), invert: true)]
+        public bool PropertyDensityZoning { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyDirection)]
+        [SettingsUIDescription(overrideId: PropertyDirection)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyDirectionNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyElevation)]
+        [SettingsUIDescription(overrideId: PropertyElevation)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyElevationBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyElevation)]
+        [SettingsUIDescription(overrideId: PropertyElevation)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyElevationNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyEmployee)]
+        [SettingsUIDescription(overrideId: PropertyEmployee)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyEmployeeArea { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyEmployee)]
+        [SettingsUIDescription(overrideId: PropertyEmployee)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyEmployeeBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyForm)]
+        [SettingsUIDescription(overrideId: PropertyForm)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyFormNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyHousehold)]
+        [SettingsUIDescription(overrideId: PropertyHousehold)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyHouseholdArea { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyHousehold)]
+        [SettingsUIDescription(overrideId: PropertyHousehold)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyHouseholdBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyLabor)]
+        [SettingsUIDescription(overrideId: PropertyLabor)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyLaborArea { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyLabor)]
+        [SettingsUIDescription(overrideId: PropertyLabor)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyLaborBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyLane)]
+        [SettingsUIDescription(overrideId: PropertyLane)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyLaneNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyLength)]
+        [SettingsUIDescription(overrideId: PropertyLength)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyLengthNetwork { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyLength)]
+        [SettingsUIDescription(overrideId: PropertyLength)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyLengthRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyLevel)]
+        [SettingsUIDescription(overrideId: PropertyLevel)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyLevelBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyLimit)]
+        [SettingsUIDescription(overrideId: PropertyLimit)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyLimitNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyModel)]
+        [SettingsUIDescription(overrideId: PropertyModel)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyModelRoute { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyObject)]
+        [SettingsUIDescription(overrideId: PropertyObject)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyObjectArea { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyObject)]
+        [SettingsUIDescription(overrideId: PropertyObject)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyObjectBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyObject)]
+        [SettingsUIDescription(overrideId: PropertyObject)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyObjectNetwork { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyObject)]
+        [SettingsUIDescription(overrideId: PropertyObject)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectPOI), invert: true)]
+        public bool PropertyObjectPOI { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyObject)]
+        [SettingsUIDescription(overrideId: PropertyObject)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyObjectRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyObject)]
+        [SettingsUIDescription(overrideId: PropertyObject)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectZoning), invert: true)]
+        public bool PropertyObjectZoning { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyPassenger)]
+        [SettingsUIDescription(overrideId: PropertyPassenger)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyPassengerRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyProduct)]
+        [SettingsUIDescription(overrideId: PropertyProduct)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyProductBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyProfit)]
+        [SettingsUIDescription(overrideId: PropertyProfit)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyProfitArea { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyProfit)]
+        [SettingsUIDescription(overrideId: PropertyProfit)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyProfitBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyResident)]
+        [SettingsUIDescription(overrideId: PropertyResident)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyResidentArea { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyResident)]
+        [SettingsUIDescription(overrideId: PropertyResident)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyResidentBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyRoute)]
+        [SettingsUIDescription(overrideId: PropertyRoute)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyRouteRoute { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertySexRatio)]
+        [SettingsUIDescription(overrideId: PropertySexRatio)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertySexRatioArea { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertySexRatio)]
+        [SettingsUIDescription(overrideId: PropertySexRatio)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertySexRatioBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyStop)]
+        [SettingsUIDescription(overrideId: PropertyStop)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyStopRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyTheme)]
+        [SettingsUIDescription(overrideId: PropertyTheme)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyThemeBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyTheme)]
+        [SettingsUIDescription(overrideId: PropertyTheme)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectZoning), invert: true)]
+        public bool PropertyThemeZoning { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyTransport)]
+        [SettingsUIDescription(overrideId: PropertyTransport)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyTransportRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyUnlocked)]
+        [SettingsUIDescription(overrideId: PropertyUnlocked)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyUnlockedArea { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyUsage)]
+        [SettingsUIDescription(overrideId: PropertyUsage)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyUsageRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyVehicle)]
+        [SettingsUIDescription(overrideId: PropertyVehicle)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyVehicleRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyVolume)]
+        [SettingsUIDescription(overrideId: PropertyVolume)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyVolumeNetwork { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyWage)]
+        [SettingsUIDescription(overrideId: PropertyWage)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectArea), invert: true)]
+        public bool PropertyWageArea { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyWage)]
+        [SettingsUIDescription(overrideId: PropertyWage)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyWageBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyWeight)]
+        [SettingsUIDescription(overrideId: PropertyWeight)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectRoute), invert: true)]
+        public bool PropertyWeightRoute { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyWidth)]
+        [SettingsUIDescription(overrideId: PropertyWidth)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectNetwork), invert: true)]
+        public bool PropertyWidthNetwork { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyZone)]
+        [SettingsUIDescription(overrideId: PropertyZone)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyZoneBuilding { get; set; } = false;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyZoning)]
+        [SettingsUIDescription(overrideId: PropertyZoning)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectBuilding), invert: true)]
+        public bool PropertyZoningBuilding { get; set; } = true;
+
+        [SettingsUISection(PropertiesTab, PropertiesPropertyGroup)]
+        [SettingsUIDisplayName(overrideId: PropertyZoning)]
+        [SettingsUIDescription(overrideId: PropertyZoning)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(DoesUserSelectZoning), invert: true)]
+        public bool PropertyZoningZoning { get; set; } = true;
+
         /// <summary>
         /// The source coordinate reference system.
         /// （來源的坐標參考系統。）
@@ -832,6 +1432,9 @@ namespace Carto
         public bool IsCustomEllipsoid => IsTransverseMercator && (SourceEllipsoid == IO.Ellipsoid.Custom);
 
         [SettingsUIHidden]
+        public bool IsCustomNamingFormat => ExportNamingFormat == IO.NamingFormat.Custom;
+
+        [SettingsUIHidden]
         public bool IsInGameOrEditor => GameMode.GameOrEditor.HasFlag(Instance.GameMode);
 
         [SettingsUIHidden]
@@ -869,7 +1472,28 @@ namespace Carto
                 { GetOptionLabelLocaleID(nameof(SourceXCoord)), Utils.IOUtils.TryGetNumber(SourceXCoord, out double sourceX) },
                 { GetOptionLabelLocaleID(nameof(SourceYCoord)), Utils.IOUtils.TryGetNumber(SourceYCoord, out double sourceY) }
             };
+            Dictionary<IO.System, HashSet<IO.Property>> properties = new();
             Dictionary<IO.System, IO.VectorKind> vectorKinds = new();
+
+            string fileBaseFormat = "{Feature}";
+
+            switch (ExportNamingFormat)
+            {
+                case IO.NamingFormat.Custom:
+                    if (!string.IsNullOrEmpty(CustomNamingFormat) && !string.IsNullOrWhiteSpace(CustomNamingFormat)) fileBaseFormat = CustomNamingFormat;
+                    break;
+
+                case IO.NamingFormat.Feature:
+                    break;
+
+                case IO.NamingFormat.CityNameFeature:
+                    fileBaseFormat = "{City}_{Feature}";
+                    break;
+
+                case IO.NamingFormat.MapNameFeature:
+                    fileBaseFormat = "{Map}_{Feature}";
+                    break;
+            }
 
             switch (ExportVectorFormat)
             {
@@ -889,53 +1513,119 @@ namespace Carto
             if (SystemArea)
             {
                 system |= IO.System.Area;
+                if (FeatureDistrict) feature |= IO.Feature.District;
+                if (FeatureMapTile) feature |= IO.Feature.MapTile;
                 if (GeometryBoundaryArea) TryAddVectorKindEntry(vectorKinds, IO.System.Area, IO.VectorKind.Boundary);
+                if (PropertyNameArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Name);
+                if (PropertyAgeArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Age);
+                if (PropertyAreaArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Area);
+                if (PropertyCompanyArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Company);
+                if (PropertyEmployeeArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Employee);
+                if (PropertyHouseholdArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Household);
+                if (PropertyLaborArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Labor);
+                if (PropertyObjectArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Object);
+                if (PropertyProfitArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Profit);
+                if (PropertyResidentArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Resident);
+                if (PropertySexRatioArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.SexRatio);
+                if (PropertyUnlockedArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Unlocked);
+                if (PropertyWageArea) TryAddPropertyEntry(properties, IO.System.Area, IO.Property.Wage);
             }
             if (SystemBuilding)
             {
                 system |= IO.System.Building;
+                if (FeatureBuilding) feature |= IO.Feature.Building;
+                if (FeatureExtractor) feature |= IO.Feature.Extractor;
+                if (FeatureLandfill) feature |= IO.Feature.Landfill;
                 if (GeometryBoundaryBuilding) TryAddVectorKindEntry(vectorKinds, IO.System.Building, IO.VectorKind.Boundary);
+                if (PropertyNameBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Name);
+                if (PropertyAddressBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Address);
+                if (PropertyAgeBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Age);
+                if (PropertyAssetBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Asset);
+                if (PropertyBrandBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Brand);
+                if (PropertyCategoryBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Category);
+                if (PropertyElevationBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Elevation);
+                if (PropertyEmployeeBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Employee);
+                if (PropertyHouseholdBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Household);
+                if (PropertyLaborBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Labor);
+                if (PropertyLevelBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Level);
+                if (PropertyObjectBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Object);
+                if (PropertyProductBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Product);
+                if (PropertyProfitBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Profit);
+                if (PropertyResidentBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Resident);
+                if (PropertySexRatioBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.SexRatio);
+                if (PropertyThemeBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Theme);
+                if (PropertyWageBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Wage);
+                if (PropertyZoneBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Zone);
+                if (PropertyZoningBuilding) TryAddPropertyEntry(properties, IO.System.Building, IO.Property.Zoning);
             }
             if (SystemNetwork)
             {
                 system |= IO.System.Network;
+                if (FeaturePathway) feature |= IO.Feature.Pathway;
+                if (FeatureRoad) feature |= IO.Feature.Road;
+                if (FeatureRunwayAndTaxiway) feature |= IO.Feature.Runway | IO.Feature.Taxiway;
+                if (FeatureTrack) feature |= IO.Feature.Track;
+                if (FeatureWaterway) feature |= IO.Feature.Waterway;
                 if (GeometryBoundaryNetwork) TryAddVectorKindEntry(vectorKinds, IO.System.Network, IO.VectorKind.Boundary);
                 if (GeometryCenterlineNetwork) TryAddVectorKindEntry(vectorKinds, IO.System.Network, IO.VectorKind.Centerline);
+                if (PropertyNameNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Name);
+                if (PropertyAssetNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Asset);
+                if (PropertyCategoryNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Category);
+                if (PropertyDirectionNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Direction);
+                if (PropertyElevationNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Elevation);
+                if (PropertyFormNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Form);
+                if (PropertyLaneNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Lane);
+                if (PropertyLengthNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Length);
+                if (PropertyLimitNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Limit);
+                if (PropertyObjectNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Object);
+                if (PropertyVolumeNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Volume);
+                if (PropertyWidthNetwork) TryAddPropertyEntry(properties, IO.System.Network, IO.Property.Width);
             }
             if (SystemPOI)
             {
                 system |= IO.System.POI;
+                if (FeaturePOIPrivate) feature |= IO.Feature.POIPrivate;
+                if (FeaturePOIPublic) feature |= IO.Feature.POIPublic;
+                if (FeaturePOITransport) feature |= IO.Feature.POITransport;
+                if (FeaturePOIUtility) feature |= IO.Feature.POIUtility;
                 if (GeometryLocationPOI) TryAddVectorKindEntry(vectorKinds, IO.System.POI, IO.VectorKind.Location);
+                if (PropertyNamePOI) TryAddPropertyEntry(properties, IO.System.POI, IO.Property.Name);
+                if (PropertyAddressPOI) TryAddPropertyEntry(properties, IO.System.POI, IO.Property.Address);
+                if (PropertyCategoryPOI) TryAddPropertyEntry(properties, IO.System.POI, IO.Property.Category);
+                if (PropertyObjectPOI) TryAddPropertyEntry(properties, IO.System.POI, IO.Property.Object);
             }
             if (SystemRoute)
             {
                 system |= IO.System.Route;
+                if (FeatureRouteCargo) feature |= IO.Feature.RouteCargo;
+                if (FeatureRoutePassenger) feature |= IO.Feature.RoutePassenger;
                 if (GeometryCenterlineRoute) TryAddVectorKindEntry(vectorKinds, IO.System.Route, IO.VectorKind.Centerline);
+                if (PropertyNameRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Name);
+                if (PropertyColorRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Color);
+                if (PropertyLengthRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Length);
+                if (PropertyModelRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Model);
+                if (PropertyObjectRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Object);
+                if (PropertyPassengerRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Passenger);
+                if (PropertyRouteRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Route);
+                if (PropertyStopRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Stop);
+                if (PropertyTransportRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Transport);
+                if (PropertyUsageRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Usage);
+                if (PropertyVehicleRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Vehicle);
+                if (PropertyWeightRoute) TryAddPropertyEntry(properties, IO.System.Route, IO.Property.Weight);
             }
             if (SystemZoning)
             {
                 system |= IO.System.Zoning;
+                feature |= IO.Feature.Zoning;
                 if (GeometryBoundaryZoning) TryAddVectorKindEntry(vectorKinds, IO.System.Zoning, IO.VectorKind.Boundary);
+                if (PropertyNameZoning) TryAddPropertyEntry(properties, IO.System.Zoning, IO.Property.Name);
+                if (PropertyColorZoning) TryAddPropertyEntry(properties, IO.System.Zoning, IO.Property.Color);
+                if (PropertyDensityZoning) TryAddPropertyEntry(properties, IO.System.Zoning, IO.Property.Density);
+                if (PropertyObjectZoning) TryAddPropertyEntry(properties, IO.System.Zoning, IO.Property.Object);
+                if (PropertyThemeZoning) TryAddPropertyEntry(properties, IO.System.Zoning, IO.Property.Theme);
+                if (PropertyZoningZoning) TryAddPropertyEntry(properties, IO.System.Zoning, IO.Property.Zoning);
             }
             if (FeatureTerrain || FeatureWater) system |= IO.System.Raster;
-
-            if (FeatureBuilding) feature |= IO.Feature.Building;
-            if (FeatureDistrict) feature |= IO.Feature.District;
-            if (FeatureExtractor) feature |= IO.Feature.Extractor;
-            if (FeatureLandfill) feature |= IO.Feature.Landfill;
-            if (FeatureMapTile) feature |= IO.Feature.MapTile;
-            if (FeaturePathway) feature |= IO.Feature.Pathway;
-            if (FeaturePOIPrivate) feature |= IO.Feature.POIPrivate;
-            if (FeaturePOIPublic) feature |= IO.Feature.POIPublic;
-            if (FeaturePOITransport) feature |= IO.Feature.POITransport;
-            if (FeaturePOIUtility) feature |= IO.Feature.POIUtility;
-            if (FeatureRoad) feature |= IO.Feature.Road;
-            if (FeatureRouteCargo) feature |= IO.Feature.RouteCargo;
-            if (FeatureRoutePassenger) feature |= IO.Feature.RoutePassenger;
-            if (FeatureRunwayAndTaxiway) feature |= (IO.Feature.Runway & IO.Feature.Taxiway);
-            if (FeatureTrack) feature |= IO.Feature.Track;
-            if (FeatureWaterway) feature |= IO.Feature.Waterway;
-            if (SystemZoning) feature |= IO.Feature.Zoning;
 
             if (GeometryDepthWater) rasterKinds |= IO.RasterKind.Depth;
             if (GeometryElevationTerrain) rasterKinds |= IO.RasterKind.Elevation;
@@ -1004,20 +1694,14 @@ namespace Carto
                 },
                 Elevation = OutputElevation,
                 Features = feature,
-                FileName = "OPZ_{Feature}",
+                FileName = fileBaseFormat,
+                FileNameFormat = ExportNamingFormat,
                 GeoTiffFormat = ExportGeoTiffFormat,
                 Homeless = PropertyGeneralHomeless,
                 InactiveRoute = GeometryInactiveRoute,
                 Minimized = OutputMinimizedGeoJSON,
                 PetPassenger = PropertyPassengerPet,
-                Properties = new Dictionary<IO.System, HashSet<IO.Property>>
-                {
-                    { IO.System.Area, new() { IO.Property.Name, IO.Property.Object, IO.Property.Age, IO.Property.Area, IO.Property.Company, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Unlocked, IO.Property.Wage} },
-                    { IO.System.Building, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Age, IO.Property.Asset, IO.Property.Brand, IO.Property.Category, IO.Property.Elevation, IO.Property.Employee, IO.Property.Household, IO.Property.Labor, IO.Property.Level, IO.Property.Product, IO.Property.Profit, IO.Property.Resident, IO.Property.SexRatio, IO.Property.Theme, IO.Property.Wage, IO.Property.Zone, IO.Property.Zoning } },
-                    { IO.System.POI, new() { IO.Property.Name, IO.Property.Object, IO.Property.Address, IO.Property.Category} },
-                    { IO.System.Route, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Length, IO.Property.Model, IO.Property.Passenger, IO.Property.Route, IO.Property.Stop, IO.Property.Transport, IO.Property.Usage, IO.Property.Vehicle, IO.Property.Weight} },
-                    { IO.System.Zoning, new() { IO.Property.Name, IO.Property.Object, IO.Property.Color, IO.Property.Density, IO.Property.Theme, IO.Property.Zoning } }
-                },
+                Properties = properties,
                 RasterFormat = IO.FileFormat.GeoTIFF,
                 RasterKinds = rasterKinds,
                 SeparateResident = PropertyResidentSeparateBySex,
@@ -1037,6 +1721,27 @@ namespace Carto
                 XtmAcronym = PropertyRouteXtm,
                 ZccColor = PropertyColorZcc
             };
+        }
+
+        /// <summary>
+        /// Try to add a <see cref="IO.Property"/> to the target library.
+        /// （嘗試添加一個 <see cref="IO.Property"/> 至指定的字典中。）
+        /// </summary>
+        /// <param name="propertiesDictionary">The dictionary storing each vector system's properties.（儲存各向量系統屬性種類的字典。）</param>
+        /// <param name="system">The system enum.（系統枚舉。）</param>
+        /// <param name="property">The property category.（屬性分類。）</param>
+        private void TryAddPropertyEntry(Dictionary<IO.System, HashSet<IO.Property>> propertiesDictionary, IO.System system, IO.Property property)
+        {
+            propertiesDictionary ??= new();
+
+            if (propertiesDictionary.TryGetValue(system, out HashSet<IO.Property> previousProperties))
+            {
+                previousProperties.Add(property);
+            }
+            else
+            {
+                propertiesDictionary.Add(system, new() { property });
+            }
         }
 
         /// <summary>

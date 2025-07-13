@@ -12,12 +12,7 @@ namespace Carto.Domain
     /// </summary>
     public class ExtendedTransportManager : IAssembly
     {
-        /// <summary>
-        /// The name of the assembly.
-        /// （組件的名稱。）
-        /// </summary>
         private const string _assemblyName = "ExtendedTransportManager";
-
         private const string _acronymPropertyName = "Acronym";
         private const string _xtmRouteExtraDataTypeName = "BelzontTLM.XTMRouteExtraData";
 
@@ -59,6 +54,8 @@ namespace Carto.Domain
         public Assembly Assembly => _assembly;
 
         public bool Accessible => _accessible;
+
+        public string Name => _assemblyName;
 
         public string VerifiedVersion => "0.1.4.12";
 

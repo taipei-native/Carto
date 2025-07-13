@@ -128,9 +128,9 @@ namespace Carto.Domain
         {
             get
             {
-                if (capacity == 0) return 0f;
-                if (isCargo) return (float)Math.Round((float)weight / capacity, 4);
-                return (float)Math.Round((float)passenger / capacity, 4);
+                if (capacity <= 0) return 0f;
+                if (isCargo) return (float)Math.Round((float)weight / capacity * 100, 4);
+                return (float)Math.Round((float)passenger / capacity * 100, 4);
             }
         }
 

@@ -3,6 +3,7 @@ using Colossal.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -35,6 +36,27 @@ namespace Carto.Utils
                 Platform.Windows => Path.Combine(paths).Replace("/", "\\"),
                 _ => Path.Combine(paths).Replace("\\", "/"),
             };
+        }
+
+        /// <summary>
+        /// Create the user data directories if the folders are not exist.
+        /// （若目錄不存在，創造使用者資料目錄。）
+        /// </summary>
+        public static void CreateUserDataDirectories()
+        {
+            // Check for ModsData/Carto.（檢查 ModsData/Carto。）
+            if (!Directory.Exists(Instance.CartoDataPath)) Directory.CreateDirectory(Instance.CartoDataPath);
+
+            // Check for GeoJSON, GeoTIFF, Shapefile & Styles.（檢查 GeoJSON、GeoTIFF、Shapefile 及 Styles。）
+            string geoJSON = CombinePath(Instance.CartoDataPath, "GeoJSON");
+            string geoTIFF = CombinePath(Instance.CartoDataPath, "GeoTIFF");
+            string shapefile = CombinePath(Instance.CartoDataPath, "Shapefile");
+            string styles = CombinePath(Instance.CartoDataPath, "Styles");
+
+            if (!Directory.Exists(geoJSON)) Directory.CreateDirectory(geoJSON);
+            if (!Directory.Exists(geoTIFF)) Directory.CreateDirectory(geoTIFF);
+            if (!Directory.Exists(shapefile)) Directory.CreateDirectory(shapefile);
+            if (!Directory.Exists(styles)) Directory.CreateDirectory(styles);
         }
 
         /// <summary>
@@ -254,6 +276,48 @@ namespace Carto.Utils
         public static string RemoveInvalidChars(string input)
         {
             return new string(input.Where(ch => !Path.GetInvalidFileNameChars().Contains(ch)).ToArray());
+        }
+
+        /// <summary>
+        /// Reveal the file in the platform-specific file explorer. (Windows - File Explorer, Mac OS - Finder, Linux - Gnome)
+        /// （在檔案瀏覽器中顯示指定目錄。）
+        /// </summary>
+        /// <param name="path">The path to the directory.（指向目錄的路徑。）</param>
+        public static void RevealInFileExplorer(string path)
+        {
+            /*
+                # References: （資料來源：）
+
+                * manuc66. (2022). From dotnet how to open file in containing folder in the Linux file manager?
+                    https://stackoverflow.com/a/73409251
+            */
+
+            if (!Directory.Exists(path)) return;
+
+            try
+            {
+                switch (GetOSPLatform())
+                {
+                    case Platform.Linux:
+                        Process.Start("xdg-open", path);
+                        break;
+
+                    case Platform.OSX:
+                        Process.Start("open", path);
+                        break;
+
+                    case Platform.Windows:
+                        Process.Start("explorer", path);
+                        break;
+
+                    default:
+                        throw new NotSupportedException("No support for the platforms other than Linux, OSX and Windows.（不支援 Linux、OSX 與 Windows 以外的平臺。）");
+                }
+            }
+            catch (Exception ex)
+            {
+                Instance.Log.Error(ex.ToString());
+            }
         }
 
         /// <summary>

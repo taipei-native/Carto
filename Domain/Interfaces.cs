@@ -22,6 +22,12 @@ namespace Carto.Domain
         public Assembly Assembly { get; }
 
         /// <summary>
+        /// The name of the assembly.
+        /// （組件的名稱。）
+        /// </summary>
+        public string Name { get; }
+
+        /// <summary>
         /// The assembly version that its compatibility has been verified.<br/>
         /// （已驗證過無衝突的組件版本。）
         /// </summary>

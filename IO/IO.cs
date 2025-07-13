@@ -3,6 +3,10 @@ using Carto.Geodata;
 using Colossal.Logging;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
+using System.Text;
 using Unity.Entities;
 
 namespace Carto.IO
@@ -28,7 +32,7 @@ namespace Carto.IO
             { System.Unknown, new() { } },
             { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
             { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zone, Property.Zoning } },
-            { System.Network, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
+            { System.Network, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Lane, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
             { System.Route, new() { Property.Name, Property.Object, Property.Color, Property.Length, Property.Model, Property.Passenger, Property.Route, Property.Stop, Property.Transport, Property.Usage, Property.Vehicle, Property.Weight} },
             { System.Zoning, new() { Property.Name, Property.Object, Property.Color, Property.Density, Property.Theme, Property.Zoning} }
@@ -308,6 +312,7 @@ namespace Carto.IO
             { Property.Height, typeof(float) },
             { Property.Household, typeof(int) },
             { Property.Labor, typeof(int) },
+            { Property.Lane, typeof(int) },
             { Property.Length, typeof(float) },
             { Property.Level, typeof(int) },
             { Property.Limit, typeof(float) },
@@ -383,6 +388,9 @@ namespace Carto.IO
             // Export options.（輸出設定。）
             Options options = Instance.Settings.GetOptions();
             options.Initialize();
+#if RELEASE
+            LogExportOptions(options);
+#endif
 
             try
             {
@@ -637,5 +645,326 @@ namespace Carto.IO
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <returns>True if the property is a composite property.（若屬性是複合屬性，回傳真值。）</returns>
         public static bool IsCompositeProperty(Property property, Options options = null) => GetPropertyType(property, property.ToString(), options).IsArray;
+
+        /// <summary>
+        /// Log the export options.
+        /// （記錄輸出設定。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        private static void LogExportOptions(Options options)
+        {
+            CultureInfo culture = CultureInfo.InvariantCulture;
+            TextInfo text = culture.TextInfo;
+            string numericAlternativeFormat = "0.###########";
+            string numericFormat = "0.0##########";
+
+            // Helper functions.
+            // （輔助函式。）
+            static int CompareVersion(Version provided, string baseVersion)
+            {
+                if (provided == null) throw new ArgumentNullException(nameof(provided));
+                if (string.IsNullOrWhiteSpace(baseVersion)) throw new ArgumentException("Base version is empty. 基本版本為空值。");
+                if (!Version.TryParse(baseVersion, out var version)) throw new ArgumentException("Invalid base version. 無效的基本版本。");
+                return provided.CompareTo(version);
+            }
+
+            static string GetAlignedText(string left, string right, int width)
+            {
+                // Assumes left.Length + right.Length < width - 1
+                //（假設 left.Length + right.Length < width - 1）
+                return $"{left}{new string(' ', width - left.Length - right.Length)}{right}";
+            }
+
+            static string GetFeatureText(Feature condition) => condition != 0 ? condition.ToString("G") : "(omitted)";
+
+            static string GetIndentedText(string input, int indentation) => $"{new string(' ', indentation)}{input}";
+
+            string GetPropertyText(System system)
+            {
+                if (options.Properties.TryGetValue(system, out HashSet<Property> property))
+                {
+                    if (property.Count == 0)
+                    {
+                        return "(omitted)";
+                    }
+                    else
+                    {
+                        return string.Join(", ", property.ToArray());
+                    }
+                }
+
+                return "(omitted)";
+            }
+
+            static string GetRasterKindText(RasterKind condition) => condition != 0 ? condition.ToString("G") : "(omitted)";
+
+            string GetTransformText(HelmertTransform transform)
+            {
+                switch (transform.paramCount)
+                {
+                    case 3:
+                        StringBuilder sbA = new();
+                        for (int i = 0; i < 3; i++)
+                        {
+                            sbA.Append(transform[i].ToString(numericAlternativeFormat, culture));
+                            sbA.Append(",");
+                        }
+                        return $"{sbA}0,0,0,0";
+
+                    case 7:
+                        StringBuilder sbB = new();
+                        for (int i = 0; i < 7; i++)
+                        {
+                            sbB.Append(transform[i].ToString(numericAlternativeFormat, culture));
+                            if (i < 6) sbB.Append(",");
+                        }
+                        return sbB.ToString();
+
+                    default:
+                        return "0,0,0,0,0,0,0";
+                }
+            }
+
+            string GetVectorKindText(System system)
+            {
+                if (options.VectorKinds.TryGetValue(system, out VectorKind vectorKind) && (vectorKind != VectorKind.Unknown))
+                {
+                    return vectorKind.ToString("G");
+                }
+
+                return "(omitted)";
+            }
+
+            static string GetVersionIndicator(int result)
+            {
+                return result switch
+                {
+                    > 0 => "^ ",
+                    0 => "  ",
+                    < 0 => "* ",
+                };
+            }
+
+            static void PrintEmptyLine()
+            {
+                _log.Info(string.Empty);
+            }
+
+            static void PrintDoubleLine()
+            {
+                _log.Info(new string('=', 38));
+            }
+
+            void PrintH1(string heading)
+            {
+                _log.Info(text.ToUpper(heading));
+                _log.Info(new string('‾', 38));
+            }
+
+            void PrintH2(string heading)
+            {
+                _log.Info($"  {text.ToUpper(heading)}");
+                _log.Info($"  {new string('.', 36)}");
+            }
+
+            // Start printing logs.
+            // （開始記錄。）
+            string namingFormat = GetIndentedText(GetAlignedText("NAMING_FORMAT", options.FileNameFormat.ToString("G"), 36), 2);
+            if (options.FileNameFormat == NamingFormat.Custom) namingFormat = $"{namingFormat} {options.FileName}";
+            string transformText = GetTransformText(options.TargetProjectionDefinition.transform);
+            bool useArea = (options.Systems & System.Area) != 0;
+            bool useBuilding = (options.Systems & System.Building) != 0;
+            bool useNetwork = (options.Systems & System.Network) != 0;
+            bool usePOI = (options.Systems & System.POI) != 0;
+            bool useRoute = (options.Systems & System.Route) != 0;
+            bool useZoning = (options.Systems & System.Zoning) != 0;
+            Feature areaFeatures = options.Features & (Feature.District | Feature.MapTile | Feature.Surface);
+            Feature buildingFeatures = options.Features & (Feature.Building | Feature.Extractor | Feature.Landfill);
+            Feature networkFeatures = options.Features & (Feature.Cable | Feature.Pathway | Feature.Pipe | Feature.Road | Feature.Runway | Feature.Taxiway | Feature.Track | Feature.Waterway);
+            Feature poiFeatures = options.Features & (Feature.POIPrivate | Feature.POIPublic | Feature.POITransport | Feature.POIUtility);
+            Feature routeFeatures = options.Features & (Feature.RouteCargo | Feature.RoutePassenger);
+            Feature zoningFeatures = options.Features & Feature.Zoning;
+            RasterKind terrainRasters = options.RasterKinds & (RasterKind.Elevation | RasterKind.WorldElevation);
+            RasterKind waterRasters = options.RasterKinds & (RasterKind.Depth | RasterKind.WorldDepth);
+            bool buildingDisplay = options.Display.TryGetValue((Property.Category, System.Building), out bool bd) && bd;
+            bool networkDisplay = options.Display.TryGetValue((Property.Category, System.Network), out bool nd) && nd;
+            bool poiDisplay = options.Display.TryGetValue((Property.Category, System.POI), out bool pd) && pd;
+            bool zoningDisplay = options.Display.TryGetValue((Property.Zoning, System.Unknown), out bool zd) && zd;
+
+            PrintDoubleLine();
+            _log.Info(GetAlignedText("Export Settings", Instance.Version, 38));
+            PrintEmptyLine();
+
+            PrintH1("ASSEMBLIES");
+
+            foreach(Game.Modding.ModManager.ModInfo mod in Instance.Mod)
+            {
+                Assembly assembly = mod.asset.assembly;
+                if (assembly == null) continue;
+                string name = assembly.GetName().Name;
+                Version version = assembly.GetName().Version;
+                string assemblyItem;
+                string assemblyBaseTitle = $"{name} [{assembly.GetName().Version}]";
+
+                if (name.StartsWith(Instance.Xtm.Name))
+                {
+                    assemblyItem = $"{GetVersionIndicator(CompareVersion(version, Instance.Xtm.VerifiedVersion))}{assemblyBaseTitle}";
+                }
+                else if (name.StartsWith(Instance.Zcc.Name))
+                {
+                    assemblyItem = $"{GetVersionIndicator(CompareVersion(version, Instance.Zcc.VerifiedVersion))}{assemblyBaseTitle}";
+                }
+                else
+                {
+                    assemblyItem = $"  {assemblyBaseTitle}";
+                }
+
+                _log.Info(GetIndentedText(assemblyItem, 2));
+            }
+
+            PrintEmptyLine();
+            _log.Info(GetIndentedText("NOTES", 2));
+            _log.Info(GetIndentedText("^ = Higher than verified version", 2));
+            _log.Info(GetIndentedText("* = Lower than verified version", 2));
+            PrintEmptyLine();
+
+            PrintH1("SAVES");
+            _log.Info(GetIndentedText(GetAlignedText("STAGE", Instance.GameMode.ToString("G"), 36), 2));
+            _log.Info(GetIndentedText(GetAlignedText("TIMESTAMP", options.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", culture), 36), 2));
+            PrintEmptyLine();
+
+            PrintH1("GENERAL");
+            _log.Info(namingFormat);
+            _log.Info(GetIndentedText(GetAlignedText("VECTOR_FORMAT", options.VectorFormat.ToString("G"), 36), 2));
+            _log.Info(GetIndentedText(GetAlignedText("TIFF_FORMAT", options.GeoTiffFormat.ToString("G"), 36), 2));
+            PrintEmptyLine();
+
+            PrintH1("FEATURES & PROPERTIES");
+            if (useArea)
+            {
+                PrintH2("AREA");
+                _log.Info(GetIndentedText($"{GetAlignedText("SUBSET", " ", 10)} {GetFeatureText(areaFeatures)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("GEOMETRY", " ", 10)} {GetVectorKindText(System.Area)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("PROPERTY", " ", 10)} {GetPropertyText(System.Area)}", 4));
+                PrintEmptyLine();
+            }
+            if (useBuilding)
+            {
+                PrintH2("BUILDING");
+                _log.Info(GetIndentedText($"{GetAlignedText("SUBSET", " ", 10)} {GetFeatureText(buildingFeatures)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("GEOMETRY", " ", 10)} {GetVectorKindText(System.Building)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("PROPERTY", " ", 10)} {GetPropertyText(System.Building)}", 4));
+                PrintEmptyLine();
+            }
+            if (useNetwork)
+            {
+                PrintH2("NETWORK");
+                _log.Info(GetIndentedText($"{GetAlignedText("SUBSET", " ", 10)} {GetFeatureText(networkFeatures)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("GEOMETRY", " ", 10)} {GetVectorKindText(System.Network)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("PROPERTY", " ", 10)} {GetPropertyText(System.Network)}", 4));
+                PrintEmptyLine();
+            }
+            if (usePOI)
+            {
+                PrintH2("POI");
+                _log.Info(GetIndentedText($"{GetAlignedText("SUBSET", " ", 10)} {GetFeatureText(poiFeatures)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("GEOMETRY", " ", 10)} {GetVectorKindText(System.POI)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("PROPERTY", " ", 10)} {GetPropertyText(System.POI)}", 4));
+                PrintEmptyLine();
+            }
+            if (useRoute)
+            {
+                PrintH2("ROUTE");
+                _log.Info(GetIndentedText($"{GetAlignedText("SUBSET", " ", 10)} {GetFeatureText(routeFeatures)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("GEOMETRY", " ", 10)} {GetVectorKindText(System.Route)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("PROPERTY", " ", 10)} {GetPropertyText(System.Route)}", 4));
+                PrintEmptyLine();
+            }
+            if (useZoning)
+            {
+                PrintH2("ZONING");
+                _log.Info(GetIndentedText($"{GetAlignedText("SUBSET", " ", 10)} {GetFeatureText(zoningFeatures)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("GEOMETRY", " ", 10)} {GetVectorKindText(System.Zoning)}", 4));
+                _log.Info(GetIndentedText($"{GetAlignedText("PROPERTY", " ", 10)} {GetPropertyText(System.Zoning)}", 4));
+                PrintEmptyLine();
+            }
+            if (terrainRasters != 0)
+            {
+                PrintH2("TERRAIN");
+                _log.Info(GetIndentedText($"{GetAlignedText("GEOMETRY", " ", 10)} {GetRasterKindText(terrainRasters)}", 4));
+                PrintEmptyLine();
+            }
+            if (waterRasters != 0)
+            {
+                PrintH2("WATER");
+                _log.Info(GetIndentedText($"{GetAlignedText("GEOMETRY", " ", 10)} {GetRasterKindText(waterRasters)}", 4));
+                PrintEmptyLine();
+            }
+
+            PrintH1("PROJECTION");
+
+            switch (options.SourceProjection)
+            {
+                case Geodata.CRS.TransverseMercator:
+                    _log.Info(GetIndentedText(GetAlignedText("PROJECTION", "Transverse Mercator", 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("X", options.SourceCoordinates.x.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("Y", options.SourceCoordinates.y.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("ELLIPSOID", $"EPSG:{Epsg.Ellipsoid.GetCode(options.TargetEllipsoid)}", 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("SEMI_MAJOR", options.TargetProjectionDefinition.ellipsoid.a.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("INV_F", options.TargetProjectionDefinition.ellipsoid.rf.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("ORIGIN_LONG", options.TargetProjectionDefinition.origin.x.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("ORIGIN_LAT", options.TargetProjectionDefinition.origin.y.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("FALSE_EASTING", options.TargetProjectionDefinition.shift.x.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("FALSE_NORTHING", options.TargetProjectionDefinition.shift.y.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("SCALE_FACTOR", options.TargetProjectionDefinition.scaleFactor.ToString(numericFormat, culture), 36), 2));
+                    if (transformText.Length <= 18)
+                    {
+                        _log.Info(GetIndentedText(GetAlignedText("TRANSFORM", transformText, 36), 2));
+                    }
+                    else
+                    {
+                        _log.Info(GetIndentedText($"{GetAlignedText("TRANSFORM", " ", 17)}{transformText}", 2));
+                    }
+                    break;
+
+                case Geodata.CRS.UTM:
+                    string hemisphere = options.SourceCoordinates.Hemisphere == Hemisphere.North ? "N" : "S";
+                    _log.Info(GetIndentedText(GetAlignedText("PROJECTION", $"UTM / {options.SourceCoordinates.UTMZone}{hemisphere}", 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("X", options.SourceCoordinates.x.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("Y", options.SourceCoordinates.y.ToString(numericFormat, culture), 36), 2));
+                    break;
+
+                case Geodata.CRS.WGS84:
+                    _log.Info(GetIndentedText(GetAlignedText("PROJECTION", "WGS84", 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("LONGITUDE", options.SourceCoordinates.x.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("LATITUDE", options.SourceCoordinates.y.ToString(numericFormat, culture), 36), 2));
+                    break;
+            }
+            PrintEmptyLine();
+
+            PrintH1("MISC");
+            PrintH2("FILE");
+            _log.Info(GetIndentedText(GetAlignedText("ELEVATION", $"{options.Elevation}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("MINIMIZED", $"{options.Minimized}", 34), 4));
+            PrintEmptyLine();
+            PrintH2("GEOMETRY");
+            _log.Info(GetIndentedText(GetAlignedText("INACTIVE_ROUTE", $"{options.InactiveRoute}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("SERVICE_UPGRADE", $"{options.SeparateServiceUpgrade}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("UNZONED", $"{options.Unzoned}", 34), 4));
+            PrintEmptyLine();
+            PrintH2("PROPERTY");
+            _log.Info(GetIndentedText(GetAlignedText("MAPTILE_STATS", $"{options.StatisticsMapTile}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("HOMELESS", $"{options.Homeless}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("CATEGORY_BUILDING_DISPLAY", $"{buildingDisplay}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("CATEGORY_NETWORK_DISPLAY", $"{networkDisplay}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("CATEGORY_POI_DISPLAY", $"{poiDisplay}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("PASSENGER_PET", $"{options.PetPassenger}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("RESIDENT_GENDER", $"{options.SeparateResident}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("THEME_ASSET_PACK", $"{options.AssetPack}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("WAGE_TAXABLE", $"{options.Taxable}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("ZONING_DISPLAY", $"{zoningDisplay}", 34), 4));
+
+            PrintDoubleLine();
+        }
     }
 }

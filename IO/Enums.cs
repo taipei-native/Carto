@@ -376,6 +376,34 @@ namespace Carto.IO
     }
 
     /// <summary>
+    /// Various file naming formats.
+    /// （不同的檔案命名格式。）
+    /// </summary>
+    public enum NamingFormat
+    {
+        /// <summary>
+        /// Custom file naming format.
+        /// （自訂檔案命名格式。）
+        /// </summary>
+        Custom,
+
+        /// <summary>
+        /// {Feature}
+        /// </summary>
+        Feature,
+
+        /// <summary>
+        /// {City}_{Feature}
+        /// </summary>
+        CityNameFeature,
+
+        /// <summary>
+        /// {Map}_{Feature}
+        /// </summary>
+        MapNameFeature
+    }
+
+    /// <summary>
     /// The OS platform.
     /// （作業系統平臺。）
     /// </summary>
@@ -507,6 +535,11 @@ namespace Carto.IO
         /// The number of labor force reside in the area.（勞動力，居住於區域內的勞工數量。）
         /// </summary>
         Labor,
+
+        /// <summary>
+        /// The number of car lanes on the network.（車道，網路上的機動車道數量。）
+        /// </summary>
+        Lane,
 
         /// <summary>
         /// The length of the networks or the routes in meters (m).（長度，網路或路線的長度，單位為公尺（m）。）

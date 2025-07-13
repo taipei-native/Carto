@@ -2,6 +2,7 @@ using Carto.Domain;
 using Carto.Systems;
 using Colossal.Localization;
 using Colossal.Logging;
+using Colossal.PSI.Environment;
 using Game;
 using Game.City;
 using Game.Modding;
@@ -82,6 +83,18 @@ namespace Carto
         public static TimeSystem Time => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<TimeSystem>();
 
         /// <summary>
+        /// The user interface manager of the game.
+        /// （遊戲的使用者介面管理器。）
+        /// </summary>
+        public static UserInterface UI => GameManager.instance.userInterface;
+
+        /// <summary>
+        /// The path to the user data folder.
+        /// （指向使用者資料的路徑。）
+        /// </summary>
+        public static string UserDataPath => EnvPath.kUserDataPath;
+
+        /// <summary>
         /// The system managing the water.
         /// （管理水體的系統。）
         /// </summary>
@@ -105,6 +118,12 @@ namespace Carto
         /// （搜尋建築的系統。）
         /// </summary>
         public static BuildingSystem Building => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<BuildingSystem>();
+
+        /// <summary>
+        /// The path to Carto's data directory.
+        /// （指向 Carto 資料目錄的路徑。）
+        /// </summary>
+        public static string CartoDataPath => Utils.IOUtils.CombinePath(UserDataPath, "ModsData", nameof(Carto));
 
         /// <summary>
         /// The dedicated logger documenting the information, warnings, and errors.
@@ -149,10 +168,16 @@ namespace Carto
         public static SharedDataCollectionSystem Shared => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SharedDataCollectionSystem>();
 
         /// <summary>
+        /// The current running Carto version.
+        /// （目前執行中的 Carto 版本。）
+        /// </summary>
+        public static string Version => Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version;
+
+        /// <summary>
         /// The wrapper of the assembly of Extended Transport Manager mod developed by klyte45.<br/>
         /// （由 klyte45 開發的 Extended Transport Manager 模組組件的包裝器。）
         /// </summary>
-        public static ExtendedTransportManager Xtm { get; set; } = new(); 
+        public static ExtendedTransportManager Xtm { get; } = new(); 
 
         /// <summary>
         /// The wrapper of the assembly of Zone Color Changer mod developed by TDW.<br/>
