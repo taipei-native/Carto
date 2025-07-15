@@ -15,7 +15,7 @@ namespace Carto
     /// （管理模組設定的類別。）
     /// </summary>
     [SettingsUIGroupOrder(GeneralGeneralGroup, GeneralDangerGroup,
-                          FeatureVectorGroup, FeatureRasterGroup,
+                          FeatureButtonGroup, FeatureVectorGroup, FeatureRasterGroup,
                           PropertiesSelectorGroup, PropertiesGeometryGroup, PropertiesPropertyGroup,
                           ProjectionBasicGroup, ProjectionEllipsoidGroup, ProjectionProjectionGroup, ProjectionUTMGroup,
                           MiscellaneousFileGroup, MiscellaneousGeometryGroup, MiscellaneousPropertyGroup)]
@@ -28,6 +28,16 @@ namespace Carto
     public class Settings : ModSetting
     {
         public Settings(IMod mod) : base(mod) { SetDefaults(); }
+
+        // TODO NOTE: Update these properties / methods when adding a new one:
+        //           （當添加新屬性／方法時，更新以下屬性：）
+        // - DisableFeaturesButton
+        // - DisablePropertiesButton
+        // - EnableFeaturesButton
+        // - EnablePropertiesButton
+        // - GetOptions()
+        // - SetDefaults()
+        // - Carto.IO.IO.LogExportOptions()
 
         /// <summary>
         /// Reset all mod default settings.
@@ -158,6 +168,8 @@ namespace Carto
             SourceCRSTransform = "0 0 0 0 0 0 0";
             OutputElevation = false;
             OutputMinimizedGeoJSON = false;
+            PlayCompletionSound = true;
+            ShowCompletionDialog = true;
             GeometryInactiveRoute = false;
             GeometrySeparateServiceUpgrade = false;
             GeometryUnzoned = false;
@@ -182,10 +194,13 @@ namespace Carto
         public const string GeneralDangerGroup = "GeneralDangerGroup";
         public const string GeneralDangerGroupButtons = "GeneralDangerGroupButtons";
         public const string FeatureTab = "FeatureTab";
+        public const string FeatureButtonGroup = "FeatureButtonGroup";
+        public const string FeatureButtonGroupButtons = "FeatureButtonGroupButtons";
         public const string FeatureVectorGroup = "FeatureVectorGroup";
         public const string FeatureRasterGroup = "FeatureRasterGroup";
         public const string PropertiesTab = "PropertiesTab";
         public const string PropertiesSelectorGroup = "PropertiesSelectorGroup";
+        public const string PropertiesSelectorGroupButtons = "PropertiesSelectorGroupButtons";
         public const string PropertiesGeometryGroup = "PropertiesGeometryGroup";
         public const string PropertiesPropertyGroup = "PropertiesPropertyGroup";
         public const string ProjectionTab = "ProjectionTab";
@@ -213,6 +228,8 @@ namespace Carto
         public const int SelectorValueWind = (int)IO.System.Raster + 6;
 
         // The shared locale ids used in the properties tab.（屬性分頁中共用的語系檔案代碼。）
+        public const string DisableAll = "Carto.Carto.Mod.Settings.DisableAll";
+        public const string EnableAll = "Carto.Carto.Mod.Settings.EnableAll";
         public const string GeometryBoundary = "Carto.Carto.Mod.Settings.GeometryBoundary";
         public const string GeometryCenterline = "Carto.Carto.Mod.Settings.GeometryCenterline";
         public const string GeometryFootprint = "Carto.Carto.Mod.Settings.GeometryFootprint";
@@ -405,6 +422,84 @@ namespace Carto
         public bool ResetButton
         {
             set { SetDefaults(); }
+        }
+
+        /// <summary>
+        /// The button to disable all features.
+        /// （用以關閉所有圖徵的按鈕。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureButtonGroup)]
+        [SettingsUIButton]
+        [SettingsUIButtonGroup(FeatureButtonGroupButtons)]
+        [SettingsUIDisplayName(overrideId: DisableAll)]
+        public bool DisableFeaturesButton
+        {
+            set
+            {
+                SystemArea = false;
+                FeatureDistrict = false;
+                FeatureMapTile = false;
+                SystemBuilding = false;
+                FeatureBuilding = false;
+                FeatureLandfill = false;
+                FeatureExtractor = false;
+                SystemNetwork = false;
+                FeaturePathway = false;
+                FeatureRoad = false;
+                FeatureRunwayAndTaxiway = false;
+                FeatureWaterway = false;
+                FeatureTrack = false;
+                SystemPOI = false;
+                FeaturePOIPrivate = false;
+                FeaturePOIPublic = false;
+                FeaturePOITransport = false;
+                FeaturePOIUtility = false;
+                SystemRoute = false;
+                FeatureRouteCargo = false;
+                FeatureRoutePassenger = false;
+                SystemZoning = false;
+                FeatureTerrain = false;
+                FeatureWater = false;
+            }
+        }
+
+        /// <summary>
+        /// The button to enable all features.
+        /// （用以啟用所有圖徵的按鈕。）
+        /// </summary>
+        [SettingsUISection(FeatureTab, FeatureButtonGroup)]
+        [SettingsUIButton]
+        [SettingsUIButtonGroup(FeatureButtonGroupButtons)]
+        [SettingsUIDisplayName(overrideId: EnableAll)]
+        public bool EnableFeaturesButton
+        {
+            set
+            {
+                SystemArea = true;
+                FeatureDistrict = true;
+                FeatureMapTile = true;
+                SystemBuilding = true;
+                FeatureBuilding = true;
+                FeatureLandfill = true;
+                FeatureExtractor = true;
+                SystemNetwork = true;
+                FeaturePathway = true;
+                FeatureRoad = true;
+                FeatureRunwayAndTaxiway = true;
+                FeatureWaterway = true;
+                FeatureTrack = true;
+                SystemPOI = true;
+                FeaturePOIPrivate = true;
+                FeaturePOIPublic = true;
+                FeaturePOITransport = true;
+                FeaturePOIUtility = true;
+                SystemRoute = true;
+                FeatureRouteCargo = true;
+                FeatureRoutePassenger = true;
+                SystemZoning = true;
+                FeatureTerrain = true;
+                FeatureWater = true;
+            }
         }
 
         /// <summary>
@@ -606,6 +701,192 @@ namespace Carto
         /// </summary>
         [SettingsUISection(FeatureTab, FeatureRasterGroup)]
         public bool FeatureWater { get; set; } = true;
+
+        /// <summary>
+        /// The button to disable all geometries and properties.
+        /// （用以關閉所有幾何與屬性的按鈕。）
+        /// </summary>
+        [SettingsUISection(PropertiesTab, PropertiesSelectorGroup)]
+        [SettingsUIButton]
+        [SettingsUIButtonGroup(PropertiesSelectorGroupButtons)]
+        [SettingsUIDisplayName(overrideId: DisableAll)]
+        public bool DisablePropertiesButton
+        {
+            set
+            {
+                GeometryBoundaryArea = false;
+                GeometryBoundaryBuilding = false;
+                GeometryBoundaryNetwork = false;
+                GeometryBoundaryZoning = false;
+                GeometryCenterlineNetwork = false;
+                GeometryCenterlineRoute = false;
+                GeometryLocationPOI = false;
+                GeometryDepthWater = false;
+                GeometryElevationTerrain = false;
+                GeometryWorldDepthWater = false;
+                GeometryWorldElevationTerrain = false;
+                PropertyNameArea = false;
+                PropertyNameBuilding = false;
+                PropertyNameNetwork = false;
+                PropertyNamePOI = false;
+                PropertyNameRoute = false;
+                PropertyNameZoning = false;
+                PropertyAddressBuilding = false;
+                PropertyAddressPOI = false;
+                PropertyAgeArea = false;
+                PropertyAgeBuilding = false;
+                PropertyAreaArea = false;
+                PropertyAssetBuilding = false;
+                PropertyAssetNetwork = false;
+                PropertyBrandBuilding = false;
+                PropertyCategoryBuilding = false;
+                PropertyCategoryNetwork = false;
+                PropertyCategoryPOI = false;
+                PropertyColorRoute = false;
+                PropertyColorZoning = false;
+                PropertyCompanyArea = false;
+                PropertyDensityZoning = false;
+                PropertyDirectionNetwork = false;
+                PropertyElevationBuilding = false;
+                PropertyElevationNetwork = false;
+                PropertyEmployeeArea = false;
+                PropertyEmployeeBuilding = false;
+                PropertyFormNetwork = false;
+                PropertyHouseholdArea = false;
+                PropertyHouseholdBuilding = false;
+                PropertyLaborArea = false;
+                PropertyLaborBuilding = false;
+                PropertyLaneNetwork = false;
+                PropertyLengthNetwork = false;
+                PropertyLengthRoute = false;
+                PropertyLevelBuilding = false;
+                PropertyLimitNetwork = false;
+                PropertyModelRoute = false;
+                PropertyObjectArea = false;
+                PropertyObjectBuilding = false;
+                PropertyObjectNetwork = false;
+                PropertyObjectPOI = false;
+                PropertyObjectRoute = false;
+                PropertyObjectZoning = false;
+                PropertyPassengerRoute = false;
+                PropertyProductBuilding = false;
+                PropertyProfitArea = false;
+                PropertyProfitBuilding = false;
+                PropertyResidentArea = false;
+                PropertyResidentBuilding = false;
+                PropertyRouteRoute = false;
+                PropertySexRatioArea = false;
+                PropertySexRatioBuilding = false;
+                PropertyStopRoute = false;
+                PropertyThemeBuilding = false;
+                PropertyThemeZoning = false;
+                PropertyTransportRoute = false;
+                PropertyUnlockedArea = false;
+                PropertyUsageRoute = false;
+                PropertyVehicleRoute = false;
+                PropertyVolumeNetwork = false;
+                PropertyWageArea = false;
+                PropertyWageBuilding = false;
+                PropertyWeightRoute = false;
+                PropertyWidthNetwork = false;
+                PropertyZoneBuilding = false;
+                PropertyZoningBuilding = false;
+                PropertyZoningZoning = false;
+            }
+        }
+
+        /// <summary>
+        /// The button to enable all geometries and properties.
+        /// （用以啟用所有幾何與屬性的按鈕。）
+        /// </summary>
+        [SettingsUISection(PropertiesTab, PropertiesSelectorGroup)]
+        [SettingsUIButton]
+        [SettingsUIButtonGroup(PropertiesSelectorGroupButtons)]
+        [SettingsUIDisplayName(overrideId: EnableAll)]
+        public bool EnablePropertiesButton
+        {
+            set
+            {
+                GeometryBoundaryArea = true;
+                GeometryBoundaryBuilding = true;
+                GeometryBoundaryNetwork = true;
+                GeometryBoundaryZoning = true;
+                GeometryCenterlineNetwork = true;
+                GeometryCenterlineRoute = true;
+                GeometryLocationPOI = true;
+                GeometryDepthWater = true;
+                GeometryElevationTerrain = true;
+                GeometryWorldDepthWater = true;
+                GeometryWorldElevationTerrain = true;
+                PropertyNameArea = true;
+                PropertyNameBuilding = true;
+                PropertyNameNetwork = true;
+                PropertyNamePOI = true;
+                PropertyNameRoute = true;
+                PropertyNameZoning = true;
+                PropertyAddressBuilding = true;
+                PropertyAddressPOI = true;
+                PropertyAgeArea = true;
+                PropertyAgeBuilding = true;
+                PropertyAreaArea = true;
+                PropertyAssetBuilding = true;
+                PropertyAssetNetwork = true;
+                PropertyBrandBuilding = true;
+                PropertyCategoryBuilding = true;
+                PropertyCategoryNetwork = true;
+                PropertyCategoryPOI = true;
+                PropertyColorRoute = true;
+                PropertyColorZoning = true;
+                PropertyCompanyArea = true;
+                PropertyDensityZoning = true;
+                PropertyDirectionNetwork = true;
+                PropertyElevationBuilding = true;
+                PropertyElevationNetwork = true;
+                PropertyEmployeeArea = true;
+                PropertyEmployeeBuilding = true;
+                PropertyFormNetwork = true;
+                PropertyHouseholdArea = true;
+                PropertyHouseholdBuilding = true;
+                PropertyLaborArea = true;
+                PropertyLaborBuilding = true;
+                PropertyLaneNetwork = true;
+                PropertyLengthNetwork = true;
+                PropertyLengthRoute = true;
+                PropertyLevelBuilding = true;
+                PropertyLimitNetwork = true;
+                PropertyModelRoute = true;
+                PropertyObjectArea = true;
+                PropertyObjectBuilding = true;
+                PropertyObjectNetwork = true;
+                PropertyObjectPOI = true;
+                PropertyObjectRoute = true;
+                PropertyObjectZoning = true;
+                PropertyPassengerRoute = true;
+                PropertyProductBuilding = true;
+                PropertyProfitArea = true;
+                PropertyProfitBuilding = true;
+                PropertyResidentArea = true;
+                PropertyResidentBuilding = true;
+                PropertyRouteRoute = true;
+                PropertySexRatioArea = true;
+                PropertySexRatioBuilding = true;
+                PropertyStopRoute = true;
+                PropertyThemeBuilding = true;
+                PropertyThemeZoning = true;
+                PropertyTransportRoute = true;
+                PropertyUnlockedArea = true;
+                PropertyUsageRoute = true;
+                PropertyVehicleRoute = true;
+                PropertyVolumeNetwork = true;
+                PropertyWageArea = true;
+                PropertyWageBuilding = true;
+                PropertyWeightRoute = true;
+                PropertyWidthNetwork = true;
+                PropertyZoneBuilding = true;
+                PropertyZoningBuilding = true;
+                PropertyZoningZoning = true;
+            }
+        }
 
         /// <summary>
         /// The drop-down menu to configure each system.
@@ -1286,6 +1567,20 @@ namespace Carto
         public bool OutputMinimizedGeoJSON { get; set; } = false;
 
         /// <summary>
+        /// Whether to play a completion sound when the export completes.
+        /// （是否要在輸出完成後播放一段音效？）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousFileGroup)]
+        public bool PlayCompletionSound { get; set; } = true;
+
+        /// <summary>
+        /// Whether to show a dialog when the export completes.
+        /// （是否要在輸出完成後顯示對話框？）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousFileGroup)]
+        public bool ShowCompletionDialog { get; set; } = true;
+
+        /// <summary>
         /// Whether to export inactive transportation routes.
         /// （是否輸出未啟用的運輸服務路線。）
         /// </summary>
@@ -1674,16 +1969,18 @@ namespace Carto
                 case IO.CRS.WGS84:
                     sourceCRS = Geodata.CRS.WGS84;
                     targetCRS = Geodata.CRS.UTM;
+                    errors[GetOptionLabelLocaleID(nameof(SourceXCoord))] = Utils.IOUtils.TryGetLongitude(SourceXCoord, out sourceX);
+                    errors[GetOptionLabelLocaleID(nameof(SourceYCoord))] = Utils.IOUtils.TryGetLatitude(SourceYCoord, out sourceY);
                     sourceCoordinates = new(sourceX, sourceY, sourceCRS);
                     break;
             }
-
-            // TODO: Implement the function to stop error user input
 
             return new()
             {
                 AssetPack = PropertyThemeAssetPack,
                 Created = DateTime.Now,
+                CompletionDialog = ShowCompletionDialog,
+                CompletionSound = PlayCompletionSound,
                 Display = new Dictionary<(IO.Property, IO.System), bool>
                 {
                     { (IO.Property.Category, IO.System.Building), Utils.IOUtils.DisplayModeToBoolean(PropertyCategoryBuildingDisplayMode) },
@@ -1693,6 +1990,7 @@ namespace Carto
                     { (IO.Property.Zoning, IO.System.Unknown),    Utils.IOUtils.DisplayModeToBoolean(PropertyZoningDisplayMode) }
                 },
                 Elevation = OutputElevation,
+                Errors = errors,
                 Features = feature,
                 FileName = fileBaseFormat,
                 FileNameFormat = ExportNamingFormat,

@@ -503,6 +503,19 @@ namespace Carto.Domain
     }
 
     /// <summary>
+    /// The UI sound effect types.
+    /// （UI 音效的種類。）
+    /// </summary>
+    public enum Sound
+    {
+        /// <summary>
+        /// The completion sound.
+        /// （完成音效。）
+        /// </summary>
+        Completion
+    }
+
+    /// <summary>
     /// The basic zoning types in the game.
     /// （遊戲內的基本分區類別。）
     /// </summary>

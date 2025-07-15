@@ -1,6 +1,7 @@
 using Carto.Domain;
 using Carto.Geodata;
 using Colossal.Logging;
+using Game.UI;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -388,9 +389,73 @@ namespace Carto.IO
             // Export options.（輸出設定。）
             Options options = Instance.Settings.GetOptions();
             options.Initialize();
+
+            // Check user inputs.（檢查使用者輸入。）
+            List<string> errorMessages = new();
+            foreach (KeyValuePair<string, Error> error in options.Errors)
+            {
+                string errorSource = Utils.LocaleUtils.Translate(error.Key);
+                switch (error.Value)
+                {
+                    case Error.Latitude:
+                        errorMessages.Add(Utils.LocaleUtils.Translate("Carto.Common.ERROR[Latitude]").Replace("{INPUT}", errorSource));
+                        break;
+
+                    case Error.Longitude:
+                        errorMessages.Add(Utils.LocaleUtils.Translate("Carto.Common.ERROR[Longitude]").Replace("{INPUT}", errorSource));
+                        break;
+
+                    case Error.Nan:
+                        errorMessages.Add(Utils.LocaleUtils.Translate("Carto.Common.ERROR[Nan]").Replace("{INPUT}", errorSource));
+                        break;
+
+                    case Error.Negative:
+                        errorMessages.Add(Utils.LocaleUtils.Translate("Carto.Common.ERROR[Negative]").Replace("{INPUT}", errorSource));
+                        break;
+
+                    case Error.Transform:
+                        errorMessages.Add(Utils.LocaleUtils.Translate("Carto.Common.ERROR[Transform]").Replace("{INPUT}", errorSource));
+                        break;
+
+                    case Error.TransformLength:
+                        errorMessages.Add(Utils.LocaleUtils.Translate("Carto.Common.ERROR[TransformLength]").Replace("{INPUT}", errorSource));
+                        break;
+
+                    case Error.UTMZone:
+                        errorMessages.Add(Utils.LocaleUtils.Translate("Carto.Common.ERROR[UTMZone]").Replace("{INPUT}", errorSource));
+                        break;
+                    
+                    default:
+                        break;
+                }
+            }
+
+            if (errorMessages.Count > 0)
+            {
+                string message = string.Join("\n", errorMessages);
+                ErrorDialog dialog = new() { severity = ErrorDialog.Severity.Warning, localizedTitle = "Common.WARNING", localizedMessage = "Carto.Common.ERROR[Input]", errorDetails = message, actions = ErrorDialog.Actions.None };
+                ErrorDialogManager.ShowErrorDialog(dialog);
+                return;
+            }
+
+            // Check sharing violation.（檢查存取問題。）
+            List<string> lockedFiles = Utils.IOUtils.GetLockedFiles(options);
+            if (lockedFiles.Count > 0)
+            {
+                string message = string.Join("\n", lockedFiles);
+                ErrorDialog dialog = new() { severity = ErrorDialog.Severity.Warning, localizedTitle = "Common.WARNING", localizedMessage = "Carto.Common.ERROR[ShareViolation]", errorDetails = message, actions = ErrorDialog.Actions.None };
+                ErrorDialogManager.ShowErrorDialog(dialog);
+                return;
+            }
+
 #if RELEASE
             LogExportOptions(options);
 #endif
+
+            int filesCount = 0;
+
+            // The ignored files collection.（忽略檔案集合。）
+            Dictionary<string, Error> ignores = new();
 
             try
             {
@@ -403,11 +468,6 @@ namespace Carto.IO
                 bool useRoute = options.Systems.HasFlag(System.Route);
                 bool useZoning = options.Systems.HasFlag(System.Zoning);
                 bool useVector = useArea || useBuilding || useNetwork || usePOI || useRoute || useZoning;
-
-                // The error collection.（錯誤集合。）
-                Dictionary<string, Error> errors = new();
-
-                // TODO: Check file sharing violation.
 
                 if (useVector)
                 {
@@ -469,6 +529,7 @@ namespace Carto.IO
                                 if (zoningHasBoundary)
                                 {
                                     GeoJson.Write(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundaryFeatures, OnReport);
+                                    filesCount++;
                                 }
                             }
                             if (usePOI)
@@ -476,6 +537,7 @@ namespace Carto.IO
                                 if (poiHasLocation)
                                 {
                                     GeoJson.Write(options, System.POI, VectorKind.Location, Instance.POI.WriteLocationFeatures, OnReport);
+                                    filesCount++;
                                 }
                             }
                             if (useBuilding)
@@ -483,6 +545,7 @@ namespace Carto.IO
                                 if (buildingHasBoundary)
                                 {
                                     GeoJson.Write(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundaryFeatures, OnReport);
+                                    filesCount++;
                                 }
                             }
                             if (useArea)
@@ -490,6 +553,7 @@ namespace Carto.IO
                                 if (areaHasBoundary)
                                 {
                                     GeoJson.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundaryFeatures, OnReport);
+                                    filesCount++;
                                 }
                             }
                             if (useNetwork)
@@ -501,6 +565,7 @@ namespace Carto.IO
                                 if (routeHasCenterline)
                                 {
                                     GeoJson.Write(options, System.Route, VectorKind.Centerline, Instance.Route.WriteCenterlineFeatures, OnReport);
+                                    filesCount++;
                                 }
                             }
                             break;
@@ -511,6 +576,7 @@ namespace Carto.IO
                                 if (zoningHasBoundary)
                                 {
                                     Shapefile.Write<ZoningCell>(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundarySHP, Instance.Zoning.WriteBoundaryDBF, OnReport);
+                                    filesCount += 5;
                                 }
                             }
                             if (usePOI)
@@ -518,6 +584,7 @@ namespace Carto.IO
                                 if (poiHasLocation)
                                 {
                                     Shapefile.Write<Entity>(options, System.POI, VectorKind.Location, Instance.POI.WriteLocationSHP, Instance.POI.WriteLocationDBF, OnReport);
+                                    filesCount += 5;
                                 }
                             }
                             if (useBuilding)
@@ -525,6 +592,7 @@ namespace Carto.IO
                                 if (buildingHasBoundary)
                                 {
                                     Shapefile.Write<Entity>(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundarySHP, Instance.Building.WriteBoundaryDBF, OnReport);
+                                    filesCount += 5;
                                 }
                             }
                             if (useArea)
@@ -532,6 +600,7 @@ namespace Carto.IO
                                 if (areaHasBoundary)
                                 {
                                     Shapefile.Write<Entity>(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, Instance.Area.WriteBoundaryDBF, OnReport);
+                                    filesCount += 5;
                                 }
                             }
                             if (useNetwork)
@@ -543,6 +612,7 @@ namespace Carto.IO
                                 if (routeHasCenterline)
                                 {
                                     Shapefile.Write<Entity>(options, System.Route, VectorKind.Centerline, Instance.Route.WriteCenterlineSHP, Instance.Route.WriteCenterlineDBF, OnReport);
+                                    filesCount += 5;
                                 }
                             }
                             break;
@@ -570,16 +640,18 @@ namespace Carto.IO
                                     if (hasWorldDepth)
                                     {
                                         GeoTiff.Write(options, RasterKind.WorldDepth, Instance.Raster.WriteWorldDepth, OnReport);
+                                        filesCount++;
                                     }
                                     if (hasWorldElevation)
                                     {
                                         GeoTiff.Write(options, RasterKind.WorldElevation, Instance.Raster.WriteWorldElevation, OnReport);
+                                        filesCount++;
                                     }
                                 }
                                 else
                                 {
-                                    if (hasWorldDepth) errors.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldDepth), worldHeightmapError);
-                                    if (hasWorldElevation) errors.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldElevation), worldHeightmapError);
+                                    if (hasWorldDepth) ignores.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldDepth), worldHeightmapError);
+                                    if (hasWorldElevation) ignores.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldElevation), worldHeightmapError);
                                 }
 
                                 Instance.Shared.Dispose(DisposePhase.AfterTerrainRelated);
@@ -589,10 +661,12 @@ namespace Carto.IO
                             if (options.RasterKinds.HasFlag(RasterKind.Depth))
                             {
                                 GeoTiff.Write(options, RasterKind.Depth, Instance.Raster.WriteDepth, OnReport);
+                                filesCount++;
                             }
                             if (options.RasterKinds.HasFlag(RasterKind.Elevation))
                             {
                                 GeoTiff.Write(options, RasterKind.Elevation, Instance.Raster.WriteElevation, OnReport);
+                                filesCount++;
                             }
                             break;
                     }
@@ -604,6 +678,25 @@ namespace Carto.IO
             }
             finally
             {
+                if (options.CompletionSound) Instance.Sound.Play(Sound.Completion);
+
+                if (options.CompletionDialog)
+                {
+                    string message = Utils.LocaleUtils.Translate("Carto.Common.SUCCESS[Normal]").Replace("{NUMBER}", filesCount.ToString());
+                    if (ignores.Count > 0)
+                    {
+                        foreach (KeyValuePair<Error, int> kvp in ignores.GroupBy(pair => pair.Value).ToDictionary(group => group.Key, group => group.Count()))
+                        {
+                            string reason = Utils.LocaleUtils.Translate($"Carto.Common.IGNORE[{kvp.Key}]");
+                            message = $"{message}\n{Utils.LocaleUtils.Translate("Carto.Common.SUCCESS[Ignore]").Replace("{NUMBER}", kvp.Value.ToString())}".Replace("{REASON}", reason);
+                        }
+                    }
+                    MessageDialog dialog = new("Options.SECTION[Carto.Carto.Mod]", message, "Common.OK");
+                    Instance.UI.appBindings.ShowMessageDialog(dialog, null);
+                }
+
+                // In case of any missing native container disposal during the execution, try to dispose them after all execution are completed.
+                // （為避免執行中遺漏任何拋棄原生容器的程序，當所有程式執行完成後，嘗試拋棄這些容器。）.
                 Instance.Building.Dispose();
                 Instance.POI.Dispose();
                 Instance.Shared.Dispose();
@@ -946,6 +1039,8 @@ namespace Carto.IO
             PrintH2("FILE");
             _log.Info(GetIndentedText(GetAlignedText("ELEVATION", $"{options.Elevation}", 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("MINIMIZED", $"{options.Minimized}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("COMPLETION_DIALOG", $"{options.CompletionDialog}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("COMPLETION_SOUND", $"{options.CompletionSound}", 34), 4));
             PrintEmptyLine();
             PrintH2("GEOMETRY");
             _log.Info(GetIndentedText(GetAlignedText("INACTIVE_ROUTE", $"{options.InactiveRoute}", 34), 4));

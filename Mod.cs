@@ -41,6 +41,7 @@ namespace Carto
             updateSystem.UpdateBefore<RasterSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<RouteSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<SharedDataCollectionSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.UpdateBefore<SoundSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateBefore<ZoningSystem>(SystemUpdatePhase.GameSimulation);
 
             // Create neccessary folders.

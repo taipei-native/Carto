@@ -201,6 +201,135 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Retrieve the list of locked files.
+        /// （獲得被鎖定的檔案列表。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <returns>The list of locked files' paths.（包含被鎖定檔案路徑的列表。）</returns>
+        public static List<string> GetLockedFiles(Options options)
+        {
+            List<string> GetLockedGeoJSONFiles(IO.System system, VectorKind vectors)
+            {
+                List<string> lockedFiles = new();
+                if (vectors == VectorKind.Unknown) return lockedFiles;
+                foreach (VectorKind vector in CommonUtils.GetFlagComponents(vectors))
+                {
+                    string filePath = options.GetFilePath(system, vector);
+                    if (IsFileLocked(filePath)) lockedFiles.Add(filePath);
+                }
+                return lockedFiles;
+            }
+
+            List<string> GetLockedShapefiles(IO.System system, VectorKind vectors)
+            {
+                List<string> lockedFiles = new();
+                if (vectors == VectorKind.Unknown) return lockedFiles;
+                foreach (VectorKind vector in CommonUtils.GetFlagComponents(vectors))
+                {
+                    string filePath = options.GetFilePath(system, vector);
+                    string cpgPath = Path.ChangeExtension(filePath, "cpg");
+                    string dbfPath = Path.ChangeExtension(filePath, "dbf");
+                    string prjPath = Path.ChangeExtension(filePath, "prj");
+                    string shxPath = Path.ChangeExtension(filePath, "shx");
+                    if (IsFileLocked(filePath)) lockedFiles.Add(filePath);
+                    if (IsFileLocked(cpgPath)) lockedFiles.Add(cpgPath);
+                    if (IsFileLocked(dbfPath)) lockedFiles.Add(dbfPath);
+                    if (IsFileLocked(prjPath)) lockedFiles.Add(prjPath);
+                    if (IsFileLocked(shxPath)) lockedFiles.Add(shxPath);
+                }
+                return lockedFiles;
+            }
+            
+            bool useArea = options.Systems.HasFlag(IO.System.Area);
+            bool useBuilding = options.Systems.HasFlag(IO.System.Building);
+            bool useNetwork = options.Systems.HasFlag(IO.System.Network);
+            bool usePOI = options.Systems.HasFlag(IO.System.POI);
+            bool useRaster = options.Systems.HasFlag(IO.System.Raster);
+            bool useRoute = options.Systems.HasFlag(IO.System.Route);
+            bool useZoning = options.Systems.HasFlag(IO.System.Zoning);
+            bool useVector = useArea || useBuilding || useNetwork || usePOI || useRoute || useZoning;
+
+            List<string> lockedFiles = new();
+
+            if (useVector)
+            {
+                switch (options.VectorFormat)
+                {
+                    case FileFormat.GeoJSON:
+                        if (useArea && options.VectorKinds.TryGetValue(IO.System.Area, out VectorKind areaVector))
+                        {
+                            lockedFiles.AddRange(GetLockedGeoJSONFiles(IO.System.Area, areaVector));
+                        }
+                        if (useBuilding && options.VectorKinds.TryGetValue(IO.System.Building, out VectorKind buildingVector))
+                        {
+                            lockedFiles.AddRange(GetLockedGeoJSONFiles(IO.System.Building, buildingVector));
+                        }
+                        if (useNetwork && options.VectorKinds.TryGetValue(IO.System.Network, out VectorKind networkVector))
+                        {
+                            lockedFiles.AddRange(GetLockedGeoJSONFiles(IO.System.Network, networkVector));
+                        }
+                        if (usePOI && options.VectorKinds.TryGetValue(IO.System.POI, out VectorKind poiVector))
+                        {
+                            lockedFiles.AddRange(GetLockedGeoJSONFiles(IO.System.POI, poiVector));
+                        }
+                        if (useRoute && options.VectorKinds.TryGetValue(IO.System.Route, out VectorKind routeVector))
+                        {
+                            lockedFiles.AddRange(GetLockedGeoJSONFiles(IO.System.Route, routeVector));
+                        }
+                        if (useZoning && options.VectorKinds.TryGetValue(IO.System.Zoning, out VectorKind zoningVector))
+                        {
+                            lockedFiles.AddRange(GetLockedGeoJSONFiles(IO.System.Zoning, zoningVector));
+                        }
+                        break;
+
+                    case FileFormat.Shapefile:
+                        if (useArea && options.VectorKinds.TryGetValue(IO.System.Area, out VectorKind areaVectors))
+                        {
+                            lockedFiles.AddRange(GetLockedShapefiles(IO.System.Area, areaVectors));
+                        }
+                        if (useBuilding && options.VectorKinds.TryGetValue(IO.System.Building, out VectorKind buildingVectors))
+                        {
+                            lockedFiles.AddRange(GetLockedShapefiles(IO.System.Building, buildingVectors));
+                        }
+                        if (useNetwork && options.VectorKinds.TryGetValue(IO.System.Network, out VectorKind networkVectors))
+                        {
+                            lockedFiles.AddRange(GetLockedShapefiles(IO.System.Network, networkVectors));
+                        }
+                        if (usePOI && options.VectorKinds.TryGetValue(IO.System.POI, out VectorKind poiVectors))
+                        {
+                            lockedFiles.AddRange(GetLockedShapefiles(IO.System.POI, poiVectors));
+                        }
+                        if (useRoute && options.VectorKinds.TryGetValue(IO.System.Route, out VectorKind routeVectors))
+                        {
+                            lockedFiles.AddRange(GetLockedShapefiles(IO.System.Route, routeVectors));
+                        }
+                        if (useZoning && options.VectorKinds.TryGetValue(IO.System.Zoning, out VectorKind zoningVectors))
+                        {
+                            lockedFiles.AddRange(GetLockedShapefiles(IO.System.Zoning, zoningVectors));
+                        }
+                        break;
+                }
+            }
+
+            if (useRaster)
+            {
+                switch (options.RasterFormat)
+                {
+                    case FileFormat.GeoTIFF:
+                        RasterKind[] rasters = CommonUtils.GetFlagComponents(options.RasterKinds);
+                        foreach (RasterKind raster in rasters)
+                        {
+                            string filePath = options.GetFilePath(raster);
+                            if (IsFileLocked(filePath)) lockedFiles.Add(filePath);
+                        }
+                        break;
+                }
+            }
+
+            return lockedFiles;
+        }
+
+        /// <summary>
         /// Get the OS platform the game is running on.
         /// （獲得遊戲運行的作業系統平臺。）
         /// </summary>
@@ -265,6 +394,38 @@ namespace Carto.Utils
                 default:
                     break;
             }
+        }
+
+        /// <summary>
+        /// Check whether a file is locked by other threads.
+        /// （確認檔案是否被其他執行緒鎖定。）
+        /// </summary>
+        /// <param name="path">The path to the file.（指向檔案的連結。）</param>
+        /// <returns>If true, the file is locked.（若為真，檔案被鎖定。）</returns>
+        public static bool IsFileLocked(string path)
+        {
+            /*
+                # References: （資料來源：）
+                
+                * ChrisW. (2009). Is there a way to check if a file is in use?
+                    https://stackoverflow.com/a/937558
+            */
+
+            if (!File.Exists(path)) return false;
+
+            try
+            {
+                using (FileStream fs = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                    fs.Close();
+                }
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

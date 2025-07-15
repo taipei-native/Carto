@@ -31,6 +31,18 @@ namespace Carto.IO
         public DateTime Created { get; set; }
 
         /// <summary>
+        /// Whether to show a dialog when the export completes.
+        /// （是否要在輸出完成後顯示對話框？）
+        /// </summary>
+        public bool CompletionDialog { get; set; } = true;
+
+        /// <summary>
+        /// Whether to play a completion sound when the export completes.
+        /// （是否要在輸出完成後播放一段音效？）
+        /// </summary>
+        public bool CompletionSound { get; set; } = true;
+
+        /// <summary>
         /// The path to the target directory.
         /// （目標目錄的路徑。）
         /// </summary>
@@ -47,6 +59,12 @@ namespace Carto.IO
         /// （是否要輸出高程？）
         /// </summary>
         public bool Elevation { get; set; } = false;
+
+        /// <summary>
+        /// The dictionary of errors.
+        /// （收集錯誤的字典。）
+        /// </summary>
+        public Dictionary<string, Error> Errors { get; set; } = new();
 
         /// <summary>
         /// The feature types about to export.

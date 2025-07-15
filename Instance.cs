@@ -4,6 +4,7 @@ using Colossal.Localization;
 using Colossal.Logging;
 using Colossal.PSI.Environment;
 using Game;
+using Game.Audio;
 using Game.City;
 using Game.Modding;
 using Game.Prefabs;
@@ -22,6 +23,12 @@ namespace Carto
     public static class Instance
     {
         // Game instances（遊戲的實例）
+        /// <summary>
+        /// The system managing sound effects.
+        /// （管理音效的系統。）
+        /// </summary>
+        public static AudioManager Audio => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<AudioManager>();
+
         /// <summary>
         /// The system managing the initializing options.
         /// （管理程式初始化選項的系統。）
@@ -129,7 +136,7 @@ namespace Carto
         /// The dedicated logger documenting the information, warnings, and errors.
         /// （記錄執行時資訊、警告或錯誤的記錄器。）
         /// </summary>
-        public static ILog Log { get; } = LogManager.GetLogger(nameof(Carto)).SetShowsErrorsInUI(false);
+        public static ILog Log { get; } = LogManager.GetLogger(nameof(Carto)).SetShowsErrorsInUI(true);
 
         /// <summary>
         /// The system that searches networks.
@@ -166,6 +173,12 @@ namespace Carto
         /// （收集多種系統所需之共享資料的系統。）
         /// </summary>
         public static SharedDataCollectionSystem Shared => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SharedDataCollectionSystem>();
+
+        /// <summary>
+        /// The system that manages sounds.
+        /// （管理聲音的系統。）
+        /// </summary>
+        public static SoundSystem Sound => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SoundSystem>();
 
         /// <summary>
         /// The current running Carto version.

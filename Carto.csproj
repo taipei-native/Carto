@@ -73,6 +73,9 @@
 		<Reference Include="Newtonsoft.Json">
 			<Private>False</Private>
 		</Reference>
+		<Reference Include="UnityEngine.AudioModule">
+			<Private>False</Private>
+		</Reference>
 	</ItemGroup>
 
 	<ItemGroup>
