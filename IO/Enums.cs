@@ -404,6 +404,25 @@ namespace Carto.IO
     }
 
     /// <summary>
+    /// The orientation of the vertex ordering.
+    /// （頂點排序的方向。）
+    /// </summary>
+    public enum Order
+    {
+        /// <summary>
+        /// The vertices should be aligned clockwise-ly. This ordering is adopted by ESRI Shapefile.
+        /// （頂點應以順時鐘排列。這是 ESRI Shapefile 採用的順序。）
+        /// </summary>
+        Clockwise = 0,
+
+        /// <summary>
+        /// The vertices should be aligned counterclockwise-ly. This ordering is adopted by GeoJSON and Simple Features (the basis of WKB, and GeoPackage uses WKB.)<br/>
+        /// （頂點應以逆時鐘排列。這是 GeoJSON 及 Simple Features（WKB 的基礎，而 GeoPackage 使用 WKB）採用的順序。）
+        /// </summary>
+        Counterclockwise = 1
+    }
+
+    /// <summary>
     /// The OS platform.
     /// （作業系統平臺。）
     /// </summary>

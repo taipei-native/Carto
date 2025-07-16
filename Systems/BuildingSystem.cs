@@ -680,6 +680,7 @@ namespace Carto.Systems
                         transformLookup = GetComponentLookup<Game.Objects.Transform>(),
                         sourceCRS = options.GetTMProjection(),
                         targetCRS = Geodata.CRS.WGS84,
+                        ordering = options.Ordering,
                         sourceProjection = options.GetTMProjectionDefinition(),
                         targetProjection = default,
                         buildingStats = buildingStats,
@@ -728,6 +729,7 @@ namespace Carto.Systems
                         center = options.GetTMCoord(),
                         sourceCRS = options.GetTMProjection(),
                         targetCRS = Geodata.CRS.WGS84,
+                        ordering = options.Ordering,
                         sourceProjection = options.GetTMProjectionDefinition(),
                         targetProjection = default,
                         nodeEntityMap = nodeEntityMap.AsParallelWriter()
@@ -979,6 +981,7 @@ namespace Carto.Systems
                         transformLookup = GetComponentLookup<Game.Objects.Transform>(),
                         sourceCRS = options.GetTMProjection(),
                         targetCRS = options.TargetProjection,
+                        ordering = options.Ordering,
                         sourceProjection = options.GetTMProjectionDefinition(),
                         targetProjection = options.TargetProjectionDefinition,
                         buildingStats = buildingStats,
@@ -1028,6 +1031,7 @@ namespace Carto.Systems
                         center = options.GetTMCoord(),
                         sourceCRS = options.GetTMProjection(),
                         targetCRS = options.TargetProjection,
+                        ordering = options.Ordering,
                         sourceProjection = options.GetTMProjectionDefinition(),
                         targetProjection = options.TargetProjectionDefinition,
                         nodeEntityMap = nodeEntityMap.AsParallelWriter()
@@ -1300,6 +1304,9 @@ namespace Carto.Systems
             public Geodata.CRS targetCRS;
 
             [ReadOnly]
+            public Order ordering;
+
+            [ReadOnly]
             public ProjectionDefinition sourceProjection;
 
             [ReadOnly]
@@ -1316,6 +1323,7 @@ namespace Carto.Systems
 
             public void Execute(int index)
             {
+                bool useCounterclockwise = ordering == Order.Counterclockwise;
                 Entity building = buildingStats[index].entity;
                 if (prefabRefLookup.TryGetComponent(building, out PrefabRef prefabRefComponent))
                 {
@@ -1333,11 +1341,23 @@ namespace Carto.Systems
                         double angle = 2 * math.PI_DBL / pointsCount;
 
                         NativeArray<double3> nodes = new(pointsCount, Allocator.Persistent);
-                        for (int i = 0; i < pointsCount; i++)
+                        if (useCounterclockwise)
                         {
-                            float3 delta = new((float)(radius * -math.sin(angle * i)), (float)(radius * math.cos(angle * i)), 0);
-                            nodes[i] = Geodata.Transform.Apply(center.Shift(position.xzy + delta), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
+                            for (int i = 0; i < pointsCount; i++)
+                            {
+                                float3 delta = new((float)(radius * -math.sin(angle * i)), (float)(radius * math.cos(angle * i)), 0);
+                                nodes[i] = Geodata.Transform.Apply(center.Shift(position.xzy + delta), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
+                            }
                         }
+                        else
+                        {
+                            for (int i = 0; i < pointsCount; i++)
+                            {
+                                float3 delta = new((float)(radius * math.sin(angle * i)), (float)(radius * math.cos(angle * i)), 0);
+                                nodes[i] = Geodata.Transform.Apply(center.Shift(position.xzy + delta), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
+                            }
+                        }
+
                         nodeEntityMap.TryAdd(building, nodes);
                     }
                     else
@@ -1350,10 +1370,20 @@ namespace Carto.Systems
                         double3 d = Geodata.Transform.Apply(center.Shift(corners.d.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
 
                         NativeArray<double3> nodes = new(4, Allocator.Persistent);
-                        nodes[0] = a;
-                        nodes[1] = isCounterClockwise ? b : d;
-                        nodes[2] = c;
-                        nodes[3] = isCounterClockwise ? d : b;
+                        if (useCounterclockwise)
+                        {
+                            nodes[0] = a;
+                            nodes[1] = isCounterClockwise ? b : d;
+                            nodes[2] = c;
+                            nodes[3] = isCounterClockwise ? d : b;
+                        }
+                        else
+                        {
+                            nodes[0] = a;
+                            nodes[1] = isCounterClockwise ? d : b;
+                            nodes[2] = c;
+                            nodes[3] = isCounterClockwise ? b : d;
+                        }
                         nodeEntityMap.TryAdd(building, nodes);
                     }
                 }

@@ -487,6 +487,7 @@ namespace Carto.Systems
                     center = options.GetTMCoord(),
                     sourceCRS = options.GetTMProjection(),
                     targetCRS = Geodata.CRS.WGS84,
+                    ordering = options.Ordering,
                     sourceProjection = options.GetTMProjectionDefinition(),
                     targetProjection = default,
                     nodeEntityMap = nodeEntityMap.AsParallelWriter()
@@ -650,6 +651,7 @@ namespace Carto.Systems
                     center = options.GetTMCoord(),
                     sourceCRS = options.GetTMProjection(),
                     targetCRS = options.TargetProjection,
+                    ordering = options.Ordering,
                     sourceProjection = options.GetTMProjectionDefinition(),
                     targetProjection = options.TargetProjectionDefinition,
                     nodeEntityMap = nodeEntityMap.AsParallelWriter()
@@ -942,7 +944,10 @@ namespace Carto.Systems
 
             [ReadOnly]
             public Geodata.CRS targetCRS;
-            
+
+            [ReadOnly]
+            public Order ordering;
+
             [ReadOnly]
             public ProjectionDefinition sourceProjection;
 
@@ -952,7 +957,7 @@ namespace Carto.Systems
             [WriteOnly]
             public NativeParallelHashMap<Entity, NativeArray<double3>>.ParallelWriter nodeEntityMap;
 
-            public void Execute(in Area areaComponent, in DynamicBuffer<Node> nodes, Entity area)
+            public void Execute(in DynamicBuffer<Node> nodes, Entity area)
             {
                 if (affliatedArea)
                 {
@@ -961,9 +966,11 @@ namespace Carto.Systems
                         if (!storageLookup.TryGetComponent(area, out _) && ownerLookup.TryGetComponent(ownerComponent.m_Owner, out _)) return;
                     }
                 }
-                
+
+                bool isCounterclockwise = Utils.MathUtils.IsCounterclockwise(nodes);
+                bool useCounterclockwise = ordering == Order.Counterclockwise;
                 NativeArray<double3> nodesArray = new(nodes.Length, Allocator.Persistent);
-                if ((areaComponent.m_Flags & AreaFlags.CounterClockwise) != 0)
+                if ((useCounterclockwise & isCounterclockwise) || (!useCounterclockwise & !isCounterclockwise))
                 {
                     for (int i = 0; i < nodes.Length; i++)
                     {
@@ -972,9 +979,9 @@ namespace Carto.Systems
                 }
                 else
                 {
-                    for (int i = nodes.Length - 1; i > -1; i--)
+                    for (int i = 0; i < nodes.Length; i++)
                     {
-                        nodesArray[i] = Transform.Apply(center.Shift(nodes[i].m_Position.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
+                        nodesArray[i] = Transform.Apply(center.Shift(nodes[nodes.Length - 1 - i].m_Position.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
                     }
                 }
 

@@ -101,6 +101,24 @@ namespace Carto.IO
         public bool Minimized { get; set; } = true;
 
         /// <summary>
+        /// The order of the vertices.
+        /// （頂點的順序。）
+        /// </summary>
+        public Order Ordering
+        {
+            get
+            {
+                return VectorFormat switch
+                {
+                    FileFormat.GeoJSON => Order.Counterclockwise,
+                    FileFormat.GeoPackage => Order.Counterclockwise,
+                    FileFormat.Shapefile => Order.Clockwise,
+                    _ => Order.Counterclockwise
+                };
+            }
+        }
+
+        /// <summary>
         /// Whether to regard the pets as regular passengers.
         /// （是否將寵物視為一般乘客。）
         /// </summary>

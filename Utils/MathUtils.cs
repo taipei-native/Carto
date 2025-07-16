@@ -3,6 +3,7 @@ using Colossal.Mathematics;
 using System;
 using System.Globalization;
 using Unity.Collections;
+using Unity.Entities;
 using Unity.Mathematics;
 
 namespace Carto.Utils
@@ -591,8 +592,30 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Check whether the area nodes is in counterclockwise order.
+        /// （確認區域節點是否以逆時鐘順序排列。）
+        /// </summary>
+        /// <param name="nodes">The input dynamic buffer.（輸入的動態緩衝區。）</param>
+        /// <returns>If true, the <paramref name="nodes"/> is aligned in counterclockwise order.（若為真，則 <paramref name="nodes"/> 以逆時鐘順序排列。）</returns>
+        public static bool IsCounterclockwise(DynamicBuffer<Game.Areas.Node> nodes)
+        {
+            // You gotta be kidding me, this is not even a polygon!
+            // （這甚至不是多邊形！）
+            if (nodes.Length < 3) return false;
+            
+            float area = 0f;
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                float2 current = nodes[i].m_Position.xz;
+                float2 next = nodes[(i + 1) % nodes.Length].m_Position.xz;
+                area += (current.x * next.y) - (next.x * current.y);
+            }
+            return area > 0f;
+        }
+
+        /// <summary>
         /// Check whether the corner of <paramref name="quad"/> is in counterclockwise order.
-        /// （確認 <paramref name="quad"/> 的角落是否以逆時針順序排列。）
+        /// （確認 <paramref name="quad"/> 的角落是否以逆時鐘順序排列。）
         /// </summary>
         /// <param name="quad">The input polygon.（輸入多邊形。）</param>
         /// <returns>True if the order is counterclockwise.（若為真，則其順序為逆時針。）</returns>

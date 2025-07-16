@@ -60,14 +60,16 @@ namespace Carto.IO
             WritePropertyPair(writer, "type", "FeatureCollection");
 
             // CRS definition.（坐標參考系統定義。）
-            writer.WritePropertyName("crs");
-            writer.WriteStartObject();
-            WritePropertyPair(writer, "type", "name");
-            writer.WritePropertyName("properties");
-            writer.WriteStartObject();
-            WritePropertyPair(writer, "name", "urn:ogc:def:crs:OGC:1.3:CRS84");
-            writer.WriteEndObject();
-            writer.WriteEndObject();
+            // The CRS of GeoJSON SHOULD BE WGS84, so no need to state it again.（GeoJSON 的 CRS 必須是 WGS84，因此不需要再度聲明。）
+
+            // writer.WritePropertyName("crs");
+            // writer.WriteStartObject();
+            // WritePropertyPair(writer, "type", "name");
+            // writer.WritePropertyName("properties");
+            // writer.WriteStartObject();
+            // WritePropertyPair(writer, "name", "urn:ogc:def:crs:OGC:1.3:CRS84");
+            // writer.WriteEndObject();
+            // writer.WriteEndObject();
 
             // Feature definition.（圖徵定義。）
             writer.WritePropertyName("features");

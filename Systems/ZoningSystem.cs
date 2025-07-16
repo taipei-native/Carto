@@ -301,6 +301,7 @@ namespace Carto.Systems
                     center = options.GetTMCoord(),
                     sourceCRS = options.GetTMProjection(),
                     targetCRS = Geodata.CRS.WGS84,
+                    ordering = options.Ordering,
                     sourceProjection = options.GetTMProjectionDefinition(),
                     targetProjection = default,
                     zoningTypes = zoningTypes,
@@ -417,6 +418,7 @@ namespace Carto.Systems
                     center = options.GetTMCoord(),
                     sourceCRS = options.GetTMProjection(),
                     targetCRS = options.TargetProjection,
+                    ordering = options.Ordering,
                     sourceProjection = options.GetTMProjectionDefinition(),
                     targetProjection = options.TargetProjectionDefinition,
                     zoningTypes = zoningTypes,
@@ -491,6 +493,9 @@ namespace Carto.Systems
             public Geodata.CRS targetCRS;
 
             [ReadOnly]
+            public Order ordering;
+
+            [ReadOnly]
             public ProjectionDefinition sourceProjection;
 
             [ReadOnly]
@@ -541,16 +546,32 @@ namespace Carto.Systems
                             float3 point3 = cornerPoint + (j + 1) * xUnitVector + (i + 1) * yUnitVector;
                             float3 point4 = cornerPoint + (j + 1) * xUnitVector + i * yUnitVector;
 
-                            zoningCells.AddNoResize(new ZoningCell
+                            if (ordering == Order.Counterclockwise)
                             {
-                                a = Transform.Apply(center.Shift(point1.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
-                                b = Transform.Apply(center.Shift(point2.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
-                                c = Transform.Apply(center.Shift(point3.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
-                                cellIndex = cellIndex,
-                                d = Transform.Apply(center.Shift(point4.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
-                                entity = zoningBlock,
-                                zoningTypeIndex = zoningTypeIndex,
-                            });
+                                zoningCells.AddNoResize(new ZoningCell
+                                {
+                                    a = Transform.Apply(center.Shift(point1.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                    b = Transform.Apply(center.Shift(point2.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                    c = Transform.Apply(center.Shift(point3.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                    cellIndex = cellIndex,
+                                    d = Transform.Apply(center.Shift(point4.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                    entity = zoningBlock,
+                                    zoningTypeIndex = zoningTypeIndex,
+                                });
+                            }
+                            else
+                            {
+                                zoningCells.AddNoResize(new ZoningCell
+                                {
+                                    a = Transform.Apply(center.Shift(point1.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                    b = Transform.Apply(center.Shift(point4.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                    c = Transform.Apply(center.Shift(point3.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                    cellIndex = cellIndex,
+                                    d = Transform.Apply(center.Shift(point2.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
+                                    entity = zoningBlock,
+                                    zoningTypeIndex = zoningTypeIndex,
+                                });
+                            }
                         }
                     }
                 }
