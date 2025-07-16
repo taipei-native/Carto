@@ -418,6 +418,31 @@
         }
 
         /// <summary>
+        /// Check whether the list of nodes is in the counterclockwise order.
+        /// （檢查節點列表是否以逆時鐘順序排列。）
+        /// </summary>
+        /// <param name="nodes">The node list.（節點列表。）</param>
+        /// <returns>If true, the nodes are in counterclockwise order.（若為真，節點以逆時鐘順序排列。）</returns>
+        public static bool IsCounterClockwise(List<float3> nodes)
+        {
+            int count = nodes.Count;
+
+            // It is not even a polygon!
+            // （這甚至不是多邊形！）
+            if (count < 3) return false;
+
+            float area = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                float2 current = nodes[i].xz;
+                float2 next = nodes[(i + 1) % count].xz;
+                area += (current.x * next.y) - (next.x * current.y);
+            }
+
+            return area > 0f;
+        }
+
+        /// <summary>
         /// Check whether the target azimuth angle is lefter than the reference azimuth angle.
         /// （確認目標方位角是否位於參考方位角左側。)
         /// </summary>

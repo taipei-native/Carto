@@ -772,7 +772,9 @@
                 nodeList.Add(firstPointLeft);
             }
 
-            return GeometryUtils.RemoveDuplicate(nodeList).Where(n => !math.any(math.isnan(n))).ToList();
+            List<float3> nodes = GeometryUtils.RemoveDuplicate(nodeList).Where(n => !math.any(math.isnan(n))).ToList();
+            if (!GeometryUtils.IsCounterClockwise(nodes)) nodes.Reverse();
+            return nodes;
         }
 
         /// <summary>
@@ -783,10 +785,6 @@
         {
             List<CartoObject> pathList = new List<CartoObject>();
             fieldLength = new Dictionary<string, int>();
-
-            int ttc = _pathwayQuery.CalculateEntityCount();
-            int elc = 0;
-            m_Log.Debug($"Start exporting pathway: 0/{ttc}");
 
             foreach (Entity _path in _pathwayQuery.ToEntityArray(Allocator.Temp))
             {
@@ -902,8 +900,6 @@
                     }
 
                     pathList.Add(new CartoObject(edges, props, type));
-                    m_Log.Debug($"{elc}/{ttc}");
-                    elc++;
                 }
                 catch (Exception ex)
                 {

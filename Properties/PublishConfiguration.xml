@@ -64,15 +64,14 @@ You can reach me at the PDX forum’s comment section (English / Chinese), Citie
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.3.6" />
+	<ModVersion Value="0.3.7" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.3.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Fixed invalid transition geometries between roundabouts and parking roads [Reported by @mikeymike316]
-* Rewrote the algorithm for generating roundabout boundaries.
+* Fixed vertex ordering for area, building, and network features to ensure all exterior rings follow specific orientation. [Reported by @Baka-gourd]
 	</ChangeLog>
 	<!--ChangeLog>
 	</ChangeLog-->

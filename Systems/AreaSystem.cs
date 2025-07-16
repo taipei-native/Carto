@@ -155,6 +155,7 @@
                     {
                         List<float3> distNodes = new List<float3>();
                         foreach (Node _node in EntityManager.GetBuffer<Node>(_district)) distNodes.Add(_node.m_Position);
+                        if (!GeometryUtils.IsCounterClockwise(distNodes)) distNodes.Reverse();
                         edges["Edge"] = distNodes;
                         type["Edge"] = GeometryType.Polygon;
                     }
@@ -230,6 +231,7 @@
                     {
                         List<float3> tileNodes = new List<float3>();
                         foreach (Node _node in EntityManager.GetBuffer<Node>(_tile)) tileNodes.Add(_node.m_Position);
+                        if (!GeometryUtils.IsCounterClockwise(tileNodes)) tileNodes.Reverse();
                         edges["Edge"] = tileNodes;
                         type["Edge"] = GeometryType.Polygon;
                     }

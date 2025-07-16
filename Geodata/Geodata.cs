@@ -796,6 +796,12 @@
                     Bounds3 boundL = new Bounds3(coordL, coordL);
                     BU.Skip(bList, 1);                                      //  52 Part. （位元組44：部件。）
 
+                    // Version 0.3.7: To ensure compatibility with GeoJSON and Shapefile standards, all polygon rings are initially generated in counterclockwise order when constructing a CartoObject.
+                    //                Since ESRI Shapefiles require exterior rings to be clockwise, each ring is reversed during Shapefile export.
+                    // （0.3.7 版本：為了確保符合 GeoJSON 與 Shapefile 標準，所有 CartoObject 的多邊形外部頂點初始皆以逆時鐘排列。
+                    //               但是 ESRI Shapefile 要求外部頂點為順時鐘排列，因此順序必須翻轉。）
+                    if (shpType == GeometryType.Polygon) obj.Edges[field].Reverse();
+
                     foreach (float3 p in obj.Edges[field])
                     {
                         double3 _p = p + _trans;

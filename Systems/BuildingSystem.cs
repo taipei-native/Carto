@@ -396,8 +396,10 @@ namespace Carto.Systems
                     // （獲取建築物的（不可碰撞）邊緣。預期輸出：float3(-131.263f, 547.2352f, 819.4241f)）
                     if (useEdge)
                     {
+                        List<float3> buildNodes = GetBuildingEdge(_build, EntityManager);
+                        if (!GeometryUtils.IsCounterClockwise(buildNodes)) buildNodes.Reverse();
+                        edges["Edge"] = buildNodes;
                         type["Edge"]  = GeometryType.Polygon;
-                        edges["Edge"] = GetBuildingEdge(_build, EntityManager);
                     }
 
                     // Retrieve the amount of the employees in the building. Expected output: 12
