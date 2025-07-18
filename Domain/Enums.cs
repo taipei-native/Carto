@@ -285,7 +285,12 @@ namespace Carto.Domain
         /// <summary>
         /// The man-made barriers.（圍籬。）
         /// </summary>
-        Fence = 1 << 17
+        Fence = 1 << 17,
+
+        /// <summary>
+        /// The networks made by Road Builder.（由 Road Builder 製作的網路。）
+        /// </summary>
+        RoadBuilder = 1 << 18,
     }
 
     /// <summary>

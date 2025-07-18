@@ -380,6 +380,16 @@ namespace Carto
             set { IO.IO.Export(); }
         }
 
+# if DEBUG
+        [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
+        [SettingsUIButton]
+        [SettingsUIDisableByCondition(typeof(Settings), nameof(IsInGameOrEditor), invert: true)]
+        public bool TestButton
+        {
+            set { }
+        }
+#endif
+
         /// <summary>
         /// The current running Carto version.
         /// （目前執行中的Carto版本。）

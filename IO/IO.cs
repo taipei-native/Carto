@@ -508,12 +508,6 @@ namespace Carto.IO
                         }
                     }
 
-                    if (useNetwork)
-                    {
-                        // Retrieve network statistics.（獲取網路的統計資料。）
-                        Instance.Network.GetNetworkStats(options);
-                    }
-
                     bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
                     bool buildingHasBoundary = options.Has(System.Building, VectorKind.Boundary);
                     bool poiHasLocation = options.Has(System.POI, VectorKind.Location);
@@ -897,9 +891,13 @@ namespace Carto.IO
                 string name = assembly.GetName().Name;
                 Version version = assembly.GetName().Version;
                 string assemblyItem;
-                string assemblyBaseTitle = $"{name} [{assembly.GetName().Version}]";
+                string assemblyBaseTitle = $"{name} [{version}]";
 
-                if (name.StartsWith(Instance.Xtm.Name))
+                if (name.StartsWith(Instance.Rb.Name))
+                {
+                    assemblyItem = $"{GetVersionIndicator(CompareVersion(version, Instance.Rb.VerifiedVersion))}{assemblyBaseTitle}";
+                }
+                else if (name.StartsWith(Instance.Xtm.Name))
                 {
                     assemblyItem = $"{GetVersionIndicator(CompareVersion(version, Instance.Xtm.VerifiedVersion))}{assemblyBaseTitle}";
                 }

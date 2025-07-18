@@ -70,12 +70,6 @@ namespace Carto.Systems
         private NativeList<RouteStat> _localRouteStats;
 
         /// <summary>
-        /// The map between route pieces and the routes.
-        /// （運輸路線片段與路線的映射表。）
-        /// </summary>
-        //private NativeParallelHashMap<Bezier4x3, NativeList<Entity>> _curveEntityMap;
-
-        /// <summary>
         /// The type of transportation routes that can be exported.
         /// （可被輸出的運輸路線種類。）
         /// </summary>

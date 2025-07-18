@@ -123,21 +123,6 @@ namespace Carto.Domain
         }
 
         /// <summary>
-        /// Try to retrieve the designated type.<br/>
-        /// （嘗試取得指定的型別。）
-        /// </summary>
-        /// <param name="fullName">The full name of the type.（型別的完整名稱。）</param>
-        /// <param name="targetType">The type that represents the target.（表示目標的型別）</param>
-        /// <returns>Whether the query success or not.（查詢是否成功？）</returns>
-        private bool TryGetType(string fullName, out Type targetType)
-        {
-            targetType = null;
-            if (!_accessible) return false;
-            targetType = _assembly?.GetType(fullName, throwOnError: false, ignoreCase: false);
-            return targetType != null;
-        }
-
-        /// <summary>
         /// Try to retrieve the type of extra route data component.
         /// （嘗試取得額外路線資訊組件的型別。）
         /// </summary>
@@ -159,7 +144,7 @@ namespace Carto.Domain
             xtmRouteExtraDataType = null;
             xtmRouteExtraDataComponentGetterFunction = null;
             acronymGetterFunction = null;
-            if (!_accessible || !TryGetType(_xtmRouteExtraDataTypeName, out xtmRouteExtraDataType)) return false;
+            if (!_accessible || !this.TryGetType(_xtmRouteExtraDataTypeName, out xtmRouteExtraDataType)) return false;
 
             PropertyInfo acronymProperty = xtmRouteExtraDataType.GetProperty(_acronymPropertyName, BindingFlags.Instance | BindingFlags.Public);
             if ((acronymProperty == null) || (acronymProperty.PropertyType != typeof(string))) return false;

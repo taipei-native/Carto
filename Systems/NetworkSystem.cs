@@ -10,6 +10,7 @@ using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
 using System;
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -43,66 +44,45 @@ namespace Carto.Systems
         static EntityQuery _networkQuery;
 
         /// <summary>
-        /// The query to collect the attachment of roundabouts.
-        /// （收集圓環附件的查詢。）
-        /// </summary>
-        static EntityQuery _roundaboutAttachmentQuery;
-
-        /// <summary>
         /// The query to collect all roundabouts.
         /// （收集所有圓環的查詢。）
         /// </summary>
         static EntityQuery _roundaboutQuery;
 
         /// <summary>
+        /// The query to collect the attachment of roundabouts.
+        /// （收集圓環附件的查詢。）
+        /// </summary>
+        static EntityQuery _roundaboutAttachmentQuery;
+
+        /// <summary>
+        /// The query to collect the prefab of roundabouts attachments.
+        /// （收集圓環附件預製模板的查詢。）
+        /// </summary>
+        static EntityQuery _roundaboutAttachmentPrefabQuery;
+
+        /// <summary>
         /// The query to collect all utility service network entities.
         /// （收集所有公用事業管線網路實體的查詢。）
         /// </summary>
-        static EntityQuery _utilityServiceNetworkQuery;
+        //static EntityQuery _utilityServiceNetworkQuery;
+
+        /// <summary>
+        /// The query for networks.（網路的查詢。）
+        /// </summary>
+        static EntityQueryDesc _networkEntityQueryDesc;
 
         /// <summary>
         /// The list of all network's statistics in the savegame.
         /// （遊戲存檔內所有網路的統計數據。）
         /// </summary>
-        public ref NativeList<NetworkStat> NetworkStats => ref _networkStats;
+        private NativeList<NetworkStat> _localNetworkStats;
 
         /// <summary>
-        /// See <see cref="NetworkStats"/>.
+        /// The map between roundabout node and its statistics.
+        /// （圓環節點與統計資訊的映射表。）
         /// </summary>
-        private NativeList<NetworkStat> _networkStats;
-
-        /// <summary>
-        /// The map between network entities and their index in <see cref="NetworkStats"/>.
-        /// （網路實體與其在 <see cref="NetworkStats"/> 索引值的映射表。）
-        /// </summary>
-        public ref NativeParallelHashMap<Entity, int> NetworkStatsEntityMap => ref _networkStatsEntityMap;
-
-        /// <summary>
-        /// See <see cref="NetworkStatsEntityMap"/>.
-        /// </summary>
-        private NativeParallelHashMap<Entity, int> _networkStatsEntityMap;
-
-        /// <summary>
-        /// The list of in-game roundabouts.
-        /// （遊戲內圓環的列表。）
-        /// </summary>
-        public ref NativeList<Domain.Roundabout> Roundabouts => ref _roundabouts;
-
-        /// <summary>
-        /// See <see cref="Roundabouts"/>.
-        /// </summary>
-        public NativeList<Domain.Roundabout> _roundabouts;
-
-        /// <summary>
-        /// The map between roundabout nodes and their index in <see cref="Roundabouts"/>.
-        /// （圓環節點實體與其在 <see cref="Roundabouts"/> 索引值的映射表。）
-        /// </summary>
-        public ref NativeParallelHashMap<Entity, int> RoundaboutsEntityMap => ref _roundaboutsEntityMap;
-
-        /// <summary>
-        /// See <see cref="RoundaboutsEntityMap"/>.
-        /// </summary>
-        private NativeParallelHashMap<Entity, int> _roundaboutsEntityMap;
+        private NativeParallelHashMap<Entity, Domain.Roundabout> _roundaboutEntityMap;
 
         /// <summary>
         /// The event triggered when the system instance is created.
@@ -110,6 +90,23 @@ namespace Carto.Systems
         /// </summary>
         protected override void OnCreate()
         {
+            _networkEntityQueryDesc = new()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Composition>(),
+                    ComponentType.ReadOnly<Curve>(),
+                    ComponentType.ReadOnly<Edge>(),
+                    ComponentType.ReadOnly<EdgeGeometry>(),
+                    ComponentType.ReadOnly<Game.Net.SubLane>()
+                },
+                None = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Deleted>(),
+                    ComponentType.ReadOnly<Temp>()
+                }
+            };
+            
             _lanePrefabQuery = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
@@ -122,15 +119,16 @@ namespace Carto.Systems
                 }
             });
 
-            _networkQuery = GetEntityQuery(new EntityQueryDesc()
+            _networkQuery = GetEntityQuery(_networkEntityQueryDesc);
+
+            _roundaboutQuery = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
-                    ComponentType.ReadOnly<Composition>(),
-                    ComponentType.ReadOnly<Curve>(),
-                    ComponentType.ReadOnly<Edge>(),
-                    ComponentType.ReadOnly<EdgeGeometry>(),
-                    ComponentType.ReadOnly<Game.Net.SubLane>()
+                    ComponentType.ReadOnly<ConnectedEdge>(),
+                    ComponentType.ReadOnly<Node>(),
+                    ComponentType.ReadOnly<Game.Net.Roundabout>(),
+                    ComponentType.ReadOnly<Game.Objects.SubObject>()
                 },
                 None = new ComponentType[]
                 {
@@ -157,14 +155,12 @@ namespace Carto.Systems
                 }
             });
 
-            _roundaboutQuery = GetEntityQuery(new EntityQueryDesc()
+            _roundaboutAttachmentPrefabQuery = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
-                    ComponentType.ReadOnly<ConnectedEdge>(),
-                    ComponentType.ReadOnly<Node>(),
-                    ComponentType.ReadOnly<Game.Net.Roundabout>(),
-                    ComponentType.ReadOnly<Game.Objects.SubObject>()
+                    ComponentType.ReadOnly<ObjectGeometryData>(),
+                    ComponentType.ReadOnly<NetObjectData>()
                 },
                 None = new ComponentType[]
                 {
@@ -173,18 +169,18 @@ namespace Carto.Systems
                 }
             });
 
-            _utilityServiceNetworkQuery = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new ComponentType[]
-                {
-                    ComponentType.ReadOnly<Edge>()
-                },
-                Any = new ComponentType[]
-                {
-                    ComponentType.ReadOnly<ElectricityNodeConnection>(),
-                    ComponentType.ReadOnly<WaterPipeNodeConnection>()
-                }
-            });
+            //_utilityServiceNetworkQuery = GetEntityQuery(new EntityQueryDesc()
+            //{
+            //    All = new ComponentType[]
+            //    {
+            //        ComponentType.ReadOnly<Edge>()
+            //    },
+            //    Any = new ComponentType[]
+            //    {
+            //        ComponentType.ReadOnly<ElectricityNodeConnection>(),
+            //        ComponentType.ReadOnly<WaterPipeNodeConnection>()
+            //    }
+            //});
 
             base.OnCreate();
             _log.Debug("NetworkSystem instance created. 網路系統實例創造完成。");
@@ -212,10 +208,8 @@ namespace Carto.Systems
         /// </summary>
         public void Dispose()
         {
-            Utils.CommonUtils.Dispose(ref _networkStats);
-            Utils.CommonUtils.Dispose(ref _networkStatsEntityMap);
-            Utils.CommonUtils.Dispose(ref _roundabouts);
-            Utils.CommonUtils.Dispose(ref _roundaboutsEntityMap);
+            Utils.CommonUtils.Dispose(ref _localNetworkStats);
+            Utils.CommonUtils.Dispose(ref _roundaboutEntityMap);
         }
 
         /// <summary>
@@ -224,7 +218,7 @@ namespace Carto.Systems
         /// </summary>
         /// <param name="netCompositionData">The NetCompositionData component.（NetCompositionData 部件。）</param>
         /// <returns>The form of the road.（道路的形式。）</returns>
-        private static Form GetForm(NetCompositionData netCompositionData)
+        private static Form GetForm(NetCompositionData netCompositionData) 
         {
             Form form = Form.Normal;
             CompositionFlags.General generalCompositions = netCompositionData.m_Flags.m_General;
@@ -234,126 +228,103 @@ namespace Carto.Systems
         }
 
         /// <summary>
-        /// Retrieve network entities' statistical data.
-        /// （獲取網路實體的統計資料。）
+        /// Retrieve the statistics of the network lanes.
+        /// （獲得網路的車道統計資訊。）
         /// </summary>
-        /// <param name="options">The export options.（檔案輸出選項。）</param>
-        public void GetNetworkStats(Options options)
+        /// <param name="compositionLanes">The buffer of network lanes.（網路車道的緩衝區。）</param>
+        /// <param name="laneEntityMap">The map between lane prefab entities and the statistics.（車道預製模板與統計資訊的映射表。）</param>
+        /// <param name="count">The number of motorized vehicle lanes.（機動車輛車道的數量。）</param>
+        /// <param name="categories">The category of the network.（網路的分類。）</param>
+        private static void GetLaneStatistics(DynamicBuffer<NetCompositionLane> compositionLanes, ref NativeParallelHashMap<Entity, Domain.Lane> laneEntityMap,
+                                              out int count, out NetworkCategory categories)
+        {
+            categories = NetworkCategory.None;
+            count = 0;
+            for (int i = 0; i < compositionLanes.Length; i++)
+            {
+                NetCompositionLane lane = compositionLanes[i];
+                if (((lane.m_Flags & LaneFlags.Road) != 0) & ((lane.m_Flags & LaneFlags.Master) == 0)) count++;
+                if (laneEntityMap.TryGetValue(lane.m_Lane, out Domain.Lane laneStruct) && !laneStruct.IsUtilityLane) categories |= laneStruct.category;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve the statistics of networks,
+        /// （獲得網路的統計資訊。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        private void GetNetworkStats(Options options)
         {
             // Create alias for fields.（創造欄位的別名。）
-            ref NativeParallelHashMap<Entity, int> entityMap = ref _networkStatsEntityMap;
-            ref NativeList<Domain.Roundabout> roundabouts = ref _roundabouts;
-            ref NativeParallelHashMap<Entity, int> roundaboutsEntityMap = ref _roundaboutsEntityMap;
-            ref NativeList<NetworkStat> stats = ref _networkStats;
+            ref NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap = ref _roundaboutEntityMap;
+            ref NativeList<NetworkStat> stats = ref _localNetworkStats;
 
             // Export options.（輸出設定。）
             Feature featureFlag = options.Features;
-            bool hasCenterline = (
-                (options.VectorKinds.TryGetValue(IO.System.Network, out VectorKind networkKinds) && (networkKinds & VectorKind.Centerline) != 0) ||
-                (options.VectorKinds.TryGetValue(IO.System.Route, out VectorKind routeKinds) && (routeKinds & VectorKind.Centerline) != 0)
-            );
-            bool hasUtilityServices = ((featureFlag & Feature.Cable) != 0) || ((featureFlag & Feature.Pipe) != 0);
+            bool hasVectorKind = options.VectorKinds.TryGetValue(IO.System.Network, out VectorKind networkKinds);
+            bool hasCenterline = hasVectorKind && ((networkKinds & VectorKind.Centerline) != 0);
 
             // Initialize native containers.（初始化原生容器。）
-            int lanePrefabCount = _lanePrefabQuery.CalculateEntityCount();
-            int roundaboutAttachmentCount = _roundaboutAttachmentQuery.CalculateEntityCount();
             int roundaboutCount = _roundaboutQuery.CalculateEntityCount();
-            int utilityServiceNetworkCount = GetUtilityServiceNetworkSegmentsCount();
             int networkCount = _networkQuery.CalculateEntityCount();
             if (hasCenterline) networkCount += roundaboutCount;
-            if (hasUtilityServices) networkCount += utilityServiceNetworkCount;
-            NativeParallelHashMap<Entity, Domain.Lane> lanesEntityMap = new(lanePrefabCount, Allocator.Persistent);
-            NativeParallelHashMap<Entity, Entity> attachmentEntityMap = new(roundaboutAttachmentCount, Allocator.Persistent);
-            NativeParallelHashSet<Entity> utilityLanes = new(lanePrefabCount, Allocator.Persistent);
+            NativeParallelHashMap<Entity, Domain.Lane> laneEntityMap = new(_lanePrefabQuery.CalculateEntityCount(), Allocator.Persistent);
+            NativeParallelHashSet<Entity> rbNetworks = default; // Handle by GetRbNetworks()
 
             // Reset output containers.（重置輸出容器。）
-            Utils.CommonUtils.Reset(ref entityMap, networkCount);
-            Utils.CommonUtils.Reset(ref roundabouts, roundaboutCount);
-            Utils.CommonUtils.Reset(ref roundaboutsEntityMap, roundaboutCount);
+            Utils.CommonUtils.Reset(ref roundaboutEntityMap, roundaboutCount);
             Utils.CommonUtils.Reset(ref stats, networkCount);
 
             try
             {
+                // Retrieve the set of Road Builder networks.
+                // （獲得 Road Builder 製作的網路集合。）
+                GetRbNetworks(ref rbNetworks);
+
+                // Retrieve lane prefabs.
+                // （獲得車道預製模板。）
                 CollectLanesJob collectLanesJob = new()
                 {
-                    carLaneDataLookup = GetComponentLookup<CarLaneData>(),
-                    parkingLaneDataLookup = GetComponentLookup<ParkingLaneData>(),
-                    trackLaneDataLookup = GetComponentLookup<TrackLaneData>(),
-                    utilityLaneDataLookup = GetComponentLookup<UtilityLaneData>(),
-                    entityMap = lanesEntityMap.AsParallelWriter(),
-                    utilityLanes = utilityLanes.AsParallelWriter()
+                    carLaneDataLookup = GetComponentLookup<CarLaneData>(true),
+                    parkingLaneDataLookup = GetComponentLookup<ParkingLaneData>(true),
+                    trackLaneDataLookup = GetComponentLookup<TrackLaneData>(true),
+                    utilityLaneDataLookup = GetComponentLookup<UtilityLaneData>(true),
+                    entityMap = laneEntityMap.AsParallelWriter()
                 };
                 JobHandle collectLanesHandle = collectLanesJob.ScheduleParallel(_lanePrefabQuery, default);
                 collectLanesHandle.Complete();
 
-                MapRoundaboutAttachmentsJob mapAttachmentJob = new()
-                {
-                    entityMap = attachmentEntityMap.AsParallelWriter(),
-                };
-                JobHandle mapAttachmentHandle = mapAttachmentJob.ScheduleParallel(_roundaboutAttachmentQuery, default);
-                mapAttachmentHandle.Complete();
+                // Collect roundabout information.
+                // （收集圓環資訊。）
+                GetRoundabouts(hasCenterline, ref stats, ref roundaboutEntityMap);
 
-                CollectRoundaboutsJob collectRoundaboutsJob = new()
+                // Finally, collect the network statistics.
+                //（最後，收集網路統計資訊。）
+                CollectNetworkStatsJob collectNetworksJob = new()
                 {
-                    hasCenterline = hasCenterline,
-                    leftHandTraffic = Instance.City.leftHandTraffic,
-                    compositionLookup = GetComponentLookup<Composition>(),
-                    netCompositionDataLookup = GetComponentLookup<NetCompositionData>(),
-                    netGeometryDataLookup = GetComponentLookup<NetGeometryData>(),
-                    objectGeometryDataLookup = GetComponentLookup<ObjectGeometryData>(),
-                    placeableObjectDataLookup = GetComponentLookup<PlaceableObjectData>(),
-                    roadLookup = GetComponentLookup<Road>(),
-                    roadCompositionLookup = GetComponentLookup<RoadComposition>(),
-                    subwayTrackLookup = GetComponentLookup<SubwayTrack>(),
-                    trackCompositionLookup = GetComponentLookup<TrackComposition>(),
-                    trainTrackLookup = GetComponentLookup<TrainTrack>(),
-                    tramTrackLookup = GetComponentLookup<TramTrack>(),
-                    attachmentEntityMap = attachmentEntityMap,
-                    list = roundabouts.AsParallelWriter(),
-                    stats = stats.AsParallelWriter()
-                };
-                JobHandle collectRoundaboutsHandle = collectRoundaboutsJob.ScheduleParallel(_roundaboutQuery, default);
-                collectRoundaboutsHandle.Complete();
-
-                MapRoundaboutsIndexJob mapIndexJob = new()
-                {
-                    list = roundabouts,
-                    map = roundaboutsEntityMap
-                };
-                JobHandle mapIndexHandle = mapIndexJob.Schedule(roundaboutCount, 16);
-                mapIndexHandle.Complete();
-
-                CollectNetworkStatsJob collectNetworkStatsJob = new()
-                {
-                    hasUtilityServiceNetworks = hasUtilityServices,
-                    connectedBuildingBufferLookup = GetBufferLookup<ConnectedBuilding>(),
-                    connectedFlowEdgeBufferLookup = GetBufferLookup<ConnectedFlowEdge>(),
-                    netCompositionPieceBufferLookup = GetBufferLookup<NetCompositionPiece>(),
-                    netPieceLaneBufferLookup = GetBufferLookup<NetPieceLane>(),
-                    subLaneBufferLookup = GetBufferLookup<Game.Net.SubLane>(),
-                    buildingLookup = GetComponentLookup<Building>(),
-                    electricityConsumerLookup = GetComponentLookup<ElectricityConsumer>(),
-                    electricityFlowEdgeLookup = GetComponentLookup<ElectricityFlowEdge>(),
-                    electricityNodeConnectionLookup = GetComponentLookup<ElectricityNodeConnection>(),
-                    markerLookup = GetComponentLookup<Game.Net.Marker>(),
-                    netCompositionDataLookup = GetComponentLookup<NetCompositionData>(),
-                    pathwayCompositionLookup = GetComponentLookup<PathwayComposition>(),
-                    pipelineDataLookup = GetComponentLookup<PipelineData>(),
-                    powerLineDataLookup = GetComponentLookup<PowerLineData>(),
-                    prefabRefLookup = GetComponentLookup<PrefabRef>(),
-                    roadLookup = GetComponentLookup<Road>(),
-                    roadCompositionLookup = GetComponentLookup<RoadComposition>(),
-                    taxiwayCompositionLookup = GetComponentLookup<TaxiwayComposition>(),
-                    trackCompositionLookup = GetComponentLookup<TrackComposition>(),
-                    waterPipeEdgeLookup = GetComponentLookup<WaterPipeEdge>(),
-                    waterPipeNodeConnectionLookup = GetComponentLookup<WaterPipeNodeConnection>(),
-                    waterwayCompositionLookup = GetComponentLookup<WaterwayComposition>(),
-                    lanesEntityMap = lanesEntityMap,
-                    roundaboutsEntityMap = roundaboutsEntityMap,
+                    netCompositionLaneBufferLookup = GetBufferLookup<NetCompositionLane>(true),
+                    aggregatedLookup = GetComponentLookup<Aggregated>(true),
+                    electricityNodeConnectionLookup = GetComponentLookup<ElectricityNodeConnection>(true),
+                    markerLookup = GetComponentLookup<Game.Net.Marker>(true),
+                    netCompositionDataLookup = GetComponentLookup<NetCompositionData>(true),
+                    pathwayCompositionLookup = GetComponentLookup<PathwayComposition>(true),
+                    pipelineDataLookup = GetComponentLookup<PipelineData>(true),
+                    powerLineDataLookup = GetComponentLookup<PowerLineData>(true),
+                    prefabRefLookup = GetComponentLookup<PrefabRef>(true),
+                    roadLookup = GetComponentLookup<Road>(true),
+                    roadCompositionLookup = GetComponentLookup<RoadComposition>(true),
+                    taxiwayCompositionLookup = GetComponentLookup<TaxiwayComposition>(true),
+                    trackCompositionLookup = GetComponentLookup<TrackComposition>(true),
+                    waterPipeNodeConnectionLookup = GetComponentLookup<WaterPipeNodeConnection>(true),
+                    waterwayCompositionLookup = GetComponentLookup<WaterwayComposition>(true),
+                    feature = featureFlag,
+                    laneEntityMap = laneEntityMap,
+                    roundaboutEntityMap = roundaboutEntityMap,
+                    rbNetworks = rbNetworks,
                     list = stats.AsParallelWriter()
                 };
-                JobHandle collectNetworkStatsHandle = collectNetworkStatsJob.ScheduleParallel(_networkQuery, default);
-                collectNetworkStatsHandle.Complete();
+                JobHandle collectNetworksHandle = collectNetworksJob.ScheduleParallel(_networkQuery, default);
+                collectNetworksHandle.Complete();
             }
             catch (Exception ex)
             {
@@ -361,75 +332,88 @@ namespace Carto.Systems
             }
             finally
             {
-                Utils.CommonUtils.Dispose(ref attachmentEntityMap);
-                Utils.CommonUtils.Dispose(ref lanesEntityMap);
-                Utils.CommonUtils.Dispose(ref utilityLanes);
+                Utils.CommonUtils.Dispose(ref laneEntityMap);
+                Utils.CommonUtils.Dispose(ref rbNetworks);
             }
+        } 
 
-            // Temporary disposal
-            Dispose();
+        /// <summary>
+        /// Retrieve the networks created by Road Builder - these networks require extra care.<br/>
+        /// （獲得由 Road Builder 製作的道路－這些道路需要額外照料。）
+        /// </summary>
+        /// <param name="rbNetworks">The set of Road Builder network entities.（Road Builder 網路實體的集合。）</param>
+        private void GetRbNetworks(ref NativeParallelHashSet<Entity> rbNetworks)
+        {
+            if (Instance.Rb.TryGet(false) && Instance.Rb.TryGetRbNetworkComponentType(out ComponentType roadBuilderNetworkComponent))
+            {
+                List<ComponentType> rbNetworkQueryComponents = new();
+                rbNetworkQueryComponents.AddRange(_networkEntityQueryDesc.All);
+                rbNetworkQueryComponents.Add(roadBuilderNetworkComponent);
+                EntityQuery rbNetworkQuery = GetEntityQuery(new EntityQueryDesc()
+                {
+                    All = rbNetworkQueryComponents.ToArray(),
+                    None = _networkEntityQueryDesc.None
+                });
+
+                rbNetworks = new(rbNetworkQuery.CalculateEntityCount(), Allocator.Persistent);
+
+                CollectRbNetworksJob collectRbNetworksJob = new()
+                {
+                    rbNetworks = rbNetworks.AsParallelWriter()
+                };
+                JobHandle collectRbNetworksHandle = collectRbNetworksJob.Schedule(rbNetworkQuery, default);
+                collectRbNetworksHandle.Complete();
+            }
+            else
+            {
+                Utils.CommonUtils.Reset(ref rbNetworks, 1, Allocator.Persistent);
+            }
         }
 
         /// <summary>
-        /// Retrieve the number of utility service network segments.
-        /// （獲得公用事業管線路段的數量。）
+        /// Retrieve the roundabout information.
+        /// （獲得圓環資訊。）
         /// </summary>
-        /// <returns>The number of segments.（路段的數量。）</returns>
-        private int GetUtilityServiceNetworkSegmentsCount()
+        /// <param name="hasCenterline">Whether the export options has the geometry Centerline.（輸出設定是否含有中心線幾何？）</param>
+        /// <param name="stats">The list of network statistics.（網路統計資訊的列表。）</param>
+        /// <param name="roundaboutEntityMap">The map between roundabout node and its statistics.（圓環節點與統計資訊的映射表。）</param>
+        private void GetRoundabouts(bool hasCenterline, ref NativeList<NetworkStat> stats, ref NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap)
         {
-            int count = 0;
+            NativeParallelHashMap<Entity, Entity> attachmentEntityMap = new(_roundaboutAttachmentQuery.CalculateEntityCount(), Allocator.Persistent);
+            NativeParallelHashMap<Entity, float> attachmentRadiusMap = new(_roundaboutAttachmentPrefabQuery.CalculateEntityCount(), Allocator.Persistent);
 
-            // Initialize native containers.（初始化原生容器。）
-            NativeQueue<int> individualSegmentCounts = new(Allocator.Persistent);
-            NativeQueue<int> integratedSegmentCounts = new(Allocator.Persistent);
+            MapRoundaboutAttachmentsJob mapAttachmentsJob = new() { entityMap = attachmentEntityMap.AsParallelWriter() };
+            JobHandle mapAttachmentHandle = mapAttachmentsJob.ScheduleParallel(_roundaboutAttachmentQuery, default);
+            mapAttachmentHandle.Complete();
 
-            try
+            CollectRoundaboutAttachmentPrefabsJob collectAttachmentsJob = new() { attachementRadiusMap = attachmentRadiusMap.AsParallelWriter() };
+            JobHandle collectAttachmentsHandle = collectAttachmentsJob.ScheduleParallel(_roundaboutAttachmentPrefabQuery, default);
+            collectAttachmentsHandle.Complete();
+
+            CollectRoundaboutsJob collectRoundaboutsJob = new()
             {
-                CountIndividualUtilityServiceNetworkSegmentsJob countIndividualJob = new()
-                {
-                    electricityConnectionLookup = GetComponentLookup<Game.Net.ElectricityConnection>(),
-                    pipeLineDataLookup = GetComponentLookup<PipelineData>(),
-                    powerLineDataLookup = GetComponentLookup<PowerLineData>(),
-                    waterPipeConnectionLookup = GetComponentLookup<Game.Net.WaterPipeConnection>(),
-                    queue = individualSegmentCounts.AsParallelWriter()
-                };
-                JobHandle countIndividualHandle = countIndividualJob.ScheduleParallel(_networkQuery, default);
-                countIndividualHandle.Complete();
+                hasCenterline = hasCenterline,
+                leftHandTraffic = Instance.City.leftHandTraffic,
+                netCompositionLaneBufferLookup = GetBufferLookup<NetCompositionLane>(true),
+                compositionLookup = GetComponentLookup<Composition>(true),
+                netCompositionDataLookup = GetComponentLookup<NetCompositionData>(true),
+                prefabRefLookup = GetComponentLookup<PrefabRef>(true),
+                roadLookup = GetComponentLookup<Road>(true),
+                roadCompositionLookup = GetComponentLookup<RoadComposition>(true),
+                subwayTrackLookup = GetComponentLookup<SubwayTrack>(true),
+                trackCompositionLookup = GetComponentLookup<TrackComposition>(true),
+                trainTrackLookup = GetComponentLookup<TrainTrack>(true),
+                tramTrackLookup = GetComponentLookup<TramTrack>(true),
+                attachmentEntityMap = attachmentEntityMap,
+                attachmentRadiusMap = attachmentRadiusMap,
+                stats = stats.AsParallelWriter(),
+                roundaboutEntityMap = roundaboutEntityMap.AsParallelWriter()
+            };
+            JobHandle collectRoundaboutsHandle = collectRoundaboutsJob.ScheduleParallel(_roundaboutQuery, default);
+            collectRoundaboutsHandle.Complete();
 
-                CountIntegratedUtilityServiceNetworkSegmentsJob countIntegratedJob = new()
-                {
-                    connectedBuildingBufferLookup = GetBufferLookup<ConnectedBuilding>(),
-                    connectedFlowEdgeBufferLookup = GetBufferLookup<ConnectedFlowEdge>(),
-                    connectedNodeBufferLookup = GetBufferLookup<ConnectedNode>(),
-                    buildingLookup = GetComponentLookup<Building>(),
-                    electricityBuildingConnectionLookup = GetComponentLookup<ElectricityBuildingConnection>(),
-                    electricityConsumerLookup = GetComponentLookup<ElectricityConsumer>(),
-                    electricityFlowEdgeLookup = GetComponentLookup<ElectricityFlowEdge>(),
-                    electricityNodeConnectionLookup = GetComponentLookup<ElectricityNodeConnection>(),
-                    placeholderLookup = GetComponentLookup<Placeholder>(),
-                    waterConsumerLookup = GetComponentLookup<WaterConsumer>(),
-                    waterPipeConnectionLookup = GetComponentLookup<Game.Net.WaterPipeConnection>(),
-                    waterPipeEdgeLookup = GetComponentLookup<WaterPipeEdge>(),
-                    waterPipeNodeConnectionLookup = GetComponentLookup<WaterPipeNodeConnection>(),
-                    queue = integratedSegmentCounts.AsParallelWriter()
-                };
-                JobHandle countIntegratedHandle = countIntegratedJob.ScheduleParallel(_utilityServiceNetworkQuery, default);
-                countIntegratedHandle.Complete();
-
-                count += Utils.CommonUtils.Sum(ref individualSegmentCounts);
-                count += Utils.CommonUtils.Sum(ref integratedSegmentCounts);
-            }
-            catch (Exception ex)
-            {
-                _log.Error(ex.ToString());
-            }
-            finally
-            {
-                Utils.CommonUtils.Dispose(ref individualSegmentCounts);
-                Utils.CommonUtils.Dispose(ref integratedSegmentCounts);
-            }
-
-            return count;
+            Utils.CommonUtils.Dispose(ref attachmentEntityMap);
+            Utils.CommonUtils.Dispose(ref attachmentRadiusMap);
         }
 
         /// <summary>
@@ -457,64 +441,6 @@ namespace Carto.Systems
         private static float RoundSpeedLimit(float input) => (float)(Math.Round(input * 2 / 5.0) * 5.0);
 
         /// <summary>
-        /// Try to retrieve the electricity link. This is a Burst-compatible version of <see cref="ElectricityGraphUtils.TryGetFlowEdge"/>.<br/>
-        /// （嘗試取得電流的連結。這是 <see cref="ElectricityGraphUtils.TryGetFlowEdge"/> 的可 Burst 編譯版本。）
-        /// </summary>
-        /// <param name="startNode">The entity that holds the start node of the link.（擁有連結起始節點的實體。）</param>
-        /// <param name="endNode">The entity that holds the end node of the link.（擁有連結結尾節點的實體。）</param>
-        /// <param name="flowEdges">The look-up of <see cref="ConnectedFlowEdge"/>.（<see cref="ConnectedFlowEdge"/> 的查詢。）</param>
-        /// <param name="flowEdgeLookup">The look-up of <see cref="ElectricityFlowEdge"/>.（<see cref="ElectricityFlowEdge"/> 的查詢。）</param>
-        /// <param name="flowEdge">The electricity link.（電流連結。）</param>
-        /// <returns>Whether the link exists or not.（連結是否存在？）</returns>
-        private static bool TryGetElectricityFlowEdge(Entity startNode, Entity endNode, ref BufferLookup<ConnectedFlowEdge> flowEdges, ref ComponentLookup<ElectricityFlowEdge> flowEdgeLookup, out ElectricityFlowEdge flowEdge)
-        {
-            flowEdge = default;
-            if ((startNode.Index <= 0) || (endNode.Index <= 0)) return false;
-            if (!flowEdges.TryGetBuffer(startNode, out DynamicBuffer<ConnectedFlowEdge> connectedFlowEdges)) return false;
-
-            for (int i = 0; i < connectedFlowEdges.Length; i++)
-            {
-                ConnectedFlowEdge connectedFlowEdge = connectedFlowEdges[i];
-                if (flowEdgeLookup.TryGetComponent(connectedFlowEdge.m_Edge, out ElectricityFlowEdge edgeCandidate) && (edgeCandidate.m_Start == startNode) && (edgeCandidate.m_End == endNode))
-                {
-                    flowEdge = edgeCandidate;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Try to retrieve the water link. This is a Burst-compatible version of <see cref="WaterPipeGraphUtils.TryGetFlowEdge"/>.<br/>
-        /// （嘗試取得水源的連結。這是 <see cref="WaterPipeGraphUtils.TryGetFlowEdge"/> 的可 Burst 編譯版本。）
-        /// </summary>
-        /// <param name="startNode">The entity that holds the start node of the link.（擁有連結起始節點的實體。）</param>
-        /// <param name="endNode">The entity that holds the end node of the link.（擁有連結結尾節點的實體。）</param>
-        /// <param name="flowEdges">The look-up of <see cref="ConnectedFlowEdge"/>.（<see cref="ConnectedFlowEdge"/> 的查詢。）</param>
-        /// <param name="flowEdgeLookup">The look-up of <see cref="WaterPipeEdge"/>.（<see cref="WaterPipeEdge"/> 的查詢。）</param>
-        /// <param name="flowEdge">The water pipe link.（水流連結。）</param>
-        /// <returns>Whether the link exists or not.（連結是否存在？）</returns>
-        private static bool TryGetWaterPipeEdge(Entity startNode, Entity endNode, ref BufferLookup<ConnectedFlowEdge> flowEdges, ref ComponentLookup<WaterPipeEdge> flowEdgeLookup, out WaterPipeEdge flowEdge)
-        {
-            flowEdge = default;
-            if ((startNode.Index <= 0) || (endNode.Index <= 0)) return false;
-            if (!flowEdges.TryGetBuffer(startNode, out DynamicBuffer<ConnectedFlowEdge> connectedFlowEdges)) return false;
-
-            for (int i = 0; i < connectedFlowEdges.Length; i++)
-            {
-                ConnectedFlowEdge connectedFlowEdge = connectedFlowEdges[i];
-                if (flowEdgeLookup.TryGetComponent(connectedFlowEdge.m_Edge, out WaterPipeEdge edgeCandidate) && (edgeCandidate.m_Start == startNode) && (edgeCandidate.m_End == endNode))
-                {
-                    flowEdge = edgeCandidate;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// The job to collect network lane's information.
         /// （收集車道資訊的工作。）
         /// </summary>
@@ -535,9 +461,6 @@ namespace Carto.Systems
 
             [WriteOnly]
             public NativeParallelHashMap<Entity, Domain.Lane>.ParallelWriter entityMap;
-
-            [WriteOnly]
-            public NativeParallelHashSet<Entity>.ParallelWriter utilityLanes;
 
             public void Execute(in NetLaneData netLaneData, Entity lane)
             {
@@ -590,7 +513,6 @@ namespace Carto.Systems
                             if ((utilityTypes & UtilityTypes.SewagePipe) != 0) laneStruct.category |= NetworkCategory.SewagePipe;
                             if ((utilityTypes & UtilityTypes.StormwaterPipe) != 0) laneStruct.category |= NetworkCategory.StormPipe;
                             if ((utilityTypes & UtilityTypes.WaterPipe) != 0) laneStruct.category |= NetworkCategory.WaterPipe;
-                            utilityLanes.Add(lane);
                         }
                     }
                 }
@@ -607,31 +529,10 @@ namespace Carto.Systems
         public partial struct CollectNetworkStatsJob : IJobEntity
         {
             [ReadOnly]
-            public bool hasUtilityServiceNetworks;
+            public BufferLookup<NetCompositionLane> netCompositionLaneBufferLookup;
 
             [ReadOnly]
-            public BufferLookup<ConnectedBuilding> connectedBuildingBufferLookup;
-
-            [ReadOnly]
-            public BufferLookup<ConnectedFlowEdge> connectedFlowEdgeBufferLookup;
-
-            [ReadOnly]
-            public BufferLookup<NetCompositionPiece> netCompositionPieceBufferLookup;
-
-            [ReadOnly]
-            public BufferLookup<NetPieceLane> netPieceLaneBufferLookup;
-
-            [ReadOnly]
-            public BufferLookup<Game.Net.SubLane> subLaneBufferLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Building> buildingLookup;
-
-            [ReadOnly]
-            public ComponentLookup<ElectricityConsumer> electricityConsumerLookup;
-
-            [ReadOnly]
-            public ComponentLookup<ElectricityFlowEdge> electricityFlowEdgeLookup;
+            public ComponentLookup<Aggregated> aggregatedLookup;
 
             [ReadOnly]
             public ComponentLookup<ElectricityNodeConnection> electricityNodeConnectionLookup;
@@ -647,9 +548,6 @@ namespace Carto.Systems
 
             [ReadOnly]
             public ComponentLookup<PipelineData> pipelineDataLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Placeholder> placeholderLookup;
 
             [ReadOnly]
             public ComponentLookup<PowerLineData> powerLineDataLookup;
@@ -670,27 +568,27 @@ namespace Carto.Systems
             public ComponentLookup<TrackComposition> trackCompositionLookup;
 
             [ReadOnly]
-            public ComponentLookup<WaterConsumer> waterConsumerLookup;
-
-            [ReadOnly]
-            public ComponentLookup<WaterPipeEdge> waterPipeEdgeLookup;
-
-            [ReadOnly]
             public ComponentLookup<WaterPipeNodeConnection> waterPipeNodeConnectionLookup;
 
             [ReadOnly]
             public ComponentLookup<WaterwayComposition> waterwayCompositionLookup;
 
             [ReadOnly]
-            public NativeParallelHashMap<Entity, Domain.Lane> lanesEntityMap;
+            public Feature feature;
 
             [ReadOnly]
-            public NativeParallelHashMap<Entity, int> roundaboutsEntityMap;
+            public NativeParallelHashMap<Entity, Domain.Lane> laneEntityMap;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap;
+
+            [ReadOnly]
+            public NativeParallelHashSet<Entity> rbNetworks;
 
             [WriteOnly]
             public NativeList<NetworkStat>.ParallelWriter list;
 
-            public void Execute(in Composition composition, in Curve curve, in Edge edge, in EdgeGeometry edgeGeometry, in PrefabRef prefabRef, in DynamicBuffer<Game.Net.SubLane> subLanes, Entity network)
+            public void Execute(in Composition composition, in Curve curve, in Edge edge, in EdgeGeometry edgeGeometry, in PrefabRef prefabRef, Entity network)
             {
                 NetworkStat stat = new()
                 {
@@ -700,45 +598,48 @@ namespace Carto.Systems
                     direction = Direction.None,
                     discharge = 0f,
                     elevation = ((edgeGeometry.m_Bounds.max + edgeGeometry.m_Bounds.min) / 2).y,
-                    end = 1f,
-                    endRoundaboutIndex = roundaboutsEntityMap.TryGetValue(edge.m_End, out int endRoundaboutIndex) ? endRoundaboutIndex : -1,
+                    end = edge.m_End,
                     form = Form.Normal,
-                    isRoundabout = false,
+                    lane = 0,
                     length = curve.m_Length,
                     limit = 0f,
                     load = 0f,
-                    start = 0f,
-                    startRoundaboutIndex = roundaboutsEntityMap.TryGetValue(edge.m_Start, out int startRoundaboutIndex) ? startRoundaboutIndex : -1,
+                    range = new(0f, 1f),
+                    start = edge.m_Start,
                     volume = 0f,
                     width = 0f
                 };
+                stat.InitiateRoundaboutProperties(ref roundaboutEntityMap);
 
-                DynamicBuffer<ConnectedFlowEdge> cableEdges = default;
-                DynamicBuffer<ConnectedFlowEdge> pipeEdges = default;
-
-                bool isPipeline = pipelineDataLookup.TryGetComponent(prefabRef, out _) && waterPipeNodeConnectionLookup.TryGetComponent(network, out WaterPipeNodeConnection pipeNodeConnection) && connectedFlowEdgeBufferLookup.TryGetBuffer(pipeNodeConnection.m_WaterPipeNode, out pipeEdges) && (pipeEdges.Length >= 2);
-                bool isPowerLine = powerLineDataLookup.TryGetComponent(prefabRef, out _) && electricityNodeConnectionLookup.TryGetComponent(network, out ElectricityNodeConnection cableNodeConnection) && connectedFlowEdgeBufferLookup.TryGetBuffer(cableNodeConnection.m_ElectricityNode, out cableEdges) && (cableEdges.Length >= 2);
+                bool isPipeline = pipelineDataLookup.TryGetComponent(prefabRef, out _) && waterPipeNodeConnectionLookup.TryGetComponent(network, out _);
+                bool isPowerLine = powerLineDataLookup.TryGetComponent(prefabRef, out _) && electricityNodeConnectionLookup.TryGetComponent(network, out _);
                 bool isNotUtilityServiceNetwork = !(isPipeline || isPowerLine);
                 bool overrideForm = false;
                 Entity networkComposition = composition.m_Edge;
-                bool hasComposition = networkComposition != Entity.Null;
                 bool isTaxiway = taxiwayCompositionLookup.TryGetComponent(networkComposition, out TaxiwayComposition taxiwayComposition);
 
                 if (markerLookup.TryGetComponent(network, out _) && !isTaxiway) return;
 
+                if (aggregatedLookup.TryGetComponent(network, out Aggregated aggregatedComponent))
+                {
+                    stat.aggregation = aggregatedComponent.m_Aggregate;
+                }
+                else
+                {
+                    stat.aggregation = network;
+                }
+
                 if (isNotUtilityServiceNetwork)
                 {
-                    for (int i = 0; i < subLanes.Length; i++)
+                    if (networkComposition != Entity.Null)
                     {
-                        Entity subLane = subLanes[i].m_SubLane;
-                        if (prefabRefLookup.TryGetComponent(subLane, out PrefabRef subLanePrefab) && lanesEntityMap.TryGetValue(subLanePrefab.m_Prefab, out Domain.Lane laneType) && !laneType.IsUtilityLane)
+                        if (netCompositionLaneBufferLookup.TryGetBuffer(networkComposition, out DynamicBuffer<NetCompositionLane> lanes))
                         {
-                            stat.category |= laneType.category;
+                            GetLaneStatistics(lanes, ref laneEntityMap, out int count, out NetworkCategory categories);
+                            stat.lane = count;
+                            stat.category = categories;
                         }
-                    }
 
-                    if (hasComposition)
-                    {
                         // If there are multiple compositions present, the priority of speed limit value would be pathway < waterway < taxiway < track < road.
                         //（若出現多種配置，優先順序為路徑 < 航路 < 滑行道 < 軌道 < 道路。）
 
@@ -805,289 +706,30 @@ namespace Carto.Systems
                         stat.volume = GetVolume(roadComponent);
                     }
 
-                    list.AddNoResize(stat);
-                }
-
-                // Handle the individual utility service networks.（處理獨立公用事業管線網路。）
-                if (hasUtilityServiceNetworks && !isNotUtilityServiceNetwork)
-                {
-                    // Generate the `NetworkStat` for the pipe.（產生水管的 `NetworkStat`。）
-                    if (isPipeline && waterPipeEdgeLookup.TryGetComponent(pipeEdges[0].m_Edge, out WaterPipeEdge pipeFlow))
+                    if (rbNetworks.Contains(network))
                     {
-                        if (pipeFlow.m_FreshCapacity > 0)
-                        {
-                            NetworkStat water = new()
-                            {
-                                entity = network,
-                                capacity = pipeFlow.m_FreshCapacity,
-                                category = NetworkCategory.WaterPipe,
-                                direction = Direction.None,
-                                discharge = Math.Abs(pipeFlow.m_FreshFlow),
-                                elevation = ((edgeGeometry.m_Bounds.max + edgeGeometry.m_Bounds.min) / 2).y,
-                                end = 1f,
-                                endRoundaboutIndex = -1,
-                                form = Form.Normal,
-                                isRoundabout = false,
-                                length = curve.m_Length,
-                                limit = 0f,
-                                load = 0f,
-                                start = 0f,
-                                startRoundaboutIndex = -1,
-                                volume = 0f,
-                                width = 0f
-                            };
-
-                            switch (pipeFlow.m_FreshFlow)
-                            {
-                                case > 0:
-                                    water.direction = Direction.Forward;
-                                    break;
-
-                                case < 0:
-                                    water.direction = Direction.Backward;
-                                    break;
-
-                                default:
-                                    break;
-                            }
-
-                            if (hasComposition)
-                            {
-                                if (netCompositionDataLookup.TryGetComponent(networkComposition, out NetCompositionData netCompositiondata))
-                                {
-                                    CompositionFlags.General generalCompositions = netCompositiondata.m_Flags.m_General;
-                                    if ((generalCompositions & CompositionFlags.General.Tunnel) != 0) water.form = Form.Tunnel;
-                                }
-
-                                bool pieceFound = false;
-                                float pieceWidth = 1.5f; // The vanilla water pipe's width.（原版遊戲自來水管的寬度。）
-
-                                if (netCompositionPieceBufferLookup.TryGetBuffer(networkComposition, out DynamicBuffer<NetCompositionPiece> netCompositionPieces))
-                                {
-                                    for (int i = 0; i < netCompositionPieces.Length; i++)
-                                    {
-                                        if (netPieceLaneBufferLookup.TryGetBuffer(netCompositionPieces[i].m_Piece, out DynamicBuffer<NetPieceLane> netPieceLanes))
-                                        {
-                                            for (int j = 0; j < netPieceLanes.Length; j++)
-                                            {
-                                                if (lanesEntityMap.TryGetValue(netPieceLanes[j].m_Lane, out Domain.Lane lane) && lane.category == NetworkCategory.WaterPipe)
-                                                {
-                                                    pieceFound = true;
-                                                    pieceWidth = Math.Abs(netCompositionPieces[i].m_Size.x);
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        if (pieceFound) break;
-                                    }
-
-                                    water.width = pieceWidth;
-                                }
-                            }
-
-                            list.AddNoResize(water);
-                        }
-
-                        if (pipeFlow.m_SewageCapacity > 0)
-                        {
-                            NetworkStat sewage = new()
-                            {
-                                entity = network,
-                                capacity = pipeFlow.m_SewageCapacity,
-                                category = NetworkCategory.SewagePipe,
-                                direction = Direction.None,
-                                discharge = Math.Abs(pipeFlow.m_SewageFlow),
-                                elevation = ((edgeGeometry.m_Bounds.max + edgeGeometry.m_Bounds.min) / 2).y,
-                                end = 1f,
-                                endRoundaboutIndex = -1,
-                                form = Form.Normal,
-                                isRoundabout = false,
-                                length = curve.m_Length,
-                                limit = 0f,
-                                load = 0f,
-                                start = 0f,
-                                startRoundaboutIndex = -1,
-                                volume = 0f,
-                                width = 0f
-                            };
-
-                            switch (pipeFlow.m_SewageFlow)
-                            {
-                                // The default direction of the sewage water is opposite to that of fresh water.（汙水的方向與自來水的方向預設相反。）
-                                case > 0:
-                                    sewage.direction = Direction.Backward;
-                                    break;
-
-                                case < 0:
-                                    sewage.direction = Direction.Forward;
-                                    break;
-
-                                default:
-                                    break;
-                            }
-
-                            if (hasComposition)
-                            {
-                                if (netCompositionDataLookup.TryGetComponent(networkComposition, out NetCompositionData netCompositiondata))
-                                {
-                                    CompositionFlags.General generalCompositions = netCompositiondata.m_Flags.m_General;
-                                    if ((generalCompositions & CompositionFlags.General.Tunnel) != 0) sewage.form = Form.Tunnel;
-                                }
-
-                                bool pieceFound = false;
-                                float pieceWidth = 2f; // The vanilla sewage pipe's width.（原版遊戲污水管的寬度。）
-
-                                if (netCompositionPieceBufferLookup.TryGetBuffer(networkComposition, out DynamicBuffer<NetCompositionPiece> netCompositionPieces))
-                                {
-                                    for (int i = 0; i < netCompositionPieces.Length; i++)
-                                    {
-                                        if (netPieceLaneBufferLookup.TryGetBuffer(netCompositionPieces[i].m_Piece, out DynamicBuffer<NetPieceLane> netPieceLanes))
-                                        {
-                                            for (int j = 0; j < netPieceLanes.Length; j++)
-                                            {
-                                                if (lanesEntityMap.TryGetValue(netPieceLanes[j].m_Lane, out Domain.Lane lane) && lane.category == NetworkCategory.WaterPipe)
-                                                {
-                                                    pieceFound = true;
-                                                    pieceWidth = Math.Abs(netCompositionPieces[i].m_Size.x);
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        if (pieceFound) break;
-                                    }
-
-                                    sewage.width = pieceWidth;
-                                }
-                            }
-
-                            list.AddNoResize(sewage);
-                        }
-
-                        // TODO: Uncomment the line when the storm pipes are added... if (pipeFlow.m_StormCapacity > 0)
+                        stat.category |= NetworkCategory.RoadBuilder;
                     }
 
-                    // Generate the `NetworkStat` for the cable.（產生電纜的 `NetworkStat`。）
-                    if (isPowerLine && electricityFlowEdgeLookup.TryGetComponent(cableEdges[0].m_Edge, out ElectricityFlowEdge cableFlow))
-                    {
-                        NetworkStat cable = new()
-                        {
-                            entity = network,
-                            capacity = cableFlow.m_Capacity / 10f,
-                            category = NetworkCategory.None,
-                            direction = Direction.None,
-                            discharge = 0f,
-                            elevation = ((edgeGeometry.m_Bounds.max + edgeGeometry.m_Bounds.min) / 2).y,
-                            end = 1f,
-                            endRoundaboutIndex = -1,
-                            form = Form.Elevated, // The above ground cables are always overhead-ed.（地表之上的電纜是架空的。）
-                            isRoundabout = false,
-                            length = curve.m_Length,
-                            limit = 0f,
-                            load = Math.Abs(cableFlow.m_Flow) / 10f,
-                            start = 0f,
-                            startRoundaboutIndex = -1,
-                            volume = 0f,
-                            width = 0f
-                        };
-
-                        for (int i = 0; i < subLanes.Length; i++)
-                        {
-                            Entity subLane = subLanes[i].m_SubLane;
-                            if (prefabRefLookup.TryGetComponent(subLane, out PrefabRef subLanePrefab) && lanesEntityMap.TryGetValue(subLanePrefab.m_Prefab, out Domain.Lane laneType) && laneType.IsUtilityLane)
-                            {
-                                cable.category |= laneType.category;
-                            }
-                        }
-
-                        switch (cableFlow.m_Flow)
-                        {
-                            case > 0:
-                                cable.direction = Direction.Forward;
-                                break;
-
-                            case < 0:
-                                cable.direction = Direction.Backward;
-                                break;
-
-                            default:
-                                break;
-                        }
-
-                        if (hasComposition)
-                        {
-                            if (netCompositionDataLookup.TryGetComponent(networkComposition, out NetCompositionData netCompositiondata))
-                            {
-                                CompositionFlags.General generalCompositions = netCompositiondata.m_Flags.m_General;
-                                if ((generalCompositions & CompositionFlags.General.Tunnel) != 0) cable.form = Form.Tunnel;
-                                cable.width = netCompositiondata.m_Width;
-                            }
-                        }
-
-                        list.AddNoResize(cable);
-                    }
+                    if ((stat.Object & feature) != 0) list.AddNoResize(stat);
+                    return;
                 }
+            }
+        }
 
-                // TODO: Handle the integrated utility service networks.（處理整合公用事業管線網路。）
-                /*
-                //if (hasUtilityServiceNetworks && isNotUtilityServiceNetwork)
-                //{
-                //    Entity startNode = edge.m_Start;
-                //    Entity endNode = edge.m_End;
-                    
-                //    // Generate the `NetworkStat` for the cable.（產生電纜的 `NetworkStat`。）
-                //    if (electricityNodeConnectionLookup.TryGetComponent(network, out ElectricityNodeConnection electricityNodeCenter) &&
-                //        electricityNodeConnectionLookup.TryGetComponent(startNode, out ElectricityNodeConnection electricityNodeStart) &&
-                //        electricityNodeConnectionLookup.TryGetComponent(endNode, out ElectricityNodeConnection electricityNodeEnd) &&
-                //        connectedFlowEdgeBufferLookup.TryGetBuffer(electricityNodeCenter.m_ElectricityNode, out DynamicBuffer<ConnectedFlowEdge> electricityFlows) &&
-                //        electricityFlows.Length >= 2)
-                //    {
-                //        ElectricityFlowEdge electricityFlowFromStart = default;
-                //        ElectricityFlowEdge electricityFlowToEnd = default;
+        /// <summary>
+        /// The job to collect Road Builder-made networks.
+        /// （收集由 Road Builder 製作的網路的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CollectRbNetworksJob : IJobEntity
+        {
+            [WriteOnly]
+            public NativeParallelHashSet<Entity>.ParallelWriter rbNetworks;
 
-                //        for (int i = 0; i < electricityFlows.Length; i++)
-                //        {
-                //            if (TryGetElectricityFlowEdge(electricityNodeStart.m_ElectricityNode,
-                //                                          electricityNodeCenter.m_ElectricityNode,
-                //                                          ref connectedFlowEdgeBufferLookup,
-                //                                          ref electricityFlowEdgeLookup,
-                //                                          out ElectricityFlowEdge electricityFlowA))
-                //            {
-                //                electricityFlowFromStart = electricityFlowA;
-                //            }
-                //            if (TryGetElectricityFlowEdge(electricityNodeCenter.m_ElectricityNode,
-                //                                          electricityNodeEnd.m_ElectricityNode,
-                //                                          ref connectedFlowEdgeBufferLookup,
-                //                                          ref electricityFlowEdgeLookup,
-                //                                          out ElectricityFlowEdge electricityFlowB))
-                //            {
-                //                electricityFlowToEnd = electricityFlowB;
-                //            }
-                //        }
-
-                //        FixedList4096Bytes<float> curvePositions = default;
-
-                //        if ((electricityFlowFromStart.m_Start == electricityNodeStart.m_ElectricityNode) &&
-                //            (electricityFlowToEnd.m_End == electricityNodeEnd.m_ElectricityNode) &&
-                //            connectedBuildingBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedBuilding> connectedBuildings))
-                //        {
-                //            for (int i = 0; i < connectedBuildings.Length; i++)
-                //            {
-                //                Entity buildingEntity = connectedBuildings[i].m_Building;
-                //                if ((!buildingLookup.TryGetComponent(buildingEntity, out Building buildingComponent) &&
-                //                     !electricityConsumerLookup.TryGetComponent(buildingEntity, out ElectricityConsumer electricityConsumer)) ||
-                //                    placeholderLookup.TryGetComponent(buildingEntity, out _))
-                //                {
-                //                    continue;
-                //                }
-
-                //                curvePositions.Add(buildingComponent.m_CurvePosition);
-                //            }
-                //        }
-                //    }
-                //}
-                */
+            public void Execute(Entity network)
+            {
+                rbNetworks.Add(network);
             }
         }
 
@@ -1105,19 +747,16 @@ namespace Carto.Systems
             public bool leftHandTraffic;
 
             [ReadOnly]
+            public BufferLookup<NetCompositionLane> netCompositionLaneBufferLookup;
+
+            [ReadOnly]
             public ComponentLookup<Composition> compositionLookup;
 
             [ReadOnly]
             public ComponentLookup<NetCompositionData> netCompositionDataLookup;
 
             [ReadOnly]
-            public ComponentLookup<NetGeometryData> netGeometryDataLookup;
-
-            [ReadOnly]
-            public ComponentLookup<ObjectGeometryData> objectGeometryDataLookup;
-
-            [ReadOnly]
-            public ComponentLookup<PlaceableObjectData> placeableObjectDataLookup;
+            public ComponentLookup<PrefabRef> prefabRefLookup;
 
             [ReadOnly]
             public ComponentLookup<Road> roadLookup;
@@ -1140,18 +779,21 @@ namespace Carto.Systems
             [ReadOnly]
             public NativeParallelHashMap<Entity, Entity> attachmentEntityMap;
 
-            [WriteOnly]
-            public NativeList<Domain.Roundabout>.ParallelWriter list;
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, float> attachmentRadiusMap;
 
             [WriteOnly]
             public NativeList<NetworkStat>.ParallelWriter stats;
 
-            public void Execute(in Game.Net.Node node, in PrefabRef prefabRef, in Game.Net.Roundabout roundaboutComponent, in DynamicBuffer<ConnectedEdge> connectedEdges, in DynamicBuffer<Game.Objects.SubObject> subObjects, Entity entity)
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, Domain.Roundabout>.ParallelWriter roundaboutEntityMap;
+
+            public void Execute(in Node node, in Game.Net.Roundabout roundaboutComponent, in DynamicBuffer<ConnectedEdge> connectedEdges, Entity entity)
             {
                 bool allTrackConnection = true;
                 bool allTunnelConnection = true;
                 bool highwayConnection = false;
-                float innerRadius = 0f;
+                int maxLaneCount = 0;
                 float roadLimit = 0f;
                 float trackLimit = 0f;
                 float width = 0f;
@@ -1165,35 +807,6 @@ namespace Carto.Systems
                     outerRingRadius = roundaboutComponent.m_Radius,
                     width = 0f
                 };
-
-                // Reference（參考資料）: `Game.Net.GeometrySystem.CalculateEdgeGeometryJob.CalculateMiddleRadius`
-                for (int i = 0; i < subObjects.Length; i++)
-                {
-                    Entity subObject = subObjects[i].m_SubObject;
-                    if (placeableObjectDataLookup.TryGetComponent(subObject, out PlaceableObjectData placeableObjectData) &&
-                        ((placeableObjectData.m_Flags & Game.Objects.PlacementFlags.RoadNode) != 0) &&
-                        objectGeometryDataLookup.TryGetComponent(subObject, out ObjectGeometryData objectGeometryData))
-                    {
-                        float subObjectRadius = math.cmax(objectGeometryData.m_Size.xz) / 2f;
-
-                        if (((objectGeometryData.m_Flags & Game.Objects.GeometryFlags.Standing) != 0) &&
-                            netGeometryDataLookup.TryGetComponent(prefabRef.m_Prefab, out NetGeometryData netGeometryData))
-                        {
-                            float lyingRadius = math.cmax(objectGeometryData.m_LegSize.xz) / 2f;
-
-                            if (netGeometryData.m_DefaultHeightRange.max > objectGeometryData.m_LegSize.y)
-                            {
-                                subObjectRadius = math.max(subObjectRadius, lyingRadius);
-                            }
-                            else
-                            {
-                                subObjectRadius = lyingRadius;
-                            }
-                        }
-
-                        innerRadius = math.max(innerRadius, subObjectRadius);
-                    }
-                }
 
                 for (int i = 0; i < connectedEdges.Length; i++)
                 {
@@ -1209,6 +822,7 @@ namespace Carto.Systems
                     if (compositionLookup.TryGetComponent(connectedNetwork, out Composition connectedComposition) &&
                         netCompositionDataLookup.TryGetComponent(connectedComposition.m_Edge, out NetCompositionData connectedCompositionData))
                     {
+                        Entity composition = connectedComposition.m_Edge;
                         float compositionWidth = connectedCompositionData.m_Width / 2f;
                         width = math.max(width, compositionWidth);
 
@@ -1223,24 +837,44 @@ namespace Carto.Systems
                             form = connectedForm;
                         }
 
-                        if (roadCompositionLookup.TryGetComponent(connectedComposition.m_Edge, out RoadComposition roadComposition))
+                        if (roadCompositionLookup.TryGetComponent(composition, out RoadComposition roadComposition))
                         {
                             allTrackConnection = false;
                             highwayConnection |= (roadComposition.m_Flags & Game.Prefabs.RoadFlags.UseHighwayRules) != 0;
                             roadLimit = math.max(roadLimit, RoundSpeedLimit(roadComposition.m_SpeedLimit));
                         }
 
-                        if (trackCompositionLookup.TryGetComponent(connectedComposition.m_Edge, out TrackComposition trackComposition))
+                        if (trackCompositionLookup.TryGetComponent(composition, out TrackComposition trackComposition))
                         {
                             trackLimit = math.max(trackLimit, RoundSpeedLimit(trackComposition.m_SpeedLimit));
+                        }
+
+                        if (hasCenterline && netCompositionLaneBufferLookup.TryGetBuffer(composition, out DynamicBuffer<NetCompositionLane> lanes))
+                        {
+                            int laneCount = 0;
+                            for (int j = 0; j < lanes.Length; j++)
+                            {
+                                NetCompositionLane lane = lanes[j];
+                                if (((lane.m_Flags & LaneFlags.Road) != 0) & ((lane.m_Flags & LaneFlags.Master) == 0)) laneCount++;
+                            }
+                            
+                            maxLaneCount = math.max(maxLaneCount, laneCount);
                         }
                     }
                 }
 
-                roundabout.innerRingRadius = innerRadius > 0 ? innerRadius : roundabout.outerRingRadius - width;
+                if (prefabRefLookup.TryGetComponent(roundabout.attached, out PrefabRef attachmentPrefab) && attachmentRadiusMap.TryGetValue(attachmentPrefab, out float attachmentRadius))
+                {
+                    roundabout.innerRingRadius = attachmentRadius;
+                }
+                else
+                {
+                    roundabout.innerRingRadius = roundabout.outerRingRadius - width;
+                }
+
                 roundabout.width = width;
 
-                list.AddNoResize(roundabout);
+                roundaboutEntityMap.TryAdd(entity, roundabout);
 
                 if (!hasCenterline) return;
 
@@ -1248,20 +882,22 @@ namespace Carto.Systems
                 NetworkStat stat = new()
                 {
                     entity = entity,
+                    aggregation = roundabout.attached,
                     capacity = 0f,
                     category = highwayConnection ? NetworkCategory.Highway : NetworkCategory.Car,
                     direction = leftHandTraffic ? Direction.Forward : Direction.Backward,
                     discharge = 0f,
                     elevation = node.m_Position.y,
-                    end = 1f,
-                    endRoundaboutIndex = -1,
+                    end = Entity.Null,
                     form = allTunnelConnection ? Form.Tunnel : form,
                     isRoundabout = true,
-                    length = 2 * math.PI * (roundabout.outerRingRadius - width / 2),
+                    lane = maxLaneCount,
+                    length = 2 * math.PI * ((roundabout.outerRingRadius - roundabout.innerRingRadius) / 2 + roundabout.innerRingRadius),
                     limit = allTrackConnection ? trackLimit : roadLimit,
                     load = 0f,
-                    start = 0f,
-                    startRoundaboutIndex = -1,
+                    range = new(0f, 1f),
+                    roundabout = new(false, false),
+                    start = Entity.Null,
                     volume = roadLookup.TryGetComponent(entity, out Road road) ? math.max(0f, GetVolume(road)) : 0f,
                     width = width
                 };
@@ -1271,245 +907,51 @@ namespace Carto.Systems
         }
 
         /// <summary>
-        /// The job to count the number of segments required to represent the individual (NOT included in the roads) utility service networks.
-        /// （計算表達獨立公用事業管線（未包含在道路中的）所需路段數量的工作。）
+        /// The job to collect the roundabout attachment prefabs.
+        /// （收集圓環附件預製模板的工作。）
         /// </summary>
-        public partial struct CountIndividualUtilityServiceNetworkSegmentsJob : IJobEntity
+        [BurstCompile]
+        public partial struct CollectRoundaboutAttachmentPrefabsJob : IJobEntity
         {
-            [ReadOnly]
-            public ComponentLookup<Game.Net.ElectricityConnection> electricityConnectionLookup;
-
-            [ReadOnly]
-            public ComponentLookup<PipelineData> pipeLineDataLookup;
-
-            [ReadOnly]
-            public ComponentLookup<PowerLineData> powerLineDataLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Game.Net.WaterPipeConnection> waterPipeConnectionLookup;
-
             [WriteOnly]
-            public NativeQueue<int>.ParallelWriter queue;
-
-            public void Execute(in PrefabRef prefabRef, Entity network)
+            public NativeParallelHashMap<Entity, float>.ParallelWriter attachementRadiusMap;
+            
+            public void Execute(in NetObjectData netObjectData, in ObjectGeometryData objectGeometryData, Entity entity)
             {
-                int count = 0;
-                Entity prefab = prefabRef.m_Prefab;
+                if ((netObjectData.m_CompositionFlags.m_General & CompositionFlags.General.Roundabout) == 0) return;
 
-                if (pipeLineDataLookup.TryGetComponent(prefab, out _) && waterPipeConnectionLookup.TryGetComponent(network, out Game.Net.WaterPipeConnection waterPipeData))
+                Game.Objects.GeometryFlags geometryFlags = objectGeometryData.m_Flags;
+                bool isCircular = (geometryFlags & Game.Objects.GeometryFlags.Circular) != 0;
+                bool isCircularLeg = (geometryFlags & Game.Objects.GeometryFlags.CircularLeg) != 0;
+                float radius = 0f;
+                float3 legSize = objectGeometryData.m_LegSize;
+                float3 size = objectGeometryData.m_Size;
+
+                if (isCircular && (size.x == size.z))
                 {
-                    if (waterPipeData.m_FreshCapacity > 0) count++;
-                    if (waterPipeData.m_SewageCapacity > 0) count++;
-                    // TODO: Uncomment the line when the storm pipes are added... if (waterPipeData.m_StormCapacity > 0) count++;
+                    radius = size.x / 2f;
+                }
+                if (isCircularLeg && (legSize.x == legSize.z))
+                {
+                    if (isCircular)
+                    {
+                        radius = math.min(radius, legSize.x / 2f);
+                    }
+                    else
+                    {
+                        radius = legSize.x / 2f;
+                    }
                 }
 
-                if (powerLineDataLookup.TryGetComponent(prefab, out _) && electricityConnectionLookup.TryGetComponent(network, out _))
-                {
-                    count++;
-                }
-
-                queue.Enqueue(count);
+                if (radius > 0f) attachementRadiusMap.TryAdd(entity, radius);
             }
         }
 
         /// <summary>
-        /// The job to count the number of segments required to represent the integrated (included in the roads) utility service networks.
-        /// （計算表達整合公用事業管線（包含在道路中的）所需路段數量的工作。）
+        /// The job to map roundabout attachements to a roundabout nodes.
+        /// （將圓環附件映射至圓環節點的工作。）
         /// </summary>
-        public partial struct CountIntegratedUtilityServiceNetworkSegmentsJob : IJobEntity
-        {
-            [ReadOnly]
-            public BufferLookup<ConnectedBuilding> connectedBuildingBufferLookup;
-
-            [ReadOnly]
-            public BufferLookup<ConnectedFlowEdge> connectedFlowEdgeBufferLookup;
-
-            [ReadOnly]
-            public BufferLookup<ConnectedNode> connectedNodeBufferLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Building> buildingLookup;
-
-            [ReadOnly]
-            public ComponentLookup<ElectricityBuildingConnection> electricityBuildingConnectionLookup;
-
-            [ReadOnly]
-            public ComponentLookup<ElectricityConsumer> electricityConsumerLookup;
-
-            [ReadOnly]
-            public ComponentLookup<ElectricityFlowEdge> electricityFlowEdgeLookup;
-
-            [ReadOnly]
-            public ComponentLookup<ElectricityNodeConnection> electricityNodeConnectionLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Placeholder> placeholderLookup;
-
-            [ReadOnly]
-            public ComponentLookup<WaterConsumer> waterConsumerLookup;
-
-            [ReadOnly]
-            public ComponentLookup<Game.Net.WaterPipeConnection> waterPipeConnectionLookup;
-
-            [ReadOnly]
-            public ComponentLookup<WaterPipeNodeConnection> waterPipeNodeConnectionLookup;
-
-            [ReadOnly]
-            public ComponentLookup<WaterPipeEdge> waterPipeEdgeLookup;
-
-            [WriteOnly]
-            public NativeQueue<int>.ParallelWriter queue;
-
-            public void Execute(Entity network)
-            {
-                bool hasCable = electricityNodeConnectionLookup.TryGetComponent(network, out ElectricityNodeConnection electricityConnCenter);
-                bool hasPipe = waterPipeNodeConnectionLookup.TryGetComponent(network, out WaterPipeNodeConnection waterPipeConnCenter);
-                if (!hasCable && !hasPipe) return;
-
-                int count = 0;
-
-                if (hasCable)
-                {
-                    count++;
-
-                    // Handle the connection between user-drawn cables.（處理與使用者繪製的電纜相接處。）
-                    if (connectedNodeBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedNode> connectedNodes))
-                    {
-                        for (int i = 0; i < connectedNodes.Length; i++)
-                        {
-                            ConnectedNode connectedNode = connectedNodes[i];
-                            if (electricityNodeConnectionLookup.TryGetComponent(connectedNode.m_Node, out ElectricityNodeConnection electricityConnStart) &&
-                                TryGetElectricityFlowEdge(electricityConnStart.m_ElectricityNode,
-                                                          electricityConnCenter.m_ElectricityNode,
-                                                          ref connectedFlowEdgeBufferLookup,
-                                                          ref electricityFlowEdgeLookup,
-                                                          out _))
-                            {
-                                count++;
-                            }
-                        }
-                    }
-
-                    // Handle building connections.（處理建築連結。）
-                    if (connectedBuildingBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedBuilding> connectedBuildings))
-                    {
-                        /* 
-                         * The list can hold at least 1000 floats (4,000 bytes).
-                         * This design ensures even when the user stretches the network really long [with Mod] and creates lots of connected buildings, the list capacity is still enough in most extreme cases.
-                         * （列表可以裝下至少 1000 個單精度浮點數（4,000 位元組）。）
-                         * （這個設計確保即使使用者［透過模組］將路段拉得非常長，並創造許多相連建築時，列表容量依然充裕。）
-                         */
-                        FixedList4096Bytes<float> curvePositions = default;
-                        int uniqueBuildingsCount = 0;
-
-                        for (int i = 0; i < connectedBuildings.Length; i++)
-                        {
-                            Entity connectedBuilding = connectedBuildings[i].m_Building;
-                            if (buildingLookup.TryGetComponent(connectedBuilding, out Building buildingComponent) &&
-                                electricityConsumerLookup.TryGetComponent(connectedBuilding, out _) &&
-                                !placeholderLookup.TryGetComponent(connectedBuilding, out _))
-                            {
-                                bool recorded = false;
-                                float curvePosition = buildingComponent.m_CurvePosition;
-                                for (int j = 0; j < curvePositions.Length; j++)
-                                {
-                                    if (curvePositions[j] == curvePosition)
-                                    {
-                                        recorded = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!recorded)
-                                {
-                                    curvePositions.Add(curvePosition);
-                                }
-
-                                uniqueBuildingsCount++;
-                            }
-                        }
-
-                        // For each connected building, it splits an existing cable and create a cable to the building.
-                        //（每棟相接的建築皆會切分既有的電纜，並且創造連接建築的電纜。）
-                        count += curvePositions.Length + uniqueBuildingsCount;
-                    }
-                }
-
-                if (hasPipe)
-                {
-                    int pipeTypes = 0;
-                    if (waterPipeConnectionLookup.TryGetComponent(network, out Game.Net.WaterPipeConnection waterPipeData))
-                    {
-                        if (waterPipeData.m_FreshCapacity > 0) pipeTypes++;
-                        if (waterPipeData.m_SewageCapacity > 0) pipeTypes++;
-                        count += pipeTypes;
-                    }
-
-                    // Handle the connection between user-drawn pipes.（處理與使用者繪製的水管相接處。）
-                    if (connectedNodeBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedNode> connectedNodes))
-                    {
-                        for (int i = 0; i < connectedNodes.Length; i++)
-                        {
-                            ConnectedNode connectedNode = connectedNodes[i];
-                            if (waterPipeNodeConnectionLookup.TryGetComponent(connectedNode.m_Node, out WaterPipeNodeConnection waterPipeConnStart) &&
-                                TryGetWaterPipeEdge(waterPipeConnStart.m_WaterPipeNode,
-                                                    waterPipeConnCenter.m_WaterPipeNode,
-                                                    ref connectedFlowEdgeBufferLookup,
-                                                    ref waterPipeEdgeLookup,
-                                                    out _))
-                            {
-                                count++;
-                            }
-                        }
-                    }
-
-                    // Handle building connections.（處理建築連結。）
-                    if (connectedBuildingBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedBuilding> connectedBuildings))
-                    {
-                        FixedList4096Bytes<float> curvePositions = default;
-                        int uniqueBuildingsCount = 0;
-
-                        for (int i = 0; i < connectedBuildings.Length; i++)
-                        {
-                            Entity connectedBuilding = connectedBuildings[i].m_Building;
-                            if (buildingLookup.TryGetComponent(connectedBuilding, out Building buildingComponent) &&
-                                waterConsumerLookup.TryGetComponent(connectedBuilding, out _) &&
-                                !placeholderLookup.TryGetComponent(connectedBuilding, out _))
-                            {
-                                bool recorded = false;
-                                float curvePosition = buildingComponent.m_CurvePosition;
-                                for (int j = 0; j < curvePositions.Length; j++)
-                                {
-                                    if (curvePositions[j] == curvePosition)
-                                    {
-                                        recorded = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!recorded)
-                                {
-                                    curvePositions.Add(curvePosition);
-                                }
-
-                                uniqueBuildingsCount++;
-                            }
-                        }
-
-                        // For each connected building, it splits existing pipes and create pipes to the building.
-                        //（每棟相接的建築皆會切分既有的水管，並且創造連接建築的水管。）
-                        count += (curvePositions.Length + uniqueBuildingsCount) * pipeTypes;
-                    }
-                }
-
-                queue.Enqueue(count);
-            }
-        }
-
-        /// <summary>
-        /// The job to map roundabout attachements to a native hashmap.
-        /// （將圓環附件映射至原生映射表的工作。）
-        /// </summary>
+        [BurstCompile]
         public partial struct MapRoundaboutAttachmentsJob : IJobEntity
         {
             [WriteOnly]
@@ -1521,22 +963,369 @@ namespace Carto.Systems
             }
         }
 
+# if false
         /// <summary>
-        /// The job to map roundabout node instance to theor index in <see cref="_roundabouts"/>.
-        /// （將圓環節點個體映射至在 <see cref="_roundabouts"/> 的索引的工作。）
+        /// The job and methods that is not part of the 1.0 release.
+        /// （非 1.0 版本的工作與方法。）
         /// </summary>
-        public partial struct MapRoundaboutsIndexJob : IJobParallelFor
+        public partial class ToBeRewritten
         {
-            [ReadOnly]
-            public NativeList<Domain.Roundabout> list;
-
-            [WriteOnly]
-            public NativeParallelHashMap<Entity, int> map;
-
-            public void Execute(int index)
+            /// <summary>
+            /// Retrieve the number of utility service network segments.
+            /// （獲得公用事業管線路段的數量。）
+            /// </summary>
+            /// <returns>The number of segments.（路段的數量。）</returns>
+            private int GetUtilityServiceNetworkSegmentsCount()
             {
-                map.TryAdd(list[index].node, index);
+                int count = 0;
+
+                // Initialize native containers.（初始化原生容器。）
+                NativeQueue<int> individualSegmentCounts = new(Allocator.Persistent);
+                NativeQueue<int> integratedSegmentCounts = new(Allocator.Persistent);
+
+                try
+                {
+                    CountIndividualUtilityServiceNetworkSegmentsJob countIndividualJob = new()
+                    {
+                        //electricityConnectionLookup = GetComponentLookup<Game.Net.ElectricityConnection>(),
+                        //pipeLineDataLookup = GetComponentLookup<PipelineData>(),
+                        //powerLineDataLookup = GetComponentLookup<PowerLineData>(),
+                        //waterPipeConnectionLookup = GetComponentLookup<Game.Net.WaterPipeConnection>(),
+                        queue = individualSegmentCounts.AsParallelWriter()
+                    };
+                    JobHandle countIndividualHandle = countIndividualJob.ScheduleParallel(_networkQuery, default);
+                    countIndividualHandle.Complete();
+
+                    CountIntegratedUtilityServiceNetworkSegmentsJob countIntegratedJob = new()
+                    {
+                        //connectedBuildingBufferLookup = GetBufferLookup<ConnectedBuilding>(),
+                        //connectedFlowEdgeBufferLookup = GetBufferLookup<ConnectedFlowEdge>(),
+                        //connectedNodeBufferLookup = GetBufferLookup<ConnectedNode>(),
+                        //buildingLookup = GetComponentLookup<Building>(),
+                        //electricityBuildingConnectionLookup = GetComponentLookup<ElectricityBuildingConnection>(),
+                        //electricityConsumerLookup = GetComponentLookup<ElectricityConsumer>(),
+                        //electricityFlowEdgeLookup = GetComponentLookup<ElectricityFlowEdge>(),
+                        //electricityNodeConnectionLookup = GetComponentLookup<ElectricityNodeConnection>(),
+                        //placeholderLookup = GetComponentLookup<Placeholder>(),
+                        //waterConsumerLookup = GetComponentLookup<WaterConsumer>(),
+                        //waterPipeConnectionLookup = GetComponentLookup<Game.Net.WaterPipeConnection>(),
+                        //waterPipeEdgeLookup = GetComponentLookup<WaterPipeEdge>(),
+                        //waterPipeNodeConnectionLookup = GetComponentLookup<WaterPipeNodeConnection>(),
+                        queue = integratedSegmentCounts.AsParallelWriter()
+                    };
+                    JobHandle countIntegratedHandle = countIntegratedJob.ScheduleParallel(_utilityServiceNetworkQuery, default);
+                    countIntegratedHandle.Complete();
+
+                    count += Utils.CommonUtils.Sum(ref individualSegmentCounts);
+                    count += Utils.CommonUtils.Sum(ref integratedSegmentCounts);
+                }
+                catch (Exception ex)
+                {
+                    _log.Error(ex.ToString());
+                }
+                finally
+                {
+                    Utils.CommonUtils.Dispose(ref individualSegmentCounts);
+                    Utils.CommonUtils.Dispose(ref integratedSegmentCounts);
+                }
+
+                return count;
+            }
+
+            /// <summary>
+            /// Try to retrieve the electricity link. This is a Burst-compatible version of <see cref="ElectricityGraphUtils.TryGetFlowEdge"/>.<br/>
+            /// （嘗試取得電流的連結。這是 <see cref="ElectricityGraphUtils.TryGetFlowEdge"/> 的可 Burst 編譯版本。）
+            /// </summary>
+            /// <param name="startNode">The entity that holds the start node of the link.（擁有連結起始節點的實體。）</param>
+            /// <param name="endNode">The entity that holds the end node of the link.（擁有連結結尾節點的實體。）</param>
+            /// <param name="flowEdges">The look-up of <see cref="ConnectedFlowEdge"/>.（<see cref="ConnectedFlowEdge"/> 的查詢。）</param>
+            /// <param name="flowEdgeLookup">The look-up of <see cref="ElectricityFlowEdge"/>.（<see cref="ElectricityFlowEdge"/> 的查詢。）</param>
+            /// <param name="flowEdge">The electricity link.（電流連結。）</param>
+            /// <returns>Whether the link exists or not.（連結是否存在？）</returns>
+            private static bool TryGetElectricityFlowEdge(Entity startNode, Entity endNode, ref BufferLookup<ConnectedFlowEdge> flowEdges, ref ComponentLookup<ElectricityFlowEdge> flowEdgeLookup, out ElectricityFlowEdge flowEdge)
+            {
+                flowEdge = default;
+                if ((startNode.Index <= 0) || (endNode.Index <= 0)) return false;
+                if (!flowEdges.TryGetBuffer(startNode, out DynamicBuffer<ConnectedFlowEdge> connectedFlowEdges)) return false;
+
+                for (int i = 0; i < connectedFlowEdges.Length; i++)
+                {
+                    ConnectedFlowEdge connectedFlowEdge = connectedFlowEdges[i];
+                    if (flowEdgeLookup.TryGetComponent(connectedFlowEdge.m_Edge, out ElectricityFlowEdge edgeCandidate) && (edgeCandidate.m_Start == startNode) && (edgeCandidate.m_End == endNode))
+                    {
+                        flowEdge = edgeCandidate;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            /// <summary>
+            /// Try to retrieve the water link. This is a Burst-compatible version of <see cref="WaterPipeGraphUtils.TryGetFlowEdge"/>.<br/>
+            /// （嘗試取得水源的連結。這是 <see cref="WaterPipeGraphUtils.TryGetFlowEdge"/> 的可 Burst 編譯版本。）
+            /// </summary>
+            /// <param name="startNode">The entity that holds the start node of the link.（擁有連結起始節點的實體。）</param>
+            /// <param name="endNode">The entity that holds the end node of the link.（擁有連結結尾節點的實體。）</param>
+            /// <param name="flowEdges">The look-up of <see cref="ConnectedFlowEdge"/>.（<see cref="ConnectedFlowEdge"/> 的查詢。）</param>
+            /// <param name="flowEdgeLookup">The look-up of <see cref="WaterPipeEdge"/>.（<see cref="WaterPipeEdge"/> 的查詢。）</param>
+            /// <param name="flowEdge">The water pipe link.（水流連結。）</param>
+            /// <returns>Whether the link exists or not.（連結是否存在？）</returns>
+            private static bool TryGetWaterPipeEdge(Entity startNode, Entity endNode, ref BufferLookup<ConnectedFlowEdge> flowEdges, ref ComponentLookup<WaterPipeEdge> flowEdgeLookup, out WaterPipeEdge flowEdge)
+            {
+                flowEdge = default;
+                if ((startNode.Index <= 0) || (endNode.Index <= 0)) return false;
+                if (!flowEdges.TryGetBuffer(startNode, out DynamicBuffer<ConnectedFlowEdge> connectedFlowEdges)) return false;
+
+                for (int i = 0; i < connectedFlowEdges.Length; i++)
+                {
+                    ConnectedFlowEdge connectedFlowEdge = connectedFlowEdges[i];
+                    if (flowEdgeLookup.TryGetComponent(connectedFlowEdge.m_Edge, out WaterPipeEdge edgeCandidate) && (edgeCandidate.m_Start == startNode) && (edgeCandidate.m_End == endNode))
+                    {
+                        flowEdge = edgeCandidate;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            /// <summary>
+            /// The job to count the number of segments required to represent the individual (NOT included in the roads) utility service networks.
+            /// （計算表達獨立公用事業管線（未包含在道路中的）所需路段數量的工作。）
+            /// </summary>
+            public partial struct CountIndividualUtilityServiceNetworkSegmentsJob : IJobEntity
+            {
+                [ReadOnly]
+                public ComponentLookup<Game.Net.ElectricityConnection> electricityConnectionLookup;
+
+                [ReadOnly]
+                public ComponentLookup<PipelineData> pipeLineDataLookup;
+
+                [ReadOnly]
+                public ComponentLookup<PowerLineData> powerLineDataLookup;
+
+                [ReadOnly]
+                public ComponentLookup<Game.Net.WaterPipeConnection> waterPipeConnectionLookup;
+
+                [WriteOnly]
+                public NativeQueue<int>.ParallelWriter queue;
+
+                public void Execute(in PrefabRef prefabRef, Entity network)
+                {
+                    int count = 0;
+                    Entity prefab = prefabRef.m_Prefab;
+
+                    if (pipeLineDataLookup.TryGetComponent(prefab, out _) && waterPipeConnectionLookup.TryGetComponent(network, out Game.Net.WaterPipeConnection waterPipeData))
+                    {
+                        if (waterPipeData.m_FreshCapacity > 0) count++;
+                        if (waterPipeData.m_SewageCapacity > 0) count++;
+                        // TODO: Uncomment the line when the storm pipes are added... if (waterPipeData.m_StormCapacity > 0) count++;
+                    }
+
+                    if (powerLineDataLookup.TryGetComponent(prefab, out _) && electricityConnectionLookup.TryGetComponent(network, out _))
+                    {
+                        count++;
+                    }
+
+                    queue.Enqueue(count);
+                }
+            }
+
+            /// <summary>
+            /// The job to count the number of segments required to represent the integrated (included in the roads) utility service networks.
+            /// （計算表達整合公用事業管線（包含在道路中的）所需路段數量的工作。）
+            /// </summary>
+            public partial struct CountIntegratedUtilityServiceNetworkSegmentsJob : IJobEntity
+            {
+                [ReadOnly]
+                public BufferLookup<ConnectedBuilding> connectedBuildingBufferLookup;
+
+                [ReadOnly]
+                public BufferLookup<ConnectedFlowEdge> connectedFlowEdgeBufferLookup;
+
+                [ReadOnly]
+                public BufferLookup<ConnectedNode> connectedNodeBufferLookup;
+
+                [ReadOnly]
+                public ComponentLookup<Building> buildingLookup;
+
+                [ReadOnly]
+                public ComponentLookup<ElectricityBuildingConnection> electricityBuildingConnectionLookup;
+
+                [ReadOnly]
+                public ComponentLookup<ElectricityConsumer> electricityConsumerLookup;
+
+                [ReadOnly]
+                public ComponentLookup<ElectricityFlowEdge> electricityFlowEdgeLookup;
+
+                [ReadOnly]
+                public ComponentLookup<ElectricityNodeConnection> electricityNodeConnectionLookup;
+
+                [ReadOnly]
+                public ComponentLookup<Placeholder> placeholderLookup;
+
+                [ReadOnly]
+                public ComponentLookup<WaterConsumer> waterConsumerLookup;
+
+                [ReadOnly]
+                public ComponentLookup<Game.Net.WaterPipeConnection> waterPipeConnectionLookup;
+
+                [ReadOnly]
+                public ComponentLookup<WaterPipeNodeConnection> waterPipeNodeConnectionLookup;
+
+                [ReadOnly]
+                public ComponentLookup<WaterPipeEdge> waterPipeEdgeLookup;
+
+                [WriteOnly]
+                public NativeQueue<int>.ParallelWriter queue;
+
+                public void Execute(Entity network)
+                {
+                    bool hasCable = electricityNodeConnectionLookup.TryGetComponent(network, out ElectricityNodeConnection electricityConnCenter);
+                    bool hasPipe = waterPipeNodeConnectionLookup.TryGetComponent(network, out WaterPipeNodeConnection waterPipeConnCenter);
+                    if (!hasCable && !hasPipe) return;
+
+                    int count = 0;
+
+                    if (hasCable)
+                    {
+                        count++;
+
+                        // Handle the connection between user-drawn cables.（處理與使用者繪製的電纜相接處。）
+                        if (connectedNodeBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedNode> connectedNodes))
+                        {
+                            for (int i = 0; i < connectedNodes.Length; i++)
+                            {
+                                ConnectedNode connectedNode = connectedNodes[i];
+                                if (electricityNodeConnectionLookup.TryGetComponent(connectedNode.m_Node, out ElectricityNodeConnection electricityConnStart) &&
+                                    TryGetElectricityFlowEdge(electricityConnStart.m_ElectricityNode,
+                                                              electricityConnCenter.m_ElectricityNode,
+                                                              ref connectedFlowEdgeBufferLookup,
+                                                              ref electricityFlowEdgeLookup,
+                                                              out _))
+                                {
+                                    count++;
+                                }
+                            }
+                        }
+
+                        // Handle building connections.（處理建築連結。）
+                        if (connectedBuildingBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedBuilding> connectedBuildings))
+                        {
+                            /* 
+                             * The list can hold at least 1000 floats (4,000 bytes).
+                             * This design ensures even when the user stretches the network really long [with Mod] and creates lots of connected buildings, the list capacity is still enough in most extreme cases.
+                             * （列表可以裝下至少 1000 個單精度浮點數（4,000 位元組）。）
+                             * （這個設計確保即使使用者［透過模組］將路段拉得非常長，並創造許多相連建築時，列表容量依然充裕。）
+                             */
+                            FixedList4096Bytes<float> curvePositions = default;
+                            int uniqueBuildingsCount = 0;
+
+                            for (int i = 0; i < connectedBuildings.Length; i++)
+                            {
+                                Entity connectedBuilding = connectedBuildings[i].m_Building;
+                                if (buildingLookup.TryGetComponent(connectedBuilding, out Building buildingComponent) &&
+                                    electricityConsumerLookup.TryGetComponent(connectedBuilding, out _) &&
+                                    !placeholderLookup.TryGetComponent(connectedBuilding, out _))
+                                {
+                                    bool recorded = false;
+                                    float curvePosition = buildingComponent.m_CurvePosition;
+                                    for (int j = 0; j < curvePositions.Length; j++)
+                                    {
+                                        if (curvePositions[j] == curvePosition)
+                                        {
+                                            recorded = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (!recorded)
+                                    {
+                                        curvePositions.Add(curvePosition);
+                                    }
+
+                                    uniqueBuildingsCount++;
+                                }
+                            }
+
+                            // For each connected building, it splits an existing cable and create a cable to the building.
+                            //（每棟相接的建築皆會切分既有的電纜，並且創造連接建築的電纜。）
+                            count += curvePositions.Length + uniqueBuildingsCount;
+                        }
+                    }
+
+                    if (hasPipe)
+                    {
+                        int pipeTypes = 0;
+                        if (waterPipeConnectionLookup.TryGetComponent(network, out Game.Net.WaterPipeConnection waterPipeData))
+                        {
+                            if (waterPipeData.m_FreshCapacity > 0) pipeTypes++;
+                            if (waterPipeData.m_SewageCapacity > 0) pipeTypes++;
+                            count += pipeTypes;
+                        }
+
+                        // Handle the connection between user-drawn pipes.（處理與使用者繪製的水管相接處。）
+                        if (connectedNodeBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedNode> connectedNodes))
+                        {
+                            for (int i = 0; i < connectedNodes.Length; i++)
+                            {
+                                ConnectedNode connectedNode = connectedNodes[i];
+                                if (waterPipeNodeConnectionLookup.TryGetComponent(connectedNode.m_Node, out WaterPipeNodeConnection waterPipeConnStart) &&
+                                    TryGetWaterPipeEdge(waterPipeConnStart.m_WaterPipeNode,
+                                                        waterPipeConnCenter.m_WaterPipeNode,
+                                                        ref connectedFlowEdgeBufferLookup,
+                                                        ref waterPipeEdgeLookup,
+                                                        out _))
+                                {
+                                    count++;
+                                }
+                            }
+                        }
+
+                        // Handle building connections.（處理建築連結。）
+                        if (connectedBuildingBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedBuilding> connectedBuildings))
+                        {
+                            FixedList4096Bytes<float> curvePositions = default;
+                            int uniqueBuildingsCount = 0;
+
+                            for (int i = 0; i < connectedBuildings.Length; i++)
+                            {
+                                Entity connectedBuilding = connectedBuildings[i].m_Building;
+                                if (buildingLookup.TryGetComponent(connectedBuilding, out Building buildingComponent) &&
+                                    waterConsumerLookup.TryGetComponent(connectedBuilding, out _) &&
+                                    !placeholderLookup.TryGetComponent(connectedBuilding, out _))
+                                {
+                                    bool recorded = false;
+                                    float curvePosition = buildingComponent.m_CurvePosition;
+                                    for (int j = 0; j < curvePositions.Length; j++)
+                                    {
+                                        if (curvePositions[j] == curvePosition)
+                                        {
+                                            recorded = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (!recorded)
+                                    {
+                                        curvePositions.Add(curvePosition);
+                                    }
+
+                                    uniqueBuildingsCount++;
+                                }
+                            }
+
+                            // For each connected building, it splits existing pipes and create pipes to the building.
+                            //（每棟相接的建築皆會切分既有的水管，並且創造連接建築的水管。）
+                            count += (curvePositions.Length + uniqueBuildingsCount) * pipeTypes;
+                        }
+                    }
+
+                    queue.Enqueue(count);
+                }
             }
         }
+# endif
     }
 }

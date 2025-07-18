@@ -1,4 +1,7 @@
+using Carto.IO;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace Carto.Domain
 {
@@ -18,6 +21,12 @@ namespace Carto.Domain
         /// （資產預製模板實體。）
         /// </summary>
         public Entity entity;
+
+        /// <summary>
+        /// The aggregation entity.
+        /// （聚合實體。）
+        /// </summary>
+        public Entity aggregation;
 
         /// <summary>
         /// The maximum amount of subtance that the utility pipes can hold.
@@ -48,18 +57,12 @@ namespace Carto.Domain
         /// （網路的平均高程。）
         /// </summary>
         public float elevation;
-
+        
         /// <summary>
-        /// The curve position where the sub lane ends.
-        /// （子車道結束的曲線位置。）
+        /// The end node entity of the network.
+        /// （網路的終點節點實體。）
         /// </summary>
-        public float end;
-
-        /// <summary>
-        /// The index of the roundabout at the end of the network.
-        /// （網路結束處圓環的索引值。）
-        /// </summary>
-        public int endRoundaboutIndex;
+        public Entity end;
 
         /// <summary>
         /// The form of the network.
@@ -72,6 +75,12 @@ namespace Carto.Domain
         /// （這個 `NetworkStat` 是否為一個圓環？）
         /// </summary>
         public bool isRoundabout;
+
+        /// <summary>
+        /// The number of motorized vehicle lanes.
+        /// （機動車輛車道的數量。）
+        /// </summary>
+        public int lane;
 
         /// <summary>
         /// The length of the network.
@@ -92,16 +101,22 @@ namespace Carto.Domain
         public float load;
 
         /// <summary>
-        /// The curve position where the sub lane starts.
-        /// （子車道開始的曲線位置。）
+        /// The value range of the sub lane curve position.
+        /// （子車道曲線位置的範圍。）
         /// </summary>
-        public float start;
+        public float2 range;
 
         /// <summary>
-        /// The index of the roundabout at the start of the network.
-        /// （網路開始處圓環的索引值。）
+        /// Whether the start and the end node is a roundabout.
+        /// （起點與終點節點是否為圓環？）
         /// </summary>
-        public int startRoundaboutIndex;
+        public bool2 roundabout;
+
+        /// <summary>
+        /// The start node entity of the network.
+        /// （網路的起點節點實體。）
+        /// </summary>
+        public Entity start;
 
         /// <summary>
         /// The traffic volume of the network.
@@ -116,20 +131,52 @@ namespace Carto.Domain
         public float width;
 
         /// <summary>
-        /// Whether the network ends at a roundabout.
-        /// （網路是否停止在一個圓環？）
+        /// The feature type of the network.
+        /// （網路的圖徵型別。）
         /// </summary>
-        public readonly bool HasEndRoundabout => endRoundaboutIndex >= 0;
+        public readonly Feature Object
+        {
+            get
+            {
+                Feature networkType = Feature.None;
+                if ((category & (NetworkCategory.LowCable | NetworkCategory.HighCable)) != 0) networkType |= Feature.Cable;
+                if ((category & NetworkCategory.Fence) != 0) networkType |= Feature.Fence;
+                if ((category & NetworkCategory.Pathway) != 0) networkType |= Feature.Pathway;
+                if ((category & (NetworkCategory.SewagePipe | NetworkCategory.StormPipe | NetworkCategory.WaterPipe)) != 0) networkType |= Feature.Pipe;
+                if ((category & NetworkCategory.Car) != 0) networkType |= Feature.Road;
+                if ((category & NetworkCategory.Runway) != 0) networkType |= Feature.Runway;
+                if ((category & NetworkCategory.Taxiway) != 0) networkType |= Feature.Taxiway;
+                if ((category & (NetworkCategory.Subway | NetworkCategory.Train | NetworkCategory.Tram)) != 0) networkType |= Feature.Track;
+                if ((category & NetworkCategory.Waterway) != 0) networkType |= Feature.Waterway;
+                return networkType;
+            }
+        }
 
         /// <summary>
-        /// Whether the network starts at a roundabout.
-        /// （網路是否開始在一個圓環？）
+        /// Initiate the roundabout-related properties.
+        /// （初始化與圓環相關的屬性。）
         /// </summary>
-        public readonly bool HasStartRoundabout => startRoundaboutIndex >= 0;
+        /// <param name="roundaboutEntityMap">The map between roundabout node and its statistics.（圓環節點與統計資訊的映射表。）</param>
+        public void InitiateRoundaboutProperties(ref NativeParallelHashMap<Entity, Roundabout> roundaboutEntityMap)
+        {
+            if (!roundaboutEntityMap.IsCreated) return;
+            if (roundaboutEntityMap.TryGetValue(entity, out _))
+            {
+                // The network itself is a roundabout.（網路本身即是圓環。）
+                isRoundabout = true;
+                roundabout = new(false, false);
+            }
+            else
+            {
+                // Test whether the start node and/or the end node is roundabouts.（測試起點與終點節點是否為圓環？）
+                isRoundabout = false;
+                roundabout = new(roundaboutEntityMap.TryGetValue(start, out _), roundaboutEntityMap.TryGetValue(end, out _));
+            }
+        }
 
         public override readonly string ToString()
         {
-            return $"Network({entity.Index}:{entity.Version}) - Category [{category}], Capacity [{capacity}], Direction [{direction}], Discharge [{discharge}], Elevation [{elevation}], Form [{form}], Length [{length}], Limit [{limit}], Load [{load}], Volume [{volume}], Width [{width}]";
+            return $"Network({entity.Index}:{entity.Version}) - Aggregation [{aggregation}], Category [{category}], Capacity [{capacity}], Direction [{direction}], Discharge [{discharge}], Elevation [{elevation}], End [{end.Index}:{end.Version}], Form [{form}], Lane [{lane}], Length [{length}], Limit [{limit}], Load [{load}], Range [{range.x}, {range.y}], Roundabout [{roundabout.x}, {roundabout.y}], Start [{start.Index}:{start.Version}], Volume [{volume}], Width [{width}]";
         }
     }
 }

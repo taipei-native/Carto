@@ -157,6 +157,12 @@ namespace Carto
         public static RasterSystem Raster => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<RasterSystem>();
 
         /// <summary>
+        /// The wrapper of the assembly of Road Builder mod developed by TDW.<br/>
+        /// （由 TDW 開發的 Road Builder 模組組件的包裝器。）
+        /// </summary>
+        public static RoadBuilder Rb { get; } = new();
+
+        /// <summary>
         /// The system that searches transportation routes.
         /// （搜尋運輸服務路線的系統。）
         /// </summary>

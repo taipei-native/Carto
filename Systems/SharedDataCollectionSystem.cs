@@ -503,6 +503,7 @@ namespace Carto.Systems
                                       ref ComponentLookup<Edge> edgeLookup, ref ComponentLookup<NetCompositionData> netCompositionDataLookup,
                                       ref ComponentLookup<PrefabRef> prefabRefLookup, ref ComponentLookup<Game.Net.Roundabout> roundaboutLookup)
         {
+            // TODO: Ensure the consistency of the vanilla method after each update.（確保每次更新後和原版方法的一致性。）
             /*
              *  This is the Burst-compatible version of `BuildingUtils.GetAddress()`.
              *  （這是 `BuildingUtils.GetAddress()` 的可 Burst 編譯版本。）
@@ -1593,6 +1594,7 @@ namespace Carto.Systems
 
                             if (taxPayerLookup.TryGetComponent(renter, out TaxPayer taxData))
                             {
+                                // TODO: Ensure the consistency of the vanilla system after each update.（確保每次更新後和原版系統的一致性。）
                                 // Commercial / industiral taxes are collected 32 times each day, so the value is estimated.（商業／工業稅每天稽徵 32 次，因此金額為估計值。）
                                 // As of the version 1.2.3f1, warehousing companies seem to have full tax exemption.（截至 1.2.3f1 版本，倉儲業似乎完全免稅。）
                                 stat.profit = taxData.m_UntaxedIncome * TaxSystem.kUpdatesPerDay;
@@ -1774,6 +1776,7 @@ namespace Carto.Systems
 
             public void Execute(in DynamicBuffer<Employee> employee, in DynamicBuffer<Game.Economy.Resources> resources, Entity company)
             {
+                // TODO: Ensure the consistency of the vanilla method after each update.（確保每次更新後和原版方法的一致性。）
                 // According to `Game.Simulation.CompanyDividendSystem`, the company sets aside 12.5% (or 1/8) of its cash for employee dividends,
                 // which are then distributed equally among all employees.
                 // （根據 `Game.Simulation.CompanyDividendSystem`，公司會將 12.5%（1 / 8）的現金保留為員工分紅，並平分給所有員工。）

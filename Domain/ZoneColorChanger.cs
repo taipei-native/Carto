@@ -95,10 +95,10 @@ namespace Carto.Domain
             map = null;
             grouped = false;
             if (!_accessible ||
-                !TryGetType(_hslColorTypeName, out Type hslColorType) ||
-                !TryGetType(_zccModTypeName, out Type zccModType) ||
-                !TryGetType(_zccSystemTypeName, out Type zccSystemType) ||
-                !TryGetType(_zccSettingTypeName, out Type zccSettingType)) return false;
+                !this.TryGetType(_hslColorTypeName, out Type hslColorType) ||
+                !this.TryGetType(_zccModTypeName, out Type zccModType) ||
+                !this.TryGetType(_zccSystemTypeName, out Type zccSystemType) ||
+                !this.TryGetType(_zccSettingTypeName, out Type zccSettingType)) return false;
             ComponentSystemBase zccSystem = World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged(zccSystemType);
 
             FieldInfo vanillaColorField = zccSystemType.GetField(_vanillaColorsFieldName, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -141,21 +141,6 @@ namespace Carto.Domain
             }
 
             return true;
-        }
-
-        /// <summary>
-        /// Try to retrieve the designated type.<br/>
-        /// （嘗試取得指定的型別。）
-        /// </summary>
-        /// <param name="fullName">The full name of the type.（型別的完整名稱。）</param>
-        /// <param name="targetType">The type that represents the target.（表示目標的型別）</param>
-        /// <returns>Whether the query success or not.（查詢是否成功？）</returns>
-        private bool TryGetType(string fullName, out Type targetType)
-        {
-            targetType = null;
-            if (!_accessible) return false;
-            targetType = _assembly?.GetType(fullName, throwOnError: false, ignoreCase: false);
-            return targetType != null;
         }
 
         public override string ToString()
