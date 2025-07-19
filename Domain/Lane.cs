@@ -21,6 +21,12 @@ namespace Carto.Domain
         public NetworkCategory category;
 
         /// <summary>
+        /// The direction of the network lane.
+        /// （車道的方向。）
+        /// </summary>
+        public Direction direction;
+
+        /// <summary>
         /// Whether the lane is an utility lane.
         /// （車道是否為公共車道。）
         /// </summary>
@@ -28,7 +34,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Lane({entity.Index}:{entity.Version}) - Category [{category}]";
+            return $"Lane({entity.Index}:{entity.Version}) - Category [{category}], Direction [{direction}]";
         }
     }
 }

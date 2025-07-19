@@ -178,6 +178,7 @@ namespace Carto
             PropertyCategoryBuildingDisplayMode = IO.Display.All;
             PropertyCategoryNetworkDisplayMode = IO.Display.All;
             PropertyCategoryPOIDisplayMode = IO.Display.All;
+            PropertyCategoryRoadClassification = IO.RoadClassification.Vanilla;
             PropertyColorZcc = true;
             PropertyPassengerPet = true;
             PropertyResidentSeparateBySex = false;
@@ -1647,6 +1648,13 @@ namespace Carto
         public IO.Display PropertyCategoryPOIDisplayMode { get; set; } = IO.Display.All;
 
         /// <summary>
+        /// The method to classify road networks.
+        /// （分類道路網路的方式。）
+        /// </summary>
+        [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
+        public IO.RoadClassification PropertyCategoryRoadClassification { get; set; } = IO.RoadClassification.Vanilla;
+
+        /// <summary>
         /// Whether to use Zone Color Changer's zone color, instead of vanilla's.
         /// （是否使用 Zone Color Chanager 的顏色，而非遊戲原版的分區色彩。）
         /// </summary>
@@ -2012,6 +2020,7 @@ namespace Carto
                 Properties = properties,
                 RasterFormat = IO.FileFormat.GeoTIFF,
                 RasterKinds = rasterKinds,
+                RoadClassification = PropertyCategoryRoadClassification,
                 SeparateResident = PropertyResidentSeparateBySex,
                 SeparateServiceUpgrade = GeometrySeparateServiceUpgrade,
                 SourceCoordinates = sourceCoordinates,

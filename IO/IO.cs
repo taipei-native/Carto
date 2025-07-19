@@ -157,6 +157,29 @@ namespace Carto.IO
         };
 
         /// <summary>
+        ///  The array sorted by each <see cref="NetworkCategory"/>'s display order.
+        /// （根據每個 <see cref="NetworkCategory"/> 顯示順序排序的陣列。）
+        /// </summary>
+        public static readonly NetworkCategory[] NetworkCategoryDisplayOrder = new NetworkCategory[]
+        {
+            // Group A: Road networks（A 組：道路網路）
+            NetworkCategory.Highway, NetworkCategory.Large, NetworkCategory.Medium, NetworkCategory.Small, NetworkCategory.Bus,
+            NetworkCategory.Runway, NetworkCategory.Taxiway,
+
+            // Group B: Track networks（B 組：軌道網路）
+            NetworkCategory.Train, NetworkCategory.Subway, NetworkCategory.Tram,
+
+            // Group C: Utility networks（C 組：公用事業網路）
+            NetworkCategory.HighCable, NetworkCategory.LowCable, NetworkCategory.WaterPipe, NetworkCategory.SewagePipe, NetworkCategory.StormPipe,
+
+            // Group D: Other networks（D 組：其他網路）
+            NetworkCategory.Waterway, NetworkCategory.Pathway, NetworkCategory.Fence, NetworkCategory.RoadBuilder,
+
+            // Group E: Fallback value（E 組：後備值）
+            NetworkCategory.None
+        };
+
+        /// <summary>
         /// The array sorted by each <see cref="POICategory"/>'s display order.
         /// （根據每個 <see cref="POICategory"/> 顯示順序排序的陣列。）
         /// </summary>
@@ -381,6 +404,18 @@ namespace Carto.IO
         }
 
         /// <summary>
+        /// Dispose of all native containers across all systems.
+        /// （拋棄各系統的原生容器。）
+        /// </summary>
+        public static void DisposeAll()
+        {
+            Instance.Building.Dispose();
+            Instance.Network.Dispose();
+            Instance.POI.Dispose();
+            Instance.Shared.Dispose();
+        }
+
+        /// <summary>
         /// Export in-game objects into geospatial files.
         /// （將遊戲內物體輸出為地理空間格式檔案。）
         /// </summary>
@@ -510,6 +545,8 @@ namespace Carto.IO
 
                     bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
                     bool buildingHasBoundary = options.Has(System.Building, VectorKind.Boundary);
+                    bool networkHasBoundary = options.Has(System.Network, VectorKind.Boundary);
+                    bool networkHasCenterline = options.Has(System.Network, VectorKind.Centerline);
                     bool poiHasLocation = options.Has(System.POI, VectorKind.Location);
                     bool routeHasCenterline = options.Has(System.Route, VectorKind.Centerline);
                     bool zoningHasBoundary = options.Has(System.Zoning, VectorKind.Boundary);
@@ -552,7 +589,11 @@ namespace Carto.IO
                             }
                             if (useNetwork)
                             {
-
+                                if (networkHasBoundary || networkHasCenterline)
+                                {
+                                    Instance.Network.WriteFeatures(options, OnReport, out int networkFilesCount);
+                                    filesCount += networkFilesCount;
+                                }
                             }
                             if (useRoute)
                             {
@@ -669,6 +710,7 @@ namespace Carto.IO
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                DisposeAll();
             }
             finally
             {
@@ -691,9 +733,7 @@ namespace Carto.IO
 
                 // In case of any missing native container disposal during the execution, try to dispose them after all execution are completed.
                 // （為避免執行中遺漏任何拋棄原生容器的程序，當所有程式執行完成後，嘗試拋棄這些容器。）.
-                Instance.Building.Dispose();
-                Instance.POI.Dispose();
-                Instance.Shared.Dispose();
+                DisposeAll();
             }
         }
 
@@ -1051,6 +1091,7 @@ namespace Carto.IO
             _log.Info(GetIndentedText(GetAlignedText("CATEGORY_BUILDING_DISPLAY", $"{buildingDisplay}", 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("CATEGORY_NETWORK_DISPLAY", $"{networkDisplay}", 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("CATEGORY_POI_DISPLAY", $"{poiDisplay}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("CATEGORY_ROAD", $"{options.RoadClassification}", 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("PASSENGER_PET", $"{options.PetPassenger}", 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("RESIDENT_GENDER", $"{options.SeparateResident}", 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("THEME_ASSET_PACK", $"{options.AssetPack}", 34), 4));

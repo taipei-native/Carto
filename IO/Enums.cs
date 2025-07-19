@@ -810,6 +810,38 @@ namespace Carto.IO
     }
 
     /// <summary>
+    /// The classification method of the road networks.
+    /// （道路網路的分類方式。）
+    /// </summary>
+    public enum RoadClassification
+    {
+        /// <summary>
+        /// By speed limit.
+        /// （速限。）
+        /// </summary>
+        Limit,
+        
+        // TODO: Add REGEX support.（支援正則表達式。）
+        ///// <summary>
+        ///// By regular expression.
+        ///// （正則表達式。）
+        ///// </summary>
+        //Regex,
+
+        /// <summary>
+        /// By vanilla classification.
+        /// （原版遊戲分類。）
+        /// </summary>
+        Vanilla,
+
+        /// <summary>
+        /// By road width.
+        /// （路寬。）
+        /// </summary>
+        Width
+    }
+
+    /// <summary>
     /// The category of the geometry shapes.
     /// （幾何形狀的分類。）
     /// </summary>

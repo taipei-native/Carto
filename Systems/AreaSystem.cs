@@ -195,6 +195,8 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref triangleCounts);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -394,6 +396,12 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref areaEntityMap);
+                Utils.CommonUtils.Dispose(ref areaStats);
+                Utils.CommonUtils.Dispose(ref propertyFieldMap);
+                Utils.CommonUtils.Dispose(ref propertySet);
+                Utils.CommonUtils.Dispose(ref syncMap);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -597,6 +605,10 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref areaEntityMap);
+                Utils.CommonUtils.Dispose(ref areaStats);
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -695,6 +707,8 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
             }
             finally
             {

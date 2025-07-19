@@ -52,6 +52,12 @@ namespace Carto.Systems
         static readonly Game.Prefabs.PrefabSystem _prefab = Instance.Prefab;
 
         /// <summary>
+        /// The assembly of Extended Transport Manager mod.（Extended Transport Manager 模組組件。）<br/>
+        /// See <see cref="Instance.Xtm"/> for more information.
+        /// </summary>
+        static readonly ExtendedTransportManager _xtm = Instance.Xtm;
+
+        /// <summary>
         /// The query to collect transportation route instances.
         /// （收集運輸服務路線實例的查詢。）
         /// </summary>
@@ -144,7 +150,8 @@ namespace Carto.Systems
         /// </summary>
         public void Dispose()
         {
-            //CommonUtils.Dispose(ref _curveEntityMap);
+            _xtm.Dispose();
+            // CommonUtils.Dispose(ref _curveEntityMap);
             CommonUtils.Dispose(ref _localRouteStats);
         }
 
@@ -226,13 +233,13 @@ namespace Carto.Systems
         {
             Dictionary<Entity, string> acronymEntityMap = new();
             
-            if (options.XtmAcronym && Instance.Xtm.TryGet(false) && Instance.Xtm.TryGetXtmRouteExtraData())
+            if (options.XtmAcronym && _xtm.TryGet(false) && _xtm.TryGetXtmRouteExtraData())
             {
                 NativeArray<Entity> routes = _routeQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < routes.Length; i++)
                 {
                     Entity route = routes[i];
-                    if (Instance.Xtm.TryGetRouteAcronym(EntityManager, route, out string acronym))
+                    if (_xtm.TryGetRouteAcronym(EntityManager, route, out string acronym))
                     {
                         acronymEntityMap.Add(route, acronym);
                     }
@@ -738,6 +745,8 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                CommonUtils.Dispose(ref syncMap);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -889,6 +898,8 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -960,6 +971,8 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
             }
             finally
             {

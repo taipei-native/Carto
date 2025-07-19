@@ -1,5 +1,6 @@
 using Carto.Domain;
 using Carto.IO;
+using Carto.Utils;
 using Colossal.Logging;
 using Game;
 using Game.Buildings;
@@ -9,8 +10,12 @@ using Game.Objects;
 using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
+using Game.UI;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -30,6 +35,24 @@ namespace Carto.Systems
         /// See <see cref="Instance.Log"/> for more information.
         /// </summary>
         static readonly ILog _log = Instance.Log;
+
+        /// <summary>
+        /// The system managing names.（管理名稱的系統。）<br/>
+        /// See <see cref="Instance.Name"/> for more information.
+        /// </summary>
+        static readonly NameSystem _name = Instance.Name;
+
+        /// <summary>
+        /// The system managing prefabricated data.（管理預製模板資料的系統。）<br/>
+        /// See <see cref="Instance.Prefab"/> for more information.
+        /// </summary>
+        static readonly PrefabSystem _prefab = Instance.Prefab;
+
+        /// <summary>
+        /// The assembly of Road Builder mod.（Road Builder 模組組件。）<br/>
+        /// See <see cref="Instance.Rb"/> for more information.
+        /// </summary>
+        static readonly RoadBuilder _rb = Instance.Rb;
 
         /// <summary>
         /// The query to collect all lane prefabs.
@@ -62,6 +85,12 @@ namespace Carto.Systems
         static EntityQuery _roundaboutAttachmentPrefabQuery;
 
         /// <summary>
+        /// The query to collect UI object categories.
+        /// （收集 UI 物件分類的查詢。）
+        /// </summary>
+        static EntityQuery _uiCategoryQuery;
+
+        /// <summary>
         /// The query to collect all utility service network entities.
         /// （收集所有公用事業管線網路實體的查詢。）
         /// </summary>
@@ -71,6 +100,24 @@ namespace Carto.Systems
         /// The query for networks.（網路的查詢。）
         /// </summary>
         static EntityQueryDesc _networkEntityQueryDesc;
+
+        /// <summary>
+        /// The category of the networks.
+        /// （網路的分類。）
+        /// </summary>
+        private List<NetworkCategory> _networkCategories;
+
+        /// <summary>
+        /// The asset of the networks.
+        /// （網路的資產。）
+        /// </summary>
+        private List<string> _networkAssets;
+
+        /// <summary>
+        /// The title of the networks.
+        /// （網路的標題。）
+        /// </summary>
+        private List<string> _networkNames;
 
         /// <summary>
         /// The list of all network's statistics in the savegame.
@@ -169,6 +216,20 @@ namespace Carto.Systems
                 }
             });
 
+            _uiCategoryQuery = GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<UIAssetCategoryData>(),
+                    ComponentType.ReadOnly<UIObjectData>()
+                },
+                None = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Deleted>(),
+                    ComponentType.ReadOnly<Temp>()
+                }
+            });
+
             //_utilityServiceNetworkQuery = GetEntityQuery(new EntityQueryDesc()
             //{
             //    All = new ComponentType[]
@@ -208,8 +269,76 @@ namespace Carto.Systems
         /// </summary>
         public void Dispose()
         {
+            _rb.Dispose();
             Utils.CommonUtils.Dispose(ref _localNetworkStats);
             Utils.CommonUtils.Dispose(ref _roundaboutEntityMap);
+            _networkAssets = null;
+            _networkCategories = null;
+            _networkNames = null;
+        }
+
+        /// <summary>
+        /// Retrieve the network category from <paramref name="networkStat"/>.
+        /// （由 <paramref name="networkStat"/> 獲得網路分類。）
+        /// </summary>
+        /// <param name="roadClassification">The classification method of road networks.（道路網路的分類方式。）</param>
+        /// <param name="networkStat">The statistics of the network.（網路的統計資訊。）</param>
+        /// <param name="roadCategoryUIGroups">The dictionary between the UI group entity and the netowrk category.（UI 群組實體與網路分類的字典。）</param>
+        /// <returns>The category of the network.（網路的分類。）</returns>
+        private NetworkCategory GetCategory(RoadClassification roadClassification, NetworkStat networkStat, Dictionary<Entity, NetworkCategory> roadCategoryUIGroups)
+        {
+            NetworkCategory categories = networkStat.category;
+            if ((categories & NetworkCategory.Car) == 0) return categories;
+
+            categories &= ~NetworkCategory.Car;
+
+            switch (roadClassification)
+            {
+                case RoadClassification.Limit:
+                    float limit = networkStat.limit;
+                    if (limit >= 60)
+                    {
+                        categories |= NetworkCategory.Large;
+                    }
+                    else if (limit >= 50)
+                    {
+                        categories |= NetworkCategory.Medium;
+                    }
+                    else
+                    {
+                        categories |= NetworkCategory.Small;
+                    }
+                    break;
+
+                case RoadClassification.Vanilla:
+                    if (roadCategoryUIGroups.TryGetValue(networkStat.uiGroup, out NetworkCategory roadCategory))
+                    {
+                        categories |= roadCategory;
+                    }
+                    else
+                    {
+                        categories = GetCategory(RoadClassification.Width, networkStat, roadCategoryUIGroups);
+                    }
+                    break;
+
+                case RoadClassification.Width:
+                    float width = networkStat.width;
+                    if (width >= 32)
+                    {
+                        categories |= NetworkCategory.Large;
+                    }
+                    else if (width >= 24)
+                    {
+                        categories |= NetworkCategory.Medium;
+                    }
+                    else
+                    {
+                        categories |= NetworkCategory.Small;
+                    }
+                    break;
+            }
+
+            return categories;
         }
 
         /// <summary>
@@ -296,7 +425,7 @@ namespace Carto.Systems
 
                 // Collect roundabout information.
                 // （收集圓環資訊。）
-                GetRoundabouts(hasCenterline, ref stats, ref roundaboutEntityMap);
+                GetRoundabouts(hasCenterline, options.Features, ref stats, ref roundaboutEntityMap);
 
                 // Finally, collect the network statistics.
                 //（最後，收集網路統計資訊。）
@@ -315,6 +444,7 @@ namespace Carto.Systems
                     roadCompositionLookup = GetComponentLookup<RoadComposition>(true),
                     taxiwayCompositionLookup = GetComponentLookup<TaxiwayComposition>(true),
                     trackCompositionLookup = GetComponentLookup<TrackComposition>(true),
+                    uiObjectDataLookup = GetComponentLookup<UIObjectData>(true),
                     waterPipeNodeConnectionLookup = GetComponentLookup<WaterPipeNodeConnection>(true),
                     waterwayCompositionLookup = GetComponentLookup<WaterwayComposition>(true),
                     feature = featureFlag,
@@ -329,9 +459,14 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref laneEntityMap);
+                Utils.CommonUtils.Dispose(ref rbNetworks);
+                IO.IO.DisposeAll();
             }
             finally
             {
+                // Don't dispose `_localNetworkStats` and `_roundaboutEntityMap`, they are required in `Write__DBF()` or `Write__Features()`.
+                // （不要拋棄 `_localNetworkStats` 和 `_roundaboutEntityMap`，它們仍會被 `Write__DBF()` 或 `Write__Features()` 呼叫。）
                 Utils.CommonUtils.Dispose(ref laneEntityMap);
                 Utils.CommonUtils.Dispose(ref rbNetworks);
             }
@@ -344,7 +479,7 @@ namespace Carto.Systems
         /// <param name="rbNetworks">The set of Road Builder network entities.（Road Builder 網路實體的集合。）</param>
         private void GetRbNetworks(ref NativeParallelHashSet<Entity> rbNetworks)
         {
-            if (Instance.Rb.TryGet(false) && Instance.Rb.TryGetRbNetworkComponentType(out ComponentType roadBuilderNetworkComponent))
+            if (_rb.TryGet(false) && _rb.TryGetRbNetworkComponentType(out ComponentType roadBuilderNetworkComponent))
             {
                 List<ComponentType> rbNetworkQueryComponents = new();
                 rbNetworkQueryComponents.AddRange(_networkEntityQueryDesc.All);
@@ -361,7 +496,7 @@ namespace Carto.Systems
                 {
                     rbNetworks = rbNetworks.AsParallelWriter()
                 };
-                JobHandle collectRbNetworksHandle = collectRbNetworksJob.Schedule(rbNetworkQuery, default);
+                JobHandle collectRbNetworksHandle = collectRbNetworksJob.ScheduleParallel(rbNetworkQuery, default);
                 collectRbNetworksHandle.Complete();
             }
             else
@@ -371,13 +506,49 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Retrieve the vanilla road UI groups.
+        /// （獲得遊戲原版的道路 UI 群組。）
+        /// </summary>
+        /// <returns>The dictionary between the UI group entity and the netowrk category.（UI 群組實體與網路分類的字典。）</returns>
+        private Dictionary<Entity, NetworkCategory> GetRoadCategoryUIGroups()
+        {
+            Dictionary<Entity, NetworkCategory> roadCategoryUIGroups = new();
+            NativeArray<Entity> uiGroups = _uiCategoryQuery.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < uiGroups.Length; i++)
+            {
+                Entity uiGroup = uiGroups[i];
+                string groupName = _prefab.GetPrefabName(uiGroup);
+                switch (groupName)
+                {
+                    case "RoadsSmallRoads":
+                        roadCategoryUIGroups.Add(uiGroup, NetworkCategory.Small);
+                        break;
+
+                    case "RoadsMediumRoads":
+                        roadCategoryUIGroups.Add(uiGroup, NetworkCategory.Medium);
+                        break;
+
+                    case "RoadsLargeRoads":
+                        roadCategoryUIGroups.Add(uiGroup, NetworkCategory.Large);
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+            return roadCategoryUIGroups;
+        }
+
+        /// <summary>
         /// Retrieve the roundabout information.
         /// （獲得圓環資訊。）
         /// </summary>
         /// <param name="hasCenterline">Whether the export options has the geometry Centerline.（輸出設定是否含有中心線幾何？）</param>
+        /// <param name="feature">The export options.（輸出設定。）</param>
         /// <param name="stats">The list of network statistics.（網路統計資訊的列表。）</param>
         /// <param name="roundaboutEntityMap">The map between roundabout node and its statistics.（圓環節點與統計資訊的映射表。）</param>
-        private void GetRoundabouts(bool hasCenterline, ref NativeList<NetworkStat> stats, ref NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap)
+        private void GetRoundabouts(bool hasCenterline, Feature feature,
+                                    ref NativeList<NetworkStat> stats, ref NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap)
         {
             NativeParallelHashMap<Entity, Entity> attachmentEntityMap = new(_roundaboutAttachmentQuery.CalculateEntityCount(), Allocator.Persistent);
             NativeParallelHashMap<Entity, float> attachmentRadiusMap = new(_roundaboutAttachmentPrefabQuery.CalculateEntityCount(), Allocator.Persistent);
@@ -395,8 +566,11 @@ namespace Carto.Systems
                 hasCenterline = hasCenterline,
                 leftHandTraffic = Instance.City.leftHandTraffic,
                 netCompositionLaneBufferLookup = GetBufferLookup<NetCompositionLane>(true),
+                aggregatedLookup = GetComponentLookup<Aggregated>(true),
                 compositionLookup = GetComponentLookup<Composition>(true),
+                edgeLookup = GetComponentLookup<Edge>(true),
                 netCompositionDataLookup = GetComponentLookup<NetCompositionData>(true),
+                pillarLookup = GetComponentLookup<Pillar>(true),
                 prefabRefLookup = GetComponentLookup<PrefabRef>(true),
                 roadLookup = GetComponentLookup<Road>(true),
                 roadCompositionLookup = GetComponentLookup<RoadComposition>(true),
@@ -404,6 +578,8 @@ namespace Carto.Systems
                 trackCompositionLookup = GetComponentLookup<TrackComposition>(true),
                 trainTrackLookup = GetComponentLookup<TrainTrack>(true),
                 tramTrackLookup = GetComponentLookup<TramTrack>(true),
+                uiObjectDataLookup = GetComponentLookup<UIObjectData>(true),
+                feature = feature,
                 attachmentEntityMap = attachmentEntityMap,
                 attachmentRadiusMap = attachmentRadiusMap,
                 stats = stats.AsParallelWriter(),
@@ -437,8 +613,247 @@ namespace Carto.Systems
         /// （將速度限制數字取整為「漂亮的」數字。）
         /// </summary>
         /// <param name="input">The input value.（輸入的數值。）</param>
-        /// <returns>The speed limit value that is divisable by 5.（可被 5 整除的速度限制數值。）</returns>
-        private static float RoundSpeedLimit(float input) => (float)(Math.Round(input * 2 / 5.0) * 5.0);
+        /// <returns>The speed limit value.（速度限制數值。）</returns>
+        private static float RoundSpeedLimit(float input) => (float) Math.Round(input * 1.8);
+
+        /// <summary>
+        /// Write centerline features (geometries and properties) to the designated file.
+        /// （寫出中線圖徵（幾何與屬性）至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        private void WriteCenterlineFeatures(JsonTextWriter writer, Options options, Action<string, int> onReportMethod)
+        {
+            bool hasName = options.Contains(Property.Name, IO.System.Network);
+            bool hasAsset = options.Contains(Property.Asset, IO.System.Network);
+            bool hasCapacity = options.Contains(Property.Capacity, IO.System.Network);
+            bool hasCategory = options.Contains(Property.Category, IO.System.Network);
+            bool hasDirection = options.Contains(Property.Direction, IO.System.Network);
+            bool hasDischarge = options.Contains(Property.Discharge, IO.System.Network);
+            bool hasElevation = options.Contains(Property.Elevation, IO.System.Network);
+            bool hasForm = options.Contains(Property.Form, IO.System.Network);
+            bool hasLane = options.Contains(Property.Lane, IO.System.Network);
+            bool hasLength = options.Contains(Property.Length, IO.System.Network);
+            bool hasLimit = options.Contains(Property.Limit, IO.System.Network);
+            bool hasLoad = options.Contains(Property.Load, IO.System.Network);
+            bool hasObject = options.Contains(Property.Object, IO.System.Network);
+            bool hasVolume = options.Contains(Property.Volume, IO.System.Network);
+            bool hasWidth = options.Contains(Property.Width, IO.System.Network);
+
+            // Initialize native containers.（初始化原生容器。）
+            NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap = new(_networkQuery.CalculateEntityCount(), Allocator.Persistent);
+
+            try
+            {
+                Task writerThread = Task.Run(() =>
+                {
+                    for (int i = 0; i < _localNetworkStats.Length; i++)
+                    {
+                        NetworkStat networkStat = _localNetworkStats[i];
+
+                        // Write feature header.（寫出圖徵檔頭。）
+                        writer.WriteStartObject();
+                        GeoJson.WritePropertyPair(writer, "type", "Feature");
+
+                        // Write feature properties.（寫出圖徵）
+                        writer.WritePropertyName("properties");
+                        writer.WriteStartObject();
+
+                        if (hasName)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Name, _networkNames[i]);
+                        }
+                        if (hasAsset)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Asset, _networkAssets[i]);
+                        }
+                        //if (hasCapacity)
+                        //{
+                            // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasCategory)
+                        {
+                            NetworkCategory category = _networkCategories[i];
+                            category = options.Display[(Property.Category, IO.System.Network)] ? category : Utils.CommonUtils.GetFirstMatch(category, IO.IO.NetworkCategoryDisplayOrder);
+                            GeoJson.WriteProperty(writer, Property.Category, category.ToString("G"));
+                        }
+                        if (hasDirection)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Direction, networkStat.direction.ToString("G"));
+                        }
+                        //if (hasDischarge)
+                        //{
+                            // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasElevation)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Elevation, networkStat.elevation);
+                        }
+                        if (hasForm)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Form, networkStat.form.ToString("G"));
+                        }
+                        if (hasLane)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Lane, networkStat.lane);
+                        }
+                        if (hasLength)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Length, networkStat.length);
+                        }
+                        if (hasLimit)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Limit, networkStat.limit);
+                        }
+                        //if (hasLoad)
+                        //{
+                            // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasObject)
+                        {
+                            Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? networkStat.Object : Utils.CommonUtils.GetFirstMatch(networkStat.Object, IO.IO.FeatureDisplayOrder);
+                            GeoJson.WriteProperty(writer, Property.Object, displayType.ToString("G"));
+                        }
+                        if (hasVolume)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Volume, networkStat.volume);
+                        }
+                        if (hasWidth)
+                        {
+                            GeoJson.WriteProperty(writer, Property.Width, networkStat.width);
+                        }
+
+                        writer.WriteEndObject();
+                        writer.WriteEndObject();
+
+                        // Report method, not filled temporary.
+                        onReportMethod?.Invoke(string.Empty, 0);
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+            }
+        }
+
+        /// <summary>
+        /// Write features (geometries and properties) to the designated file.
+        /// （寫出圖徵（幾何與屬性）至指定的檔案中。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        /// <param name="filesCount">The number of exported files.（輸出的檔案數量。）</param>
+        public void WriteFeatures(Options options, Action<string, int> onReportMethod, out int filesCount)
+        {
+            filesCount = 0;
+            bool hasName = options.Contains(Property.Name, IO.System.Network);
+            bool hasAsset = options.Contains(Property.Asset, IO.System.Network);
+            bool hasCategory = options.Contains(Property.Category, IO.System.Network);
+
+            try
+            {
+                // Retrieve network statistics.（獲得網路的統計資訊。）
+                GetNetworkStats(options);
+
+                /*
+                 * The `_localNetworkStats` and `_roundaboutEntityMap` properties should be initialized in `GetNetworkStats()`.
+                 * The additional validity check is performed to ensure safety.
+                 * （`_localNetworkStats` 及 `_roundaboutEntityMap` 屬性應在 `GetNetworkStats()` 被初始化。為確保安全，將執行額外的驗證。）
+                 */
+                // Validate native containers integrity.（驗證原生容器的完整性。）
+                Utils.CommonUtils.ValidateIntegrity(ref _localNetworkStats, true);
+                Utils.CommonUtils.ValidateIntegrity(ref _roundaboutEntityMap, true);
+
+                // Initialize managed containers.（初始化控管容器。）
+                _networkAssets ??= new();
+                _networkCategories ??= new();
+                _networkNames ??= new();
+                _networkAssets.Clear();
+                _networkCategories.Clear();
+                _networkNames.Clear();
+                Dictionary<Entity, NetworkCategory> roadCategoryUIGroups = GetRoadCategoryUIGroups();
+
+                // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
+                if (hasName || hasAsset)
+                {
+                    for (int i = 0; i < _localNetworkStats.Length; i++)
+                    {
+                        NetworkStat networkStat = _localNetworkStats[i];
+                        string aggregationName = (networkStat.aggregation != Entity.Null) ? _name.GetRenderedLabelName(networkStat.aggregation) : string.Empty;
+                        Match assetTitleMatch = Regex.Match(aggregationName, @"Assets\.NAME\[(.*?)\]");
+                        if (assetTitleMatch.Success)
+                        {
+                            string prefabName = assetTitleMatch.Groups[1].Value;
+                            if (LocaleUtils.TryTranslate(aggregationName, out string assetName))
+                            {
+                                aggregationName = assetName;
+                            }
+                            else if (LocaleUtils.TryTranslate($"SubServices.NAME[{prefabName}s]", out string subServiceName))
+                            {
+                                // Pathways（人行道）
+                                aggregationName = subServiceName;
+                            }
+                            else if (LocaleUtils.TryTranslate($"Infoviews.INFOMODE[{prefabName}s]", out string infoviewName))
+                            {
+                                // Subway & train tracks（地鐵與火車軌道）
+                                aggregationName = infoviewName;
+                            }
+                            else if ((prefabName == "Seaway") && LocaleUtils.TryTranslate("Infoviews.INFOMODE[Waterways]", out string infoviewWaterwayName))
+                            {
+                                // Waterway（航道）
+                                aggregationName = infoviewWaterwayName;
+                            }
+                            else
+                            {
+                                aggregationName = string.Empty;
+                            }
+                        }
+
+                        _networkNames.Add(aggregationName);
+
+                        if (networkStat.isRoundabout)
+                        {
+                            _networkAssets.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_prefab.GetPrefabName(networkStat.prefab)}]", out string assetName) ? assetName : string.Empty);
+                        }
+                        else
+                        {
+                            _networkAssets.Add(_name.GetRenderedLabelName(networkStat.entity));
+                        }
+
+                        _networkCategories.Add(GetCategory(options.RoadClassification, networkStat, roadCategoryUIGroups));
+                    }
+                }
+
+                //if (options.Has(IO.System.Network, VectorKind.Boundary))
+                //{
+                //    GeoJson.Write(options, IO.System.Network, VectorKind.Boundary, WriteBoundaryFeatures, onReportMethod);
+                //    filesCount++;
+                //}
+                if (options.Has(IO.System.Network, VectorKind.Centerline))
+                {
+                    GeoJson.Write(options, IO.System.Network, VectorKind.Centerline, WriteCenterlineFeatures, onReportMethod);
+                    filesCount++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+                IO.IO.DisposeAll();
+            }
+            finally
+            {
+                Dispose();
+            }
+        }
 
         /// <summary>
         /// The job to collect network lane's information.
@@ -467,7 +882,8 @@ namespace Carto.Systems
                 Domain.Lane laneStruct = new()
                 {
                     entity = lane,
-                    category = NetworkCategory.None
+                    category = NetworkCategory.None,
+                    direction = Direction.None
                 };
 
                 if (!parkingLaneDataLookup.TryGetComponent(lane, out ParkingLaneData _))
@@ -514,6 +930,15 @@ namespace Carto.Systems
                             if ((utilityTypes & UtilityTypes.StormwaterPipe) != 0) laneStruct.category |= NetworkCategory.StormPipe;
                             if ((utilityTypes & UtilityTypes.WaterPipe) != 0) laneStruct.category |= NetworkCategory.WaterPipe;
                         }
+                    }
+
+                    if ((laneGeneralFlag & LaneFlags.Twoway) != 0)
+                    {
+                        laneStruct.direction = Direction.Both;
+                    }
+                    else
+                    {
+                        laneStruct.direction = Direction.Forward;
                     }
                 }
 
@@ -568,6 +993,9 @@ namespace Carto.Systems
             public ComponentLookup<TrackComposition> trackCompositionLookup;
 
             [ReadOnly]
+            public ComponentLookup<UIObjectData> uiObjectDataLookup;
+
+            [ReadOnly]
             public ComponentLookup<WaterPipeNodeConnection> waterPipeNodeConnectionLookup;
 
             [ReadOnly]
@@ -588,11 +1016,12 @@ namespace Carto.Systems
             [WriteOnly]
             public NativeList<NetworkStat>.ParallelWriter list;
 
-            public void Execute(in Composition composition, in Curve curve, in Edge edge, in EdgeGeometry edgeGeometry, in PrefabRef prefabRef, Entity network)
+            public void Execute(in Composition composition, in Curve curve, in Edge edge, in EdgeGeometry edgeGeometry, in PrefabRef prefabRef, Entity network, in DynamicBuffer<Game.Net.SubLane> subLanes)
             {
                 NetworkStat stat = new()
                 {
                     entity = network,
+                    aggregation = Entity.Null,
                     capacity = 0f,
                     category = NetworkCategory.None,
                     direction = Direction.None,
@@ -604,8 +1033,10 @@ namespace Carto.Systems
                     length = curve.m_Length,
                     limit = 0f,
                     load = 0f,
+                    prefab = prefabRef.m_Prefab,
                     range = new(0f, 1f),
                     start = edge.m_Start,
+                    uiGroup = uiObjectDataLookup.TryGetComponent(prefabRef.m_Prefab, out UIObjectData uiObjectData) ? uiObjectData.m_Group : Entity.Null,
                     volume = 0f,
                     width = 0f
                 };
@@ -660,10 +1091,21 @@ namespace Carto.Systems
 
                         if (isTaxiway)
                         {
+                            Direction direction = Direction.None;
                             TaxiwayFlags taxiwayFlags = taxiwayComposition.m_Flags;
                             if (taxiwayFlags == TaxiwayFlags.Airspace) return;  // Exporting air space is not supported.（不支援輸出空域。）
                             bool hasRunwayFlag = (taxiwayFlags & TaxiwayFlags.Runway) != 0;
+                            for (int i = 0; i < subLanes.Length; i++)
+                            {
+                                Entity subLane = subLanes[i].m_SubLane;
+                                if (prefabRefLookup.TryGetComponent(subLane, out PrefabRef subLanePrefabRef) &&
+                                    laneEntityMap.TryGetValue(subLanePrefabRef.m_Prefab, out Domain.Lane lanePrefab))
+                                {
+                                    direction |= lanePrefab.direction;
+                                }
+                            }
                             stat.category = hasRunwayFlag ? NetworkCategory.Runway : NetworkCategory.Taxiway;
+                            stat.direction = direction;
                             stat.elevation = edgeGeometry.m_Bounds.min.y;
                             stat.limit = RoundSpeedLimit(taxiwayComposition.m_SpeedLimit);
                         }
@@ -750,10 +1192,19 @@ namespace Carto.Systems
             public BufferLookup<NetCompositionLane> netCompositionLaneBufferLookup;
 
             [ReadOnly]
+            public ComponentLookup<Aggregated> aggregatedLookup;
+
+            [ReadOnly]
             public ComponentLookup<Composition> compositionLookup;
 
             [ReadOnly]
+            public ComponentLookup<Edge> edgeLookup;
+
+            [ReadOnly]
             public ComponentLookup<NetCompositionData> netCompositionDataLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Pillar> pillarLookup;
 
             [ReadOnly]
             public ComponentLookup<PrefabRef> prefabRefLookup;
@@ -777,6 +1228,12 @@ namespace Carto.Systems
             public ComponentLookup<TramTrack> tramTrackLookup;
 
             [ReadOnly]
+            public ComponentLookup<UIObjectData> uiObjectDataLookup;
+
+            [ReadOnly]
+            public Feature feature;
+
+            [ReadOnly]
             public NativeParallelHashMap<Entity, Entity> attachmentEntityMap;
 
             [ReadOnly]
@@ -793,7 +1250,9 @@ namespace Carto.Systems
                 bool allTrackConnection = true;
                 bool allTunnelConnection = true;
                 bool highwayConnection = false;
-                int maxLaneCount = 0;
+                Entity edgeAggregation = Entity.Null;
+                Entity edgePrefab = Entity.Null;
+                int maxLaneCount = -1;
                 float roadLimit = 0f;
                 float trackLimit = 0f;
                 float width = 0f;
@@ -807,6 +1266,8 @@ namespace Carto.Systems
                     outerRingRadius = roundaboutComponent.m_Radius,
                     width = 0f
                 };
+
+                bool createdByPillar = pillarLookup.HasComponent(roundabout.attached);
 
                 for (int i = 0; i < connectedEdges.Length; i++)
                 {
@@ -849,16 +1310,28 @@ namespace Carto.Systems
                             trackLimit = math.max(trackLimit, RoundSpeedLimit(trackComposition.m_SpeedLimit));
                         }
 
-                        if (hasCenterline && netCompositionLaneBufferLookup.TryGetBuffer(composition, out DynamicBuffer<NetCompositionLane> lanes))
+                        if (hasCenterline &&
+                            edgeLookup.TryGetComponent(connectedNetwork, out Edge edge) &&
+                            netCompositionLaneBufferLookup.TryGetBuffer(composition, out DynamicBuffer<NetCompositionLane> lanes))
                         {
+                            bool roundaboutIsStartNode = edge.m_Start.Equals(entity);
                             int laneCount = 0;
                             for (int j = 0; j < lanes.Length; j++)
                             {
                                 NetCompositionLane lane = lanes[j];
-                                if (((lane.m_Flags & LaneFlags.Road) != 0) & ((lane.m_Flags & LaneFlags.Master) == 0)) laneCount++;
+                                if (((lane.m_Flags & LaneFlags.Road) != 0) & ((lane.m_Flags & LaneFlags.Master) == 0))
+                                {
+                                    if (roundaboutIsStartNode ^ ((lane.m_Flags & LaneFlags.Invert) == 0)) laneCount++;
+                                }
                             }
-                            
-                            maxLaneCount = math.max(maxLaneCount, laneCount);
+
+                            if (laneCount > maxLaneCount)
+                            {
+                                // TODO: Somehow the roundabouts created by pillars have no Name and Asset property (string.Empty)
+                                maxLaneCount = laneCount;
+                                edgeAggregation = aggregatedLookup.TryGetComponent(connectedNetwork, out Aggregated aggregatedComponent) ? aggregatedComponent.m_Aggregate : connectedNetwork;
+                                edgePrefab = prefabRefLookup.TryGetComponent(connectedNetwork, out PrefabRef prefabRef) ? prefabRef.m_Prefab : Entity.Null;
+                            }
                         }
                     }
                 }
@@ -882,7 +1355,7 @@ namespace Carto.Systems
                 NetworkStat stat = new()
                 {
                     entity = entity,
-                    aggregation = roundabout.attached,
+                    aggregation = createdByPillar ? edgeAggregation : roundabout.attached,
                     capacity = 0f,
                     category = highwayConnection ? NetworkCategory.Highway : NetworkCategory.Car,
                     direction = leftHandTraffic ? Direction.Forward : Direction.Backward,
@@ -895,14 +1368,16 @@ namespace Carto.Systems
                     length = 2 * math.PI * ((roundabout.outerRingRadius - roundabout.innerRingRadius) / 2 + roundabout.innerRingRadius),
                     limit = allTrackConnection ? trackLimit : roadLimit,
                     load = 0f,
+                    prefab = createdByPillar ? edgePrefab : (prefabRefLookup.TryGetComponent(roundabout.attached, out PrefabRef attachedPrefab) ? attachedPrefab.m_Prefab : Entity.Null),
                     range = new(0f, 1f),
                     roundabout = new(false, false),
                     start = Entity.Null,
+                    uiGroup = uiObjectDataLookup.TryGetComponent(edgePrefab, out UIObjectData uiObjectData) ? uiObjectData.m_Group : Entity.Null,
                     volume = roadLookup.TryGetComponent(entity, out Road road) ? math.max(0f, GetVolume(road)) : 0f,
                     width = width
                 };
 
-                stats.AddNoResize(stat);
+                if ((stat.Object & feature) != 0) stats.AddNoResize(stat);
             }
         }
 
@@ -927,19 +1402,19 @@ namespace Carto.Systems
                 float3 legSize = objectGeometryData.m_LegSize;
                 float3 size = objectGeometryData.m_Size;
 
-                if (isCircular && (size.x == size.z))
+                if (isCircular)
                 {
-                    radius = size.x / 2f;
+                    radius = math.cmax(size.xz) / 2f;
                 }
-                if (isCircularLeg && (legSize.x == legSize.z))
+                if (isCircularLeg)
                 {
                     if (isCircular)
                     {
-                        radius = math.min(radius, legSize.x / 2f);
+                        radius = math.min(radius, math.cmax(legSize.xz) / 2f);
                     }
                     else
                     {
-                        radius = legSize.x / 2f;
+                        radius = math.cmax(legSize.xz) / 2f;
                     }
                 }
 

@@ -103,6 +103,8 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref validCellCounts);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -250,6 +252,7 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -373,6 +376,8 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref zoningCells);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -463,6 +468,8 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref zoningCells);
+                IO.IO.DisposeAll();
             }
             finally
             {

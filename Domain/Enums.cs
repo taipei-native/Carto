@@ -215,7 +215,7 @@ namespace Carto.Domain
         /// <summary>
         /// The general category for roads.（道路的概括分類。）
         /// </summary>
-        Car = Small | Medium | Large | Highway,
+        Car = Small | Medium | Large,
 
         /// <summary>
         /// The road with bus lane.（有公車專用道的道路。）

@@ -143,6 +143,12 @@ namespace Carto.IO
         public RasterKind RasterKinds { get; set; } = RasterKind.Unknown;
 
         /// <summary>
+        /// The method to classify road networks.
+        /// （分類道路路網的方式。）
+        /// </summary>
+        public RoadClassification RoadClassification { get; set; } = RoadClassification.Vanilla;
+
+        /// <summary>
         /// Whether to export female and male residents separately or not.<br/>
         /// （是否要將男性與女性市民分別輸出？）
         /// </summary>

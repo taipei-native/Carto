@@ -1025,6 +1025,9 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref dividendEntityMap);
+                Utils.CommonUtils.Dispose(ref sexEntityMap);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -1290,15 +1293,14 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                _themesPrefabMap.Clear();
+                Utils.CommonUtils.Dispose(ref zoningTypePool);
+                IO.IO.DisposeAll();
             }
             finally
             {
-                if (zoningTypePool.IsCreated)
-                {
-                    zoningTypePool.Dispose();
-                }
-
                 _themesPrefabMap.Clear();
+                Utils.CommonUtils.Dispose(ref zoningTypePool);
             }
         }
 

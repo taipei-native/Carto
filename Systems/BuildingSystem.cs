@@ -572,6 +572,9 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref _localBuildingStats);
+                Utils.CommonUtils.Dispose(ref syncMap);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -905,6 +908,10 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref affliatedAreaStats);
+                Utils.CommonUtils.Dispose(ref circularBuildingPrefabs);
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
             }
             finally
             {
@@ -1076,6 +1083,10 @@ namespace Carto.Systems
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref affliatedAreaStats);
+                Utils.CommonUtils.Dispose(ref circularBuildingPrefabs);
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
             }
             finally
             {

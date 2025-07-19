@@ -101,6 +101,12 @@ namespace Carto.Domain
         public float load;
 
         /// <summary>
+        /// The prefab of the asset.
+        /// （資產的預製模板。）
+        /// </summary>
+        public Entity prefab;
+
+        /// <summary>
         /// The value range of the sub lane curve position.
         /// （子車道曲線位置的範圍。）
         /// </summary>
@@ -117,6 +123,12 @@ namespace Carto.Domain
         /// （網路的起點節點實體。）
         /// </summary>
         public Entity start;
+
+        /// <summary>
+        /// The UI group entity.
+        /// （UI 群組實體。）
+        /// </summary>
+        public Entity uiGroup;
 
         /// <summary>
         /// The traffic volume of the network.
@@ -176,7 +188,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Network({entity.Index}:{entity.Version}) - Aggregation [{aggregation}], Category [{category}], Capacity [{capacity}], Direction [{direction}], Discharge [{discharge}], Elevation [{elevation}], End [{end.Index}:{end.Version}], Form [{form}], Lane [{lane}], Length [{length}], Limit [{limit}], Load [{load}], Range [{range.x}, {range.y}], Roundabout [{roundabout.x}, {roundabout.y}], Start [{start.Index}:{start.Version}], Volume [{volume}], Width [{width}]";
+            return $"Network({entity.Index}:{entity.Version}) - Aggregation [{aggregation}], Category [{category}], Capacity [{capacity}], Direction [{direction}], Discharge [{discharge}], Elevation [{elevation}], End [{end.Index}:{end.Version}], Form [{form}], Lane [{lane}], Length [{length}], Limit [{limit}], Load [{load}], Prefab [{prefab}], Range [{range.x}, {range.y}], Roundabout [{roundabout.x}, {roundabout.y}], Start [{start.Index}:{start.Version}], UI Group [{uiGroup}], Volume [{volume}], Width [{width}]";
         }
     }
 }
