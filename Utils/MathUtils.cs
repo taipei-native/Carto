@@ -559,7 +559,7 @@ namespace Carto.Utils
             {
                 pointsList.Add(Transform.Apply(center.Shift(curve.a.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3());
                 lastPoint = Transform.Apply(center.Shift(curve.d.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
-                if (last) pointsList.AddNoResize(lastPoint);
+                if (last) pointsList.Add(lastPoint);
             }
             else
             {
@@ -573,21 +573,205 @@ namespace Carto.Utils
 
                     if (i == 0)
                     {
-                        pointsList.AddNoResize(transformedPoint);
+                        pointsList.Add(transformedPoint);
                         continue;
                     }
 
                     if (i == sections + 1)
                     {
                         lastPoint = transformedPoint;
-                        if (last) pointsList.AddNoResize(transformedPoint);
+                        if (last) pointsList.Add(transformedPoint);
                     }
                     else if (!previous.Equals(point))
                     {
-                        pointsList.AddNoResize(transformedPoint);
+                        pointsList.Add(transformedPoint);
                         previous = point;
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Finds the intersection between a list of vertices and a roundabout.
+        /// （找到圓環與頂點列表的交點。）
+        /// </summary>
+        /// <param name="nodes">The list of vertices.（頂點列表。）</param>
+        /// <param name="roundabout">The roundabout.（圓環。）</param>
+        /// <param name="isStartNode">Whether the roundabout is <paramref name="nodes"/>' start node?（圓環是否為 <paramref name="nodes"/> 的起點節點？）</param>
+        /// <param name="intersectIndex">The insertion index of the intersection point.（交會點的插入索引值。）</param>
+        /// <param name="coordniate">The intersection point.（交會點。）</param>
+        /// <returns>Whether the intersection exists.（是否存在交會點。）</returns>
+        public static bool Intersection(ref NativeList<double3> nodes, Domain.Roundabout roundabout, bool isStartNode,
+                                        out int intersectIndex, out double3 coordinate)
+        {
+            bool intersect = false;
+            double lastDistance = float.MaxValue;
+            double3 pointA = default;
+            double3 pointB = default;
+            float radius = (roundabout.innerRingRadius + roundabout.outerRingRadius) / 2;
+            float2 center = roundabout.position.xz;
+            intersectIndex = isStartNode ? 0 : nodes.Length - 1;
+            coordinate = default;
+
+            /// <summary>
+            /// Filter the root according to its value.（根據根的值進行篩選。）
+            /// </summary>
+            /// <param name="roots">The roots of quadratic equation.（二次多項式的根。）</param>
+            /// <param name="pointA">One of the known point.（其中一個已知點。）</param>
+            /// <param name="pointB">One of the known point.（其中一個已知點。）</param>
+            /// <param name="isX">Whether the root represents the x value.（根是否為 x 值？）</param>
+            static double FilterRoots(Roots roots, double3 pointA, double3 pointB, bool isX)
+            {
+                if (roots.count == 1)
+                {
+                    return roots[0];
+                }
+                else
+                {
+                    if (isX)
+                    {
+                        if ((pointA.x - roots[0]) * (pointB.x - roots[0]) < 0)
+                        {
+                            return roots[0];
+                        }
+
+                        return roots[1];
+                    }
+                    else
+                    {
+                        if ((pointA.y - roots[0]) * (pointB.y - roots[0]) < 0)
+                        {
+                            return roots[0];
+                        }
+
+                        return roots[1];
+                    }
+                }
+            }
+
+            if (isStartNode)
+            {
+                for (int i = intersectIndex; i < nodes.Length; i++)
+                {
+                    double nodeDistance = math.distance(nodes[i].xy, center) - radius;
+                    if ((nodeDistance > 0) && (lastDistance < 0))
+                    {
+                        intersectIndex = i;
+                        pointA = nodes[intersectIndex - 1];
+                        pointB = nodes[intersectIndex];
+                        intersect = true;
+                        break;
+                    }
+
+                    lastDistance = nodeDistance;
+                }
+            }
+            else
+            {
+                for (int i = intersectIndex; i > -1; i--)
+                {
+                    double nodeDistance = math.distance(nodes[i].xy, center) - radius;
+                    if ((nodeDistance > 0) && (lastDistance < 0))
+                    {
+                        intersectIndex = i;
+                        pointA = nodes[intersectIndex + 1];
+                        pointB = nodes[intersectIndex];
+                        intersect = true;
+                        break;
+                    }
+
+                    lastDistance = nodeDistance;
+                }
+            }
+
+            if (intersect)
+            {
+                double x;
+                double y;
+                double z;
+                double x0 = roundabout.position.x;
+                double y0 = roundabout.position.z;
+                double x1 = pointA.x;
+                double y1 = pointA.y;
+                double x2 = pointB.x;
+                double y2 = pointB.y;
+
+                if (x2 - x1 < Roots.Epsilon)
+                {
+                    x = x2;
+                    Roots yRoots = Roots.Solve(0, 1, -2 * y0, (y0 * y0) + ((x - x0) * (x - x0)) - (radius * radius));
+                    y = FilterRoots(yRoots, pointA, pointB, isX: false);
+                    z = math.lerp(pointA.z, pointB.z, math.abs((y - y1) / (y2 - y1)));
+                }
+                else
+                {
+                    double a = (y2 - y1) / (x2 - x1);
+                    double b = y1 - y0;
+                    Roots xRoots = Roots.Solve(0, (a * a) + 1, 2 * ((a * b) - x0 - (x1 * a * a)), (x0 * x0) - (2 * x1 * a * b) + (b * b) - (radius * radius) + (a * a * x1 * x1));
+                    x = FilterRoots(xRoots, pointA, pointB, isX: true);
+                    y = a * (x - x1) + y1;
+                    z = math.lerp(pointA.z, pointB.z, math.abs((x - x1) / (x2 - x1)));
+                }
+
+                coordinate = new(x, y, z);
+            }
+
+            return intersect;
+        }
+
+        public static void Test()
+        {
+            NativeList<double3> test = new(5, Allocator.Persistent);
+            test.Add(new(-1, 10, 0));
+            test.Add(new(-1, 5, 0));
+            test.Add(new(-1, 2, 0));
+            test.Add(new(-1, -5, 0));
+            Domain.Roundabout roundabout = new()
+            {
+                innerRingRadius = 2f,
+                outerRingRadius = 4f,
+                position = new(0f),
+            };
+            bool testBool = Intersection(ref test, roundabout, false, out int index, out double3 coordinate);
+            Instance.Log.Info($"{testBool}; index = {index}, coordinate = {coordinate}");
+
+            test.Clear();
+            test.Add(new(0, 0, 0));
+            test.Add(new(3, 3, 0));
+            test.Add(new(5, 5, 0));
+            test.Add(new(9, 9, 0));
+            testBool = Intersection(ref test, roundabout, true, out index, out coordinate);
+            Instance.Log.Info($"{testBool}; index = {index}, coordinate = {coordinate}");
+
+            CommonUtils.Dispose(ref test);
+        }
+
+        /// <summary>
+        /// Check whether the <paramref name="firstCurve"/> and <paramref name="secondCurve"/> is continuous. In other words, does <paramref name="firstCurve"/>'s end point meet <paramref name="secondCurve"/>'s start point?<br/>
+        /// （確認 <paramref name="firstCurve"/> 和 <paramref name="secondCurve"/> 是否連貫。換句話說，<paramref name="firstCurve"/> 的終點與 <paramref name="secondCurve"/> 的起點相交嗎？）
+        /// </summary>
+        /// <param name="firstCurve">The first curve.（第一個曲線。）</param>
+        /// <param name="secondCurve">The second curve.（第二個曲線。）</param>
+        /// <param name="t">The estimated position of <paramref name="firstCurve"/>, where two curves meet.（兩曲線相交的估計位置，以 <paramref name="firstCurve"/> 為準。）</param>
+        /// <param name="secondT">Whether to use <paramref name="secondCurve"/>'s T value, instead of <paramref name="firstCurve"/>'s.（是否輸出 <paramref name="secondCurve"/> 的 T 值，而非 <paramref name="firstCurve"/> 的。）</param>
+        /// <returns>If true, two curves are continuous.（若為真，兩曲線連貫。）</returns>
+        public static bool IsContinuous(Bezier4x3 firstCurve, Bezier4x3 secondCurve, out float t, bool secondT = false)
+        {
+            if (secondT)
+            {
+                float secondDistanceToA = Colossal.Mathematics.MathUtils.Distance(secondCurve, firstCurve.a, out float tSecondA);
+                float secondDistanceToD = Colossal.Mathematics.MathUtils.Distance(secondCurve, firstCurve.d, out float tSecondD);
+                bool continuous = secondDistanceToA > secondDistanceToD;
+                t = continuous ? tSecondD : tSecondA;
+                return continuous;
+            }
+            else
+            {
+                float firstDistanceToA = Colossal.Mathematics.MathUtils.Distance(firstCurve, secondCurve.a, out float tFirstA);
+                float firstDistanceToD = Colossal.Mathematics.MathUtils.Distance(firstCurve, secondCurve.d, out float tFirstD);
+                bool continuous = firstDistanceToD > firstDistanceToA;
+                t = continuous ? tFirstA : tFirstD;
+                return continuous;
             }
         }
 
@@ -742,6 +926,29 @@ namespace Carto.Utils
             float2 c = curve.c.xz + transform;
             float2 d = curve.d.xz + transform;
             return new(new(a.x, curve.a.y, a.y), new(b.x, curve.b.y, b.y), new(c.x, curve.c.y, c.y), new(d.x, curve.d.y, d.y));
+        }
+
+        /// <summary>
+        /// Reflect the line at the start of the <paramref name="line"/> segment.
+        /// （將線段從起點處反轉。）
+        /// </summary>
+        /// <param name="line">The original line segment.（原始線段。）</param>
+        public static Line3.Segment StartReflect(Line3.Segment line)
+        {
+            float3 vector = line.b - line.a;
+            return new Line3.Segment(line.a, line.a - vector);
+        }
+
+        /// <summary>
+        /// Trim the <paramref name="line"/> segment so that the new line segment has same start with the original one and the length of <paramref name="length"/>.
+        /// （裁剪線段使其與原始線段共享相同的起點及擁有<paramref name="length"/>的長度。）
+        /// </summary>
+        /// <param name="line">The original line segment.（原始線段。）</param>
+        /// <param name="length">The new line segment length.（新線段長度。）</param>
+        public static Line3.Segment StartTrim(Line3.Segment line, float length)
+        {
+            float3 vector = (line.b - line.a) / Colossal.Mathematics.MathUtils.Length(line) * length;
+            return new Line3.Segment(line.a, line.a + vector);
         }
 
         /// <summary>

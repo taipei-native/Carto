@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace Carto.Domain
 {
@@ -31,6 +32,12 @@ namespace Carto.Domain
         /// （圓環外環的半徑。） 
         /// </summary>
         public float outerRingRadius;
+
+        /// <summary>
+        /// The position of the roundabout.
+        /// （圓環的位置。）
+        /// </summary>
+        public float3 position;
 
         /// <summary>
         /// The road width of the roundabout.

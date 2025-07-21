@@ -395,6 +395,25 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Inserts an element into the list at the specified index.
+        /// （在列表的特定位置插入一個元素。）
+        /// </summary>
+        /// <typeparam name="T">The type of <paramref name="item"/>.（<paramref name="item"/> 的型別。）</typeparam>
+        /// <param name="list">The unmanaged list.（未控管記憶體的列表。）</param>
+        /// <param name="index">The zero-based index at which <paramref name="item"/> should be inserted.（<paramref name="item"/> 插入的索引位置，由 0 為基礎。）</param>
+        /// <param name="item">The object to insert.（插入的項目。）</param>
+        public static void Insert<T>(ref NativeList<T> list, int index, T item) where T : unmanaged
+        {
+            if (index > list.Length) return;
+            list.Add(default);
+            for (int i = list.Length - 1; i > index; i--)
+            {
+                list[i] = list[i - 1];
+            }
+            list[index] = item;
+        }
+
+        /// <summary>
         /// Checks whether the target enum is a subset of another enum.
         /// （確認目標枚舉為另一個枚舉的子集。）
         /// </summary>

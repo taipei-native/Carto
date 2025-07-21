@@ -1,7 +1,9 @@
 using Carto.Domain;
+using Carto.Geodata;
 using Carto.IO;
 using Carto.Utils;
 using Colossal.Logging;
+using Colossal.Mathematics;
 using Game;
 using Game.Buildings;
 using Game.Common;
@@ -264,6 +266,100 @@ namespace Carto.Systems
         protected override void OnUpdate() { }
 
         /// <summary>
+        /// Construct the network centerline.
+        /// （建構網路中心線。）
+        /// </summary>
+        /// <param name="networkStat">The list of all network's statistics in the savegame.（遊戲存檔內所有網路的統計數據。）</param>
+        /// <param name="nodes">The list of vertices.（頂點列表。）</param>
+        /// <param name="roundaboutEntityMap">The map between roundabout node and its statistics.（圓環節點與統計資訊的映射表。）</param>
+        /// <param name="curveLookup">The lookup that searches for <see cref="Curve"/>.（搜尋 <see cref="Curve"/> 的查詢。）</param>
+        /// <param name="edgeLookup">The lookup that searches for <see cref="Edge"/>.（搜尋 <see cref="Edge"/> 的查詢。）</param>
+        /// <param name="endNodeGeometryLookup">The lookup that searches for <see cref="EndNodeGeometry"/>.（搜尋 <see cref="EndNodeGeometry"/> 的查詢。）</param>
+        /// <param name="nodeLookup">The lookup that searches for <see cref="Node"/>.（搜尋 <see cref="Node"/> 的查詢。）</param>
+        /// <param name="startNodeGeometryLookup">The lookup that searches for <see cref="StartNodeGeometry"/>.（搜尋 <see cref="StartNodeGeometry"/> 的查詢。）</param>
+        private static void ConstructCenterlineNodes(NetworkStat networkStat, ref NativeList<double3> nodes, ref NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap,
+                                                     ref ComponentLookup<Curve> curveLookup, ref ComponentLookup<Edge> edgeLookup, ref ComponentLookup<EndNodeGeometry> endNodeGeometryLookup,
+                                                     ref ComponentLookup<Node> nodeLookup, ref ComponentLookup<StartNodeGeometry> startNodeGeometryLookup)
+        {
+            Entity network = networkStat.entity;
+            if (curveLookup.TryGetComponent(network, out Curve curveComponent) &&
+                endNodeGeometryLookup.TryGetComponent(network, out EndNodeGeometry endNodeGeometryComponent) &&
+                startNodeGeometryLookup.TryGetComponent(network, out StartNodeGeometry startNodeGeometryComponent) &&
+                edgeLookup.TryGetComponent(network, out Edge edgeComponent) &&
+                nodeLookup.TryGetComponent(edgeComponent.m_Start, out Node startNodeComponent) &&
+                nodeLookup.TryGetComponent(edgeComponent.m_End, out Node endNodeComponent))
+            {
+                Bezier4x3 endCurve = endNodeGeometryComponent.m_Geometry.m_Middle;
+                Bezier4x3 mainCurve = curveComponent.m_Bezier;
+                Bezier4x3 startCurve = startNodeGeometryComponent.m_Geometry.m_Middle;
+                float3 endNodePosition = endNodeComponent.m_Position;
+                float3 startNodePosition = startNodeComponent.m_Position;
+                bool includeEndCurve = Colossal.Mathematics.MathUtils.Length(endCurve) > 0;
+                bool includeStartCurve = Colossal.Mathematics.MathUtils.Length(startCurve) > 0;
+
+                // Detect whether the curve is reversed. A normal curve should be arranged in the order of "start.a → start.d → (main) → end.a → end.d".
+                // （偵測曲線是否被反轉。一個正常的曲線應該以「start.a → start.d → (main) → end.a → end.d」的順序排列。）
+                Utils.MathUtils.IsContinuous(startCurve, mainCurve, out float tStart, true);
+                Utils.MathUtils.IsContinuous(mainCurve, endCurve, out float tEnd, false);
+
+                // Trim the excessive parts of the main curve.
+                // （裁剪主曲線的多餘部分。）
+                Bezier4x3 trimmedMainCurve = Utils.MathUtils.Trim(mainCurve, includeStartCurve ? tStart : 0f, includeEndCurve ? tEnd : 1f);
+
+                // Extend the trimmed main curve to the start & end nodes.
+                // （將裁剪後的主曲線延伸至起訖節點。）
+                if (includeEndCurve)
+                {
+                    Line3.Segment endVector = new(trimmedMainCurve.d, endNodePosition);
+                    Line3.Segment endReverseVector = Utils.MathUtils.StartReflect(new(trimmedMainCurve.d, trimmedMainCurve.c));
+                    float3 controlPoint = Utils.MathUtils.StartTrim(endReverseVector, math.distance(endNodePosition, Colossal.Mathematics.MathUtils.Position(endVector, 0.33f))).b;
+                    endCurve = new(trimmedMainCurve.d, controlPoint, endNodePosition, endNodePosition);
+                }
+
+                if (includeStartCurve)
+                {
+                    Line3.Segment startVector = new(startNodePosition, trimmedMainCurve.a);
+                    Line3.Segment startReverseVector = Utils.MathUtils.StartReflect(new(trimmedMainCurve.a, trimmedMainCurve.b));
+                    float3 controlPoint = Utils.MathUtils.StartTrim(startReverseVector, math.distance(startNodePosition, Colossal.Mathematics.MathUtils.Position(startVector, 0.33f))).b;
+                    startCurve = new(startNodePosition, startNodePosition, controlPoint, trimmedMainCurve.a);
+                }
+
+                // Interpolate and combine the curve.
+                // （內插及結合曲線。）
+                if (includeStartCurve)
+                {
+                    Utils.MathUtils.Interpolate(startCurve, ref nodes, 1f, 0.5f, false, out _,
+                                                new(0d, 0d), Geodata.CRS.Game, Geodata.CRS.Game, default, default);
+                }
+
+                Utils.MathUtils.Interpolate(trimmedMainCurve, ref nodes, 1f, 1f, !includeEndCurve, out _,
+                                            new(0d, 0d), Geodata.CRS.Game, Geodata.CRS.Game, default, default);
+
+                if (includeEndCurve)
+                {
+                    Utils.MathUtils.Interpolate(endCurve, ref nodes, 1f, 0.5f, true, out _,
+                                                new(0d, 0d), Geodata.CRS.Game, Geodata.CRS.Game, default, default);
+                }
+
+                // Handle roundabouts.
+                // （處理圓環。）
+                if (networkStat.roundabout.x && roundaboutEntityMap.TryGetValue(edgeComponent.m_Start, out Domain.Roundabout startRoundabout))
+                {
+                    Utils.MathUtils.Intersection(ref nodes, startRoundabout, isStartNode: true, out int startConnectionIndex, out double3 startConnection);
+                    Utils.CommonUtils.Insert(ref nodes, startConnectionIndex, startConnection);
+                    nodes.RemoveRange(0, startConnectionIndex);
+                }
+
+                if (networkStat.roundabout.y && roundaboutEntityMap.TryGetValue(edgeComponent.m_End, out Domain.Roundabout endRoundabout))
+                {
+                    Utils.MathUtils.Intersection(ref nodes, endRoundabout, isStartNode: false, out int endConnectionIndex, out double3 endConnection);
+                    Utils.CommonUtils.Insert(ref nodes, endConnectionIndex, endConnection);
+                    nodes.ResizeUninitialized(endConnectionIndex + 1);
+                }
+            }
+        }
+
+        /// <summary>
         /// Try disposing of all properties stored in unmanaged memory.
         /// （嘗試丟棄儲存於未控管記憶體的屬性。）
         /// </summary>
@@ -285,7 +381,7 @@ namespace Carto.Systems
         /// <param name="networkStat">The statistics of the network.（網路的統計資訊。）</param>
         /// <param name="roadCategoryUIGroups">The dictionary between the UI group entity and the netowrk category.（UI 群組實體與網路分類的字典。）</param>
         /// <returns>The category of the network.（網路的分類。）</returns>
-        private NetworkCategory GetCategory(RoadClassification roadClassification, NetworkStat networkStat, Dictionary<Entity, NetworkCategory> roadCategoryUIGroups)
+        private static NetworkCategory GetCategory(RoadClassification roadClassification, NetworkStat networkStat, Dictionary<Entity, NetworkCategory> roadCategoryUIGroups)
         {
             NetworkCategory categories = networkStat.category;
             if ((categories & NetworkCategory.Car) == 0) return categories;
@@ -339,6 +435,54 @@ namespace Carto.Systems
             }
 
             return categories;
+        }
+
+        /// <summary>
+        /// Retrieve the centerline of the networks.
+        /// （獲得網路的中心線。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="nodeEntityMap">The map between centerline nodes and the routes.（運輸服務路線與中心線節點的映射表。）</param>
+        private void GetCenterline(Options options, ref NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap)
+        {
+            NativeParallelHashMap<Entity, int> nodeCountEntityMap = new(_localNetworkStats.Length, Allocator.Persistent);
+            IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
+
+            CountCenterlineNodesJob countNodesJob = new()
+            {
+                connectedEdgeBufferLookup = GetBufferLookup<ConnectedEdge>(true),
+                curveLookup = GetComponentLookup<Curve>(true),
+                endNodeGeometryLookup = GetComponentLookup<EndNodeGeometry>(true),
+                startNodeGeometryLookup = GetComponentLookup<StartNodeGeometry>(true),
+                networkStats = _localNetworkStats,
+                roundaboutEntityMap = _roundaboutEntityMap,
+                nodeCountEntityMap = nodeCountEntityMap.AsParallelWriter(),
+            };
+            JobHandle countNodesHandle = countNodesJob.Schedule(_localNetworkStats.Length, 16, default);
+            countNodesHandle.Complete();
+
+            CollectCenterlinesJob collectCenterlinesJob = new()
+            {
+                connectedEdgeBufferLookup = GetBufferLookup<ConnectedEdge>(true),
+                curveLookup = GetComponentLookup<Curve>(true),
+                edgeLookup = GetComponentLookup<Edge>(true),
+                endNodeGeometryLookup = GetComponentLookup<EndNodeGeometry>(true),
+                nodeLookup = GetComponentLookup<Node>(true),
+                startNodeGeometryLookup = GetComponentLookup<StartNodeGeometry>(true),
+                center = options.GetTMCoord(),
+                sourceCRS = options.GetTMProjection(),
+                targetCRS = targetCRS,
+                networkStats = _localNetworkStats,
+                nodeCountEntityMap = nodeCountEntityMap,
+                roundaboutEntityMap = _roundaboutEntityMap,
+                sourceProjection = options.GetTMProjectionDefinition(),
+                targetProjection = targetProjection,
+                nodeEntityMap = nodeEntityMap.AsParallelWriter()
+            };
+            JobHandle collectCenterlinesHandle = collectCenterlinesJob.Schedule(_localNetworkStats.Length, 16, default);
+            collectCenterlinesHandle.Complete();
+
+            Utils.CommonUtils.Dispose(ref nodeCountEntityMap);
         }
 
         /// <summary>
@@ -646,15 +790,22 @@ namespace Carto.Systems
 
             try
             {
+                GetCenterline(options, ref nodeEntityMap);
+                
                 Task writerThread = Task.Run(() =>
                 {
                     for (int i = 0; i < _localNetworkStats.Length; i++)
                     {
                         NetworkStat networkStat = _localNetworkStats[i];
+                        if (!nodeEntityMap.TryGetValue(networkStat.entity, out NativeList<double3> nodes)) continue;
 
                         // Write feature header.（寫出圖徵檔頭。）
                         writer.WriteStartObject();
                         GeoJson.WritePropertyPair(writer, "type", "Feature");
+
+                        // Write feature geometry.（寫出圖徵幾何圖形。）
+                        writer.WritePropertyName("geometry");
+                        GeoJson.WriteGeometry(writer, new Geometry(ref nodes), Shape.LineString, options.Elevation);
 
                         // Write feature properties.（寫出圖徵）
                         writer.WritePropertyName("properties");
@@ -852,6 +1003,100 @@ namespace Carto.Systems
             finally
             {
                 Dispose();
+            }
+        }
+
+        /// <summary>
+        /// The job to collect network's centerlines.
+        /// （收集網路中心線的工作。）
+        /// </summary>
+        public partial struct CollectCenterlinesJob : IJobParallelFor
+        {
+            [ReadOnly]
+            public BufferLookup<ConnectedEdge> connectedEdgeBufferLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Curve> curveLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Edge> edgeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<EndNodeGeometry> endNodeGeometryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Node> nodeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<StartNodeGeometry> startNodeGeometryLookup;
+
+            [ReadOnly]
+            public Coord center;
+
+            [ReadOnly]
+            public Geodata.CRS sourceCRS;
+
+            [ReadOnly]
+            public Geodata.CRS targetCRS;
+
+            [ReadOnly]
+            public NativeList<NetworkStat> networkStats;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, int> nodeCountEntityMap;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap;
+
+            [ReadOnly]
+            public ProjectionDefinition sourceProjection;
+
+            [ReadOnly]
+            public ProjectionDefinition targetProjection;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, NativeList<double3>>.ParallelWriter nodeEntityMap;
+
+            public void Execute(int index)
+            {
+                NetworkStat networkStat = networkStats[index];
+                Entity network = networkStat.entity;
+                if (!nodeCountEntityMap.TryGetValue(network, out int count) ||
+                     count <= 0) return;
+
+                NativeList<double3> nodes = new(count, Allocator.Persistent);
+
+                if (networkStat.isRoundabout)
+                {
+                    if (roundaboutEntityMap.TryGetValue(network, out Domain.Roundabout roundabout) &&
+                        connectedEdgeBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedEdge> connectedEdges) &&
+                        nodeLookup.TryGetComponent(network, out Node nodeComponent))
+                    {
+                        float radius = (roundabout.innerRingRadius + roundabout.outerRingRadius) / 2;
+                        int nodeCount = Utils.MathUtils.CountInterpolationPoints(radius, 0.5f);
+                        double angle = 2 * math.PI_DBL / nodeCount;
+
+                        for (int i = 0; i < nodeCount + 1; i++)
+                        {
+                            float3 delta = new((float)(radius * -math.sin(angle * i)), (float)(radius * math.cos(angle * i)), 0);
+                            nodes.Add(Geodata.Transform.Apply(center.Shift(nodeComponent.m_Position.xzy + delta), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3());
+                        }
+                    }
+                }
+                else
+                {
+                    ConstructCenterlineNodes(networkStat, ref nodes, ref roundaboutEntityMap,
+                                             ref curveLookup, ref edgeLookup, ref endNodeGeometryLookup,
+                                             ref nodeLookup, ref startNodeGeometryLookup);
+
+                    for (int i = 0; i < nodes.Length; i++)
+                    {
+                        double3 node = nodes[i];
+                        nodes[i] = Geodata.Transform.Apply(center.Shift(node.x, node.y, node.z), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
+                    }
+                }
+
+                nodeEntityMap.TryAdd(network, nodes);
             }
         }
 
@@ -1264,6 +1509,7 @@ namespace Carto.Systems
                     innerRingRadius = 0f,
                     node = entity,
                     outerRingRadius = roundaboutComponent.m_Radius,
+                    position = node.m_Position,
                     width = 0f
                 };
 
@@ -1419,6 +1665,112 @@ namespace Carto.Systems
                 }
 
                 if (radius > 0f) attachementRadiusMap.TryAdd(entity, radius);
+            }
+        }
+
+        /// <summary>
+        /// The job to count the number of nodes for each centerline.
+        /// （計算每條中心線節點數量的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct CountCenterlineNodesJob : IJobParallelFor
+        {
+            [ReadOnly]
+            public BufferLookup<ConnectedEdge> connectedEdgeBufferLookup;
+            
+            [ReadOnly]
+            public ComponentLookup<Curve> curveLookup;
+
+            [ReadOnly]
+            public ComponentLookup<EndNodeGeometry> endNodeGeometryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<StartNodeGeometry> startNodeGeometryLookup;
+
+            [ReadOnly]
+            public NativeList<NetworkStat> networkStats;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter nodeCountEntityMap;
+
+            public void Execute(int index)
+            {
+                NetworkStat networkStat = networkStats[index];
+                Entity network = networkStat.entity;
+                int count = 0;
+
+                if (networkStat.isRoundabout)
+                {
+                    if (roundaboutEntityMap.TryGetValue(network, out Domain.Roundabout roundabout) &&
+                        connectedEdgeBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedEdge> connectedEdges))
+                    {
+                        count += Utils.MathUtils.CountInterpolationPoints((roundabout.innerRingRadius + roundabout.outerRingRadius) / 2, 0.5f) +
+                                 connectedEdges.Length;
+                    }
+                }
+                else
+                {
+                    if (curveLookup.TryGetComponent(network, out Curve curveComponent) &&
+                        endNodeGeometryLookup.TryGetComponent(network, out EndNodeGeometry endNodeGeometryComponent) &&
+                        startNodeGeometryLookup.TryGetComponent(network, out StartNodeGeometry startNodeGeometryComponent))
+                    {
+                        Bezier4x3 endCurve = endNodeGeometryComponent.m_Geometry.m_Middle;
+                        Bezier4x3 mainCurve = curveComponent.m_Bezier;
+                        Bezier4x3 startCurve = startNodeGeometryComponent.m_Geometry.m_Middle;
+
+                        /*
+                          The number of centerline vertices depends on three components:
+                           - The main curve (`Game.Net.Curve`)
+                           - The start node curve (`Game.Net.StartNodeGeometry`)
+                           - The end node curve (`Game.Net.EndNodeGeometry`)
+
+                          The vertex count lies within the range:
+
+                              [2, N(main) + N(start) + N(end)]
+
+                          where N(x) is the number of interpolation points in curve x.
+
+                          The lower bound (2) corresponds to a straight segment with no noticeable* curvature.
+                          As for the upper bound, while the main curve may be trimmed at intersections (e.g., roundabouts),
+                          its contribution will never exceed the number of points in the original curve.
+                           * For the definition of 'noticeable', please refer to `Carto.Utils.MathUtils.IsStarightLine()`.
+
+                          中心線的頂點數量與以下三個組件有關：
+                           - 主曲線（`Game.Net.Curve`）
+                           - 起點節點曲線（`Game.Net.StartNodeGeometry`）
+                           - 終點節點曲線（`Game.Net.EndNodeGeometry`）
+
+                          據此，頂點數量將落在以下區間：
+
+                              [2, N(主曲線) + N(起點節點曲線) + N(終點節點曲線)]
+
+                          其中 N(x) 表示曲線 x 的內插頂點數量。
+
+                          區間下界（2）表示一條沒有明顯彎曲*的直線段。
+                          至於區間上界，儘管主曲線在路口（如圓環）可能會被裁剪，其數量並不會超越原始曲線的頂點數量。
+                           * 「明顯彎曲」的定義請參見 `Carto.Utils.MathUtils.IsStraightLine()`。
+                         */
+
+                        count += Utils.MathUtils.CountInterpolationPoints(mainCurve, 1f, 1f);
+
+                        // If there are valid end node segments...（如果終點節點線段有效……）
+                        if (Colossal.Mathematics.MathUtils.Length(endCurve) > 0)
+                        {
+                            count += Utils.MathUtils.CountInterpolationPoints(endCurve, 1f, 0.5f);
+                        }
+
+                        // If there are valid start node segments...（如果起點節點線段有效……）
+                        if (Colossal.Mathematics.MathUtils.Length(startCurve) > 0)
+                        {
+                            count += Utils.MathUtils.CountInterpolationPoints(startCurve, 1f, 0.5f);
+                        }
+                    }
+                }
+
+                nodeCountEntityMap.TryAdd(network, count);
             }
         }
 

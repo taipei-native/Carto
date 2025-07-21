@@ -156,6 +156,7 @@ namespace Carto.Domain
                 if ((category & NetworkCategory.Pathway) != 0) networkType |= Feature.Pathway;
                 if ((category & (NetworkCategory.SewagePipe | NetworkCategory.StormPipe | NetworkCategory.WaterPipe)) != 0) networkType |= Feature.Pipe;
                 if ((category & NetworkCategory.Car) != 0) networkType |= Feature.Road;
+                if ((category & NetworkCategory.Highway) != 0) networkType |= Feature.Road;
                 if ((category & NetworkCategory.Runway) != 0) networkType |= Feature.Runway;
                 if ((category & NetworkCategory.Taxiway) != 0) networkType |= Feature.Taxiway;
                 if ((category & (NetworkCategory.Subway | NetworkCategory.Train | NetworkCategory.Tram)) != 0) networkType |= Feature.Track;

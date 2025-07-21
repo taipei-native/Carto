@@ -387,7 +387,7 @@ namespace Carto
         [SettingsUIDisableByCondition(typeof(Settings), nameof(IsInGameOrEditor), invert: true)]
         public bool TestButton
         {
-            set { }
+            set { Utils.MathUtils.Test(); }
         }
 #endif
 
