@@ -324,7 +324,7 @@
   "Options.Option.PropertyThemeAssetPack": "Theme: Treat Asset Packs as Themes",
   "Options.Description.PropertyThemeAssetPack": "Categorizes assets from the same asset pack under a shared theme field.",
   "Options.Option.PropertyWageTaxable": "Wage: Include Only Taxable Income",
-  "Options.Description.PropertyWageTaxable": "Exports the average taxable income instead of the gross income for each statistical unit .",
+  "Options.Description.PropertyWageTaxable": "Exports the average taxable income instead of the gross income for each statistical unit.",
   "Options.Option.PropertyZoningDisplayMode": "Zoning: Display Mode",
   "Options.Description.PropertyZoningDisplayMode": "Selects the display mode for the zoning fields of all features. **All** is the default option, which assigns all applicable categories to each feature, separated with a comma. **Single** assigns one category to each feature, and if there are multiple categories applicable to the feature, only the best category will be assigned.",
   "Assets.NAME[Unzoned]": "Unzoned",
