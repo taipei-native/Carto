@@ -136,11 +136,12 @@ namespace Carto.IO
 
         public static readonly Dictionary<Ellipsoid, EllipsoidDefinition> EllipsoidTable = new()
         {
-            { Ellipsoid.Clrk66, new(6378206.4, 294.978698213898) },
-            { Ellipsoid.Evrst37, new(6377276.345, 300.8017) },
-            { Ellipsoid.GRS80, new(6378137, 298.257222101) },
-            { Ellipsoid.Intl24, new(6378388, 297) },
-            { Ellipsoid.WGS84, new(6378137, 298.257223563) },
+            { Ellipsoid.Bssl41, new(6377397.155d, 299.1528128d) },
+            { Ellipsoid.Clrk66, new(6378206.4d, 294.978698213898d) },
+            { Ellipsoid.Evrst37, new(6377276.345d, 300.8017d) },
+            { Ellipsoid.GRS80, new(6378137d, 298.257222101d) },
+            { Ellipsoid.Intl24, new(6378388d, 297d) },
+            { Ellipsoid.WGS84, new(6378137d, 298.257223563d) },
             { Ellipsoid.Custom, new() }
         };
 

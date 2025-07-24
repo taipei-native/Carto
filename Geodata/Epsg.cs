@@ -27,6 +27,13 @@ namespace Carto.Geodata
         public static class Ellipsoid
         {
             /// <summary>
+            /// urn:ogc:def:ellipsoid:EPSG::7004 "Bessel 1841"<br/>
+            /// The 1841 Bessel ellipsoid was one of the most widely used ellipsoid before the Hayford ellipsoid (EPSG: 7022).<br/>
+            /// （1841 年的貝塞爾橢球體，曾是在海福德橢球體（EPSG: 7022）問世前最常用的橢球體之一。）
+            /// </summary>
+            public const int Bssl41 = 7004;
+            
+            /// <summary>
             /// urn:ogc:def:ellipsoid:EPSG::7008 "Clarke 1866"<br/>
             /// The 1866 Clarke ellipsoid is famous for being the reference ellipsoid of NAD27 datum.<br/>
             /// （1866 年的克拉克橢球體，因被 NAD27 使用而著名。）
@@ -71,6 +78,7 @@ namespace Carto.Geodata
             {
                 return ellipsoid switch
                 {
+                    IO.Ellipsoid.Bssl41 => Bssl41,
                     IO.Ellipsoid.Clrk66 => Clarke66,
                     IO.Ellipsoid.Evrst37 => Everest37,
                     IO.Ellipsoid.GRS80 => GRS80,
@@ -90,6 +98,7 @@ namespace Carto.Geodata
             {
                 return ellipsoid switch
                 {
+                    IO.Ellipsoid.Bssl41 => "Bessel 1841",
                     IO.Ellipsoid.Clrk66 => "Clarke 1866",
                     IO.Ellipsoid.Evrst37 => "Everest 1830 (1937 Adjustment)",
                     IO.Ellipsoid.GRS80 => "GRS 1980",

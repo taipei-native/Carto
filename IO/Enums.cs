@@ -51,6 +51,12 @@ namespace Carto.IO
     public enum Ellipsoid
     {
         /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.Bssl41"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Bssl41"/>。）
+        /// </summary>
+        Bssl41,
+        
+        /// <summary>
         /// See <see cref="Geodata.Epsg.Ellipsoid.Clarke66"/>.
         /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Clarke66"/>。）
         /// </summary>
