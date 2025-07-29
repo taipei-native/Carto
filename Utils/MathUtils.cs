@@ -279,6 +279,55 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Find out the bearing angle of the vector.
+        /// （找出向量的方位角。）
+        /// </summary>
+        /// <param name="vector">The reference vector.（參考向量。）</param>
+        /// <returns>The angle in radians.（以弳度計算的角度。）</returns>
+        public static double Azimuth(float2 vector)
+        {
+            double len = Hypot(vector.x, vector.y);
+            double angle = math.asin(vector.x / len);
+
+            if (vector.y < 0)
+            {
+                return math.PI_DBL - angle;
+            }
+            else if (vector.x >= 0)
+            {
+                return angle;
+            }
+
+            return math.PI2_DBL + angle;
+        }
+
+        /// <summary>
+        /// Find out the bearing angle of the vector.
+        /// （找出向量的方位角。）
+        /// </summary>
+        /// <param name="vector">The reference vector.（參考向量。）</param>
+        /// <returns>The angle in radians.（以弳度計算的角度。）</returns>
+        public static double Azimuth(float3 vector) => Azimuth(vector.xz);
+
+        /// <summary>
+        /// Find out the bearing angle of the destination.
+        /// （找出目的地的方位角。）
+        /// </summary>
+        /// <param name="fromLocation">The start position.（開始位置。）</param>
+        /// <param name="toLocation">The end position.（結束位置。）</param>
+        /// <returns>The angle in radians.（以弳度計算的角度。）</returns>
+        public static double Azimuth(float2 fromLocation, float2 toLocation) => Azimuth(toLocation - fromLocation);
+
+        /// <summary>
+        /// Find out the bearing angle of the destination.
+        /// （找出目的地的方位角。）
+        /// </summary>
+        /// <param name="fromLocation">The start position.（開始位置。）</param>
+        /// <param name="toLocation">The end position.（結束位置。）</param>
+        /// <returns>The angle in radians.（以弳度計算的角度。）</returns>
+        public static double Azimuth(float3 fromLocation, float3 toLocation) => Azimuth(toLocation.xz - fromLocation.xz);
+
+        /// <summary>
         /// Construct a tight bounding box for the bezier curve.
         /// （為貝茲曲線建構一個緊密的定界框。）
         /// </summary>
@@ -592,6 +641,38 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Interpolate a circular arc.
+        /// （內插一個圓弧。）
+        /// </summary>
+        /// <param name="roundabout">The roundabout data.（圓環資料。）</param>
+        /// <param name="pointsList">The output point list.（輸出的點列表。）</param>
+        /// <param name="threshold">The threshold to determine whether the curve is straight or not.（用於決定曲線是否為直線的閾值。）</param>
+        /// <param name="fromAzimuth">The start angle of the arc.（圓弧的起點角度。）</param>
+        /// <param name="toAzimuth">The end angle of the arc.（圓弧的終點角度。）</param>
+        /// <param name="isStartNode">Whether the roundabout is the network's start node.（圓環是否為網路的起點節點？）</param>
+        /// <param name="center">The map center coordinate.（地圖中心坐標。）</param>
+        /// <param name="sourceCRS">The CRS of the original coordinate.（轉換前坐標的坐標參考系統。）</param>
+        /// <param name="targetCRS">>The CRS of the converted coordinate.（轉換後坐標的坐標參考系統。）</param>
+        /// <param name="sourceProjection">The source custom Transverse Mercator projection.（使用者自訂的來源橫麥卡托投影。）</param>
+        /// <param name="targetProjection">The target custom Transverse Mercator projection.（使用者自訂的目標橫麥卡托投影。）</param>
+        public static void Interpolate(Domain.Roundabout roundabout, ref NativeList<double3> pointsList, float threshold, double fromAzimuth, double toAzimuth,
+                                       Coord center, CRS sourceCRS, CRS targetCRS, ProjectionDefinition sourceProjection, ProjectionDefinition targetProjection)
+        {
+            if (fromAzimuth < toAzimuth) fromAzimuth += math.PI2_DBL;
+            double maximumAngle = 4 * math.asin(math.sqrt(threshold / 2d / roundabout.innerRingRadius));
+            if (maximumAngle > 60d) maximumAngle = 60d;
+            int pointsCount = (int)math.ceil((fromAzimuth - toAzimuth) / maximumAngle) + 1;
+            float angleStep = (float)((fromAzimuth - toAzimuth) / (pointsCount - 1));
+
+            for (int i = 0; i < pointsCount; i++)
+            {
+                double deltaX = math.sin(fromAzimuth - angleStep * i) * roundabout.innerRingRadius;
+                double deltaY = math.cos(fromAzimuth - angleStep * i) * roundabout.innerRingRadius;
+                pointsList.Add(Transform.Apply(center.Shift(roundabout.position.xzy).Shift(deltaX, deltaY, 0d), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3());
+            }
+        }
+
+        /// <summary>
         /// Finds the intersection between a list of vertices and a roundabout.
         /// （找到圓環與頂點列表的交點。）
         /// </summary>
@@ -599,7 +680,7 @@ namespace Carto.Utils
         /// <param name="roundabout">The roundabout.（圓環。）</param>
         /// <param name="isStartNode">Whether the roundabout is <paramref name="nodes"/>' start node?（圓環是否為 <paramref name="nodes"/> 的起點節點？）</param>
         /// <param name="intersectIndex">The insertion index of the intersection point.（交會點的插入索引值。）</param>
-        /// <param name="coordniate">The intersection point.（交會點。）</param>
+        /// <param name="coordinate">The intersection point.（交會點。）</param>
         /// <returns>Whether the intersection exists.（是否存在交會點。）</returns>
         public static bool Intersection(ref NativeList<double3> nodes, Domain.Roundabout roundabout, bool isStartNode,
                                         out int intersectIndex, out double3 coordinate)
@@ -719,33 +800,6 @@ namespace Carto.Utils
             return intersect;
         }
 
-        public static void Test()
-        {
-            NativeList<double3> test = new(5, Allocator.Persistent);
-            test.Add(new(-1, 10, 0));
-            test.Add(new(-1, 5, 0));
-            test.Add(new(-1, 2, 0));
-            test.Add(new(-1, -5, 0));
-            Domain.Roundabout roundabout = new()
-            {
-                innerRingRadius = 2f,
-                outerRingRadius = 4f,
-                position = new(0f),
-            };
-            bool testBool = Intersection(ref test, roundabout, false, out int index, out double3 coordinate);
-            Instance.Log.Info($"{testBool}; index = {index}, coordinate = {coordinate}");
-
-            test.Clear();
-            test.Add(new(0, 0, 0));
-            test.Add(new(3, 3, 0));
-            test.Add(new(5, 5, 0));
-            test.Add(new(9, 9, 0));
-            testBool = Intersection(ref test, roundabout, true, out index, out coordinate);
-            Instance.Log.Info($"{testBool}; index = {index}, coordinate = {coordinate}");
-
-            CommonUtils.Dispose(ref test);
-        }
-
         /// <summary>
         /// Check whether the <paramref name="firstCurve"/> and <paramref name="secondCurve"/> is continuous. In other words, does <paramref name="firstCurve"/>'s end point meet <paramref name="secondCurve"/>'s start point?<br/>
         /// （確認 <paramref name="firstCurve"/> 和 <paramref name="secondCurve"/> 是否連貫。換句話說，<paramref name="firstCurve"/> 的終點與 <paramref name="secondCurve"/> 的起點相交嗎？）
@@ -837,8 +891,9 @@ namespace Carto.Utils
             }
 
             // New algorithm, too sensitive（新演算法，太敏感了。）
-            Bounds1 yValues = Bounds(AlignXAxis(curve, out _, out _)).y;
-            return math.max(math.abs(yValues.min), math.abs(yValues.max)) <= threshold;
+            //Bounds1 yValues = Bounds(AlignXAxis(curve, out _, out _)).y;
+            //return math.max(math.abs(yValues.min), math.abs(yValues.max)) <= threshold;
+            return false;
         }
 
         /// <summary>

@@ -166,6 +166,17 @@ namespace Carto.Domain
         }
 
         /// <summary>
+        /// Check whether the network has the node entity.
+        /// （確認網路是否擁有節點實體。）
+        /// </summary>
+        /// <param name="node">The node entity.（節點實體。）</param>
+        /// <returns>If true, the entity is either the start or the end node of the network.（若為真，實體為網路的起點或終點節點。）</returns>
+        public readonly bool HasNode(Entity node)
+        {
+            return start.Equals(node) || end.Equals(node);
+        }
+
+        /// <summary>
         /// Initiate the roundabout-related properties.
         /// （初始化與圓環相關的屬性。）
         /// </summary>

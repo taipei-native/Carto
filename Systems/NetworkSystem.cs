@@ -33,6 +33,42 @@ namespace Carto.Systems
     public partial class NetworkSystem : GameSystemBase
     {
         /// <summary>
+        /// The interpolation gap for the nodes.
+        /// （節點的內插間隔。）
+        /// </summary>
+        public const float NodeInterpolationGap = 0.5f;
+
+        /// <summary>
+        /// The interpolation threshold of the nodes.
+        /// （節點的內插閾值。）
+        /// </summary>
+        public const float NodeInterpolationThreshold = 1f;
+
+        /// <summary>
+        /// The interpolation gap for the roundabouts.
+        /// （圓環的內插間隔。）
+        /// </summary>
+        public const float RoundaboutInterpolationGap = 0.2f;
+
+        /// <summary>
+        /// The interpolation threshold of the roundabouts.
+        /// （圓環的內插閾值。）
+        /// </summary>
+        public const float RoundaboutInterpolationThreshold = 0.5f;
+
+        /// <summary>
+        /// The interpolation gap for the segments.
+        /// （路段的內插間隔。）
+        /// </summary>
+        public const float SegmentInterpolationGap = 1f;
+
+        /// <summary>
+        /// The interpolation threshold of the segments.
+        /// （路段的內插閾值。）
+        /// </summary>
+        public const float SegmentInterpolationThreshold = 1f;
+        
+        /// <summary>
         /// Mod's logger.（模組的記錄器。）<br/>
         /// See <see cref="Instance.Log"/> for more information.
         /// </summary>
@@ -328,16 +364,16 @@ namespace Carto.Systems
                 // （內插及結合曲線。）
                 if (includeStartCurve)
                 {
-                    Utils.MathUtils.Interpolate(startCurve, ref nodes, 1f, 0.5f, false, out _,
+                    Utils.MathUtils.Interpolate(startCurve, ref nodes, NodeInterpolationThreshold, NodeInterpolationGap, false, out _,
                                                 new(0d, 0d), Geodata.CRS.Game, Geodata.CRS.Game, default, default);
                 }
 
-                Utils.MathUtils.Interpolate(trimmedMainCurve, ref nodes, 1f, 1f, !includeEndCurve, out _,
+                Utils.MathUtils.Interpolate(trimmedMainCurve, ref nodes, SegmentInterpolationThreshold, SegmentInterpolationGap, !includeEndCurve, out _,
                                             new(0d, 0d), Geodata.CRS.Game, Geodata.CRS.Game, default, default);
 
                 if (includeEndCurve)
                 {
-                    Utils.MathUtils.Interpolate(endCurve, ref nodes, 1f, 0.5f, true, out _,
+                    Utils.MathUtils.Interpolate(endCurve, ref nodes, NodeInterpolationThreshold, NodeInterpolationGap, true, out _,
                                                 new(0d, 0d), Geodata.CRS.Game, Geodata.CRS.Game, default, default);
                 }
 
@@ -371,6 +407,57 @@ namespace Carto.Systems
             _networkAssets = null;
             _networkCategories = null;
             _networkNames = null;
+        }
+
+        /// <summary>
+        /// Retrieve the boundary of the networks.
+        /// （獲得網路的邊界。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="nodeEntityMap">The map between boundary nodes and the networks.（網路與邊界節點的映射表。）</param>
+        private void GetBoundaries(Options options, ref NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap)
+        {
+            int networkCount = _localNetworkStats.Length;
+            NativeParallelHashMap<Entity, int> nodeCountEntityMap = new(networkCount, Allocator.Persistent);
+            NativeParallelHashMap<Entity, int> statsIndexMap = new(networkCount, Allocator.Persistent);
+            IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
+
+            PopulateBoundaryPreRequirementsJob populatePreRequirementsJob = new()
+            {
+                edgeGeometryLookup = GetComponentLookup<EdgeGeometry>(true),
+                endNodeGeometryLookup = GetComponentLookup<EndNodeGeometry>(true),
+                startNodeGeometryLookup = GetComponentLookup<StartNodeGeometry>(true),
+                networkStats = _localNetworkStats,
+                nodeCountMap = nodeCountEntityMap.AsParallelWriter(),
+                statsIndexMap = statsIndexMap.AsParallelWriter(),
+            };
+            JobHandle populatePreRequirementsHandle = populatePreRequirementsJob.Schedule(networkCount, 32, default);
+            populatePreRequirementsHandle.Complete();
+
+            CollectBoundariesJob collectBoundariesJob = new()
+            {
+                connectedEdgeBufferLookup = GetBufferLookup<ConnectedEdge>(true),
+                edgeGeometryLookup = GetComponentLookup<EdgeGeometry>(true),
+                endNodeGeometryLookup = GetComponentLookup<EndNodeGeometry>(true),
+                localConnectLookup = GetComponentLookup<LocalConnect>(true),
+                nodeLookup = GetComponentLookup<Node>(true),
+                startNodeGeometryLookup = GetComponentLookup<StartNodeGeometry>(true),
+                center = options.GetTMCoord(),
+                sourceCRS = options.GetTMProjection(),
+                targetCRS = targetCRS,
+                networkStats = _localNetworkStats,
+                nodeCountEntityMap = nodeCountEntityMap,
+                roundaboutEntityMap = _roundaboutEntityMap,
+                statsEntityMap = statsIndexMap,
+                sourceProjection = options.GetTMProjectionDefinition(),
+                targetProjection = targetProjection,
+                nodeEntityMap = nodeEntityMap.AsParallelWriter()
+            };
+            JobHandle collectBoundariesHandle = collectBoundariesJob.Schedule(networkCount, 16, default);
+            collectBoundariesHandle.Complete();
+
+            Utils.CommonUtils.Dispose(ref nodeCountEntityMap);
+            Utils.CommonUtils.Dispose(ref statsIndexMap);
         }
 
         /// <summary>
@@ -442,8 +529,8 @@ namespace Carto.Systems
         /// （獲得網路的中心線。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
-        /// <param name="nodeEntityMap">The map between centerline nodes and the routes.（運輸服務路線與中心線節點的映射表。）</param>
-        private void GetCenterline(Options options, ref NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap)
+        /// <param name="nodeEntityMap">The map between centerline nodes and the networks.（網路與中心線節點的映射表。）</param>
+        private void GetCenterlines(Options options, ref NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap)
         {
             NativeParallelHashMap<Entity, int> nodeCountEntityMap = new(_localNetworkStats.Length, Allocator.Persistent);
             IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
@@ -761,6 +848,78 @@ namespace Carto.Systems
         private static float RoundSpeedLimit(float input) => (float) Math.Round(input * 1.8);
 
         /// <summary>
+        /// Write boundary features (geometries and properties) to the designated file.
+        /// （寫出邊界圖徵（幾何與屬性）至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        private void WriteBoundaryFeatures(JsonTextWriter writer, Options options, Action<string, int> onReportMethod)
+        {
+            bool hasName = options.Contains(Property.Name, IO.System.Network);
+            bool hasAsset = options.Contains(Property.Asset, IO.System.Network);
+            bool hasCapacity = options.Contains(Property.Capacity, IO.System.Network);
+            bool hasCategory = options.Contains(Property.Category, IO.System.Network);
+            bool hasDirection = options.Contains(Property.Direction, IO.System.Network);
+            bool hasDischarge = options.Contains(Property.Discharge, IO.System.Network);
+            bool hasElevation = options.Contains(Property.Elevation, IO.System.Network);
+            bool hasForm = options.Contains(Property.Form, IO.System.Network);
+            bool hasLane = options.Contains(Property.Lane, IO.System.Network);
+            bool hasLength = options.Contains(Property.Length, IO.System.Network);
+            bool hasLimit = options.Contains(Property.Limit, IO.System.Network);
+            bool hasLoad = options.Contains(Property.Load, IO.System.Network);
+            bool hasObject = options.Contains(Property.Object, IO.System.Network);
+            bool hasVolume = options.Contains(Property.Volume, IO.System.Network);
+            bool hasWidth = options.Contains(Property.Width, IO.System.Network);
+
+            // Initialize native containers.（初始化原生容器。）
+            NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap = new(_networkQuery.CalculateEntityCount(), Allocator.Persistent);
+
+            try
+            {
+                GetBoundaries(options, ref nodeEntityMap);
+
+                Task writerThread = Task.Run(() =>
+                {
+                    for (int i = 0; i < _localNetworkStats.Length; i++)
+                    {
+                        NetworkStat networkStat = _localNetworkStats[i];
+                        if (!nodeEntityMap.TryGetValue(networkStat.entity, out NativeList<double3> nodes)) continue;
+
+                        // Write feature header.（寫出圖徵檔頭。）
+                        writer.WriteStartObject();
+                        GeoJson.WritePropertyPair(writer, "type", "Feature");
+
+                        // Write feature geometry.（寫出圖徵幾何圖形。）
+                        writer.WritePropertyName("geometry");
+                        GeoJson.WriteGeometry(writer, new Geometry(ref nodes), Shape.Polygon, options.Elevation);
+
+                        // Write feature properties.（寫出圖徵）
+                        writer.WritePropertyName("properties");
+                        writer.WriteStartObject();
+
+                        writer.WriteEndObject();
+                        writer.WriteEndObject();
+
+                        // Report method, not filled temporary.
+                        onReportMethod?.Invoke(string.Empty, 0);
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+            }
+        }
+
+        /// <summary>
         /// Write centerline features (geometries and properties) to the designated file.
         /// （寫出中線圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
@@ -790,7 +949,7 @@ namespace Carto.Systems
 
             try
             {
-                GetCenterline(options, ref nodeEntityMap);
+                GetCenterlines(options, ref nodeEntityMap);
                 
                 Task writerThread = Task.Run(() =>
                 {
@@ -984,11 +1143,11 @@ namespace Carto.Systems
                     }
                 }
 
-                //if (options.Has(IO.System.Network, VectorKind.Boundary))
-                //{
-                //    GeoJson.Write(options, IO.System.Network, VectorKind.Boundary, WriteBoundaryFeatures, onReportMethod);
-                //    filesCount++;
-                //}
+                if (options.Has(IO.System.Network, VectorKind.Boundary))
+                {
+                    GeoJson.Write(options, IO.System.Network, VectorKind.Boundary, WriteBoundaryFeatures, onReportMethod);
+                    filesCount++;
+                }
                 if (options.Has(IO.System.Network, VectorKind.Centerline))
                 {
                     GeoJson.Write(options, IO.System.Network, VectorKind.Centerline, WriteCenterlineFeatures, onReportMethod);
@@ -1003,6 +1162,286 @@ namespace Carto.Systems
             finally
             {
                 Dispose();
+            }
+        }
+
+        /// <summary>
+        /// The job to collect network's boundaries.
+        /// （收集網路邊界的工作。）
+        /// </summary>
+        public partial struct CollectBoundariesJob : IJobParallelFor
+        {
+            [ReadOnly]
+            public BufferLookup<ConnectedEdge> connectedEdgeBufferLookup;
+
+            [ReadOnly]
+            public ComponentLookup<EdgeGeometry> edgeGeometryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<EndNodeGeometry> endNodeGeometryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<LocalConnect> localConnectLookup;
+
+            [ReadOnly]
+            public ComponentLookup<Node> nodeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<StartNodeGeometry> startNodeGeometryLookup;
+
+            [ReadOnly]
+            public Coord center;
+
+            [ReadOnly]
+            public Geodata.CRS sourceCRS;
+
+            [ReadOnly]
+            public Geodata.CRS targetCRS;
+
+            [ReadOnly]
+            public NativeList<NetworkStat> networkStats;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, int> nodeCountEntityMap;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap;
+
+            [ReadOnly]
+            public NativeParallelHashMap<Entity, int> statsEntityMap;
+
+            [ReadOnly]
+            public ProjectionDefinition sourceProjection;
+
+            [ReadOnly]
+            public ProjectionDefinition targetProjection;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, NativeList<double3>>.ParallelWriter nodeEntityMap;
+
+            public void Execute(int index)
+            {
+                NetworkStat networkStat = networkStats[index];
+                Entity network = networkStat.entity;
+                if (!nodeCountEntityMap.TryGetValue(network, out int count) ||
+                     count <= 0) return;
+
+                static bool IsTerminusNode(NetworkStat stat, Entity node, DynamicBuffer<ConnectedEdge> edges, ref NativeParallelHashMap<Entity, int> statsEntityMap, ref NativeList<NetworkStat> networkStats, bool hasLocalConnect)
+                {
+                    bool isTerminus = false;
+                    int pathwayCount = 0;
+                    int roadCount = 0;
+                    int trackCount = 0;
+                    NetworkCategory roadCategory = NetworkCategory.Car | NetworkCategory.Highway;
+                    NetworkCategory trackCategory = NetworkCategory.Train | NetworkCategory.Subway | NetworkCategory.Tram;
+
+                    for (int i = 0; i < edges.Length; i++)
+                    {
+                        if (statsEntityMap.TryGetValue(edges[i].m_Edge, out int listIndex) && (listIndex >= 0) && (listIndex < networkStats.Length))
+                        {
+                            NetworkStat edgeStat = networkStats[listIndex];
+                            if (!edgeStat.HasNode(node)) continue;              // Handle the situation of pathway local connection.（處理路徑的當地連結情形。）
+
+                            NetworkCategory edgeCategory = edgeStat.category;
+                            if ((edgeCategory & NetworkCategory.Pathway) != 0)
+                            {
+                                pathwayCount++;
+                            }
+                            else if ((edgeCategory & roadCategory) != 0)
+                            {
+                                roadCount++;
+                            }
+                            else if ((edgeCategory & trackCategory) != 0)
+                            {
+                                trackCount++;
+                            }
+                        }
+                    }
+
+                    if ((stat.category & NetworkCategory.Pathway) != 0)
+                    {
+                        if ((pathwayCount == 1) || !hasLocalConnect) isTerminus = true;
+                    }
+
+                    if ((stat.category & roadCategory) != 0)
+                    {
+                        if ((roadCount <= 2) && (trackCount == 0)) isTerminus = true;   // Handle the situation that a node with only two connected segments.（處理只有兩個連接路段的節點。）
+                    }
+
+                    if ((stat.category & trackCategory) != 0)
+                    {
+                        if ((trackCount <= 2) && (roadCount == 0)) isTerminus = true;   // Handle the situation that a node with only two connected segments.（處理只有兩個連接路段的節點。）
+                    }
+
+                    return isTerminus;
+                }
+
+                bool endNodeIsRoundabout = networkStat.roundabout.y;
+                bool endNodeIsTerminus;
+                bool startNodeIsRoundabout = networkStat.roundabout.x;
+                bool startNodeIsTerminus;
+                Entity endNodeEntity = networkStat.end;
+                Entity startNodeEntity = networkStat.start;
+                NativeList<double3> nodes = new(count, Allocator.Persistent);
+
+                if (connectedEdgeBufferLookup.TryGetBuffer(endNodeEntity, out DynamicBuffer<ConnectedEdge> endConnectedEdges) &&
+                    connectedEdgeBufferLookup.TryGetBuffer(startNodeEntity, out DynamicBuffer<ConnectedEdge> startConnectedEdges))
+                {
+                    endNodeIsTerminus = IsTerminusNode(networkStat, endNodeEntity, endConnectedEdges, ref statsEntityMap, ref networkStats, localConnectLookup.HasComponent(endNodeEntity));
+                    startNodeIsTerminus = IsTerminusNode(networkStat, startNodeEntity, startConnectedEdges, ref statsEntityMap, ref networkStats, localConnectLookup.HasComponent(startNodeEntity));
+                }
+                else
+                {
+                    return;
+                }
+
+                if (!edgeGeometryLookup.TryGetComponent(network, out EdgeGeometry edgeGeometry) ||
+                    !endNodeGeometryLookup.TryGetComponent(network, out EndNodeGeometry endNodeGeometry) ||
+                    !nodeLookup.TryGetComponent(endNodeEntity, out Node endNode) ||
+                    !nodeLookup.TryGetComponent(startNodeEntity, out Node startNode) ||
+                    !startNodeGeometryLookup.TryGetComponent(network, out StartNodeGeometry startNodeGeometry)) return;
+
+                // The road segment can be obtained by sketching along the curves in the order of:
+                // （道路區段的邊界可以沿著以下順序描繪獲得：）
+                //   mainCurveLeft → endCurveLeft → (inverted) endCurveRight → (inverted) mainCurveRight → (inverted) startCurveRight → startCurveLeft → (loop complete)
+                Bezier4x3 mainCurveLeftEnd = edgeGeometry.m_End.m_Left;
+                Bezier4x3 mainCurveLeftStart = edgeGeometry.m_Start.m_Left;
+                Bezier4x3 mainCurveRightEnd = Colossal.Mathematics.MathUtils.Invert(edgeGeometry.m_End.m_Right);
+                Bezier4x3 mainCurveRightStart = Colossal.Mathematics.MathUtils.Invert(edgeGeometry.m_Start.m_Right);
+
+                float scaler = networkStat.width > 8f ? 1f : networkStat.width / 8f;
+                float adjustedNodeGap = NodeInterpolationGap * scaler;
+                float adjustedNodeThreshold = NodeInterpolationThreshold * scaler;
+                float adjustedRoundaboutGap = RoundaboutInterpolationGap * scaler;
+                float adjustedRoundaboutThreshold = RoundaboutInterpolationThreshold * scaler;
+                float adjustedSegmentGap = SegmentInterpolationGap * scaler;
+                float adjustedSegmentThreshold = SegmentInterpolationThreshold * scaler;
+
+                if (endNodeIsRoundabout)
+                {
+                    if (!roundaboutEntityMap.TryGetValue(endNodeEntity, out Domain.Roundabout endRoundabout)) return;
+                    
+                    // Version 0.3.6: To solve the defect of the roundabout algorithm introduced back in version 0.1, the code now correctly uses the relevant node geometry's Bezier curve.
+                    // （0.3.6 版本：為了解決 0.1 版本圓環演算法的缺陷，程式現在正確地使用相關的節點幾何貝茲曲線。）
+
+                    Bezier4x3 endLeftFrontCurve = endNodeGeometry.m_Geometry.m_Left.m_Left;                                             // The front part of the left node boundary when facing the roundabout.（面對圓環時，節點左側靠前的邊界。）
+                    Bezier4x3 endLeftRearCurve = endNodeGeometry.m_Geometry.m_Right.m_Left;                                             // The rear part of the left node boundary when facing the roundabout.（面對圓環時，節點左側靠後的邊界。）
+                    Bezier4x3 endRightFrontCurve = Colossal.Mathematics.MathUtils.Invert(endNodeGeometry.m_Geometry.m_Left.m_Right);    // The front part of the right node boundary when facing the roundabout.（面對圓環時，節點右側靠前的邊界。）
+                    Bezier4x3 endRightRearCurve = Colossal.Mathematics.MathUtils.Invert(endNodeGeometry.m_Geometry.m_Right.m_Right);    // The rear part of the right node boundary when facing the roundabout.（面對圓環時，節點右側靠後的邊界。）
+
+                    bool isLeftContinuous = mainCurveLeftEnd.d.Equals(endLeftFrontCurve.a);
+                    bool isRightContinuous = mainCurveRightEnd.a.Equals(endRightFrontCurve.d);
+                    double leftAzimuth = Utils.MathUtils.Azimuth(endRoundabout.position, endLeftRearCurve.d);
+                    double rightAzimuth = Utils.MathUtils.Azimuth(endRoundabout.position, endRightRearCurve.a);
+
+                    Utils.MathUtils.Interpolate(mainCurveLeftEnd, ref nodes, adjustedSegmentThreshold, adjustedSegmentGap, !isLeftContinuous, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(endLeftFrontCurve, ref nodes, adjustedRoundaboutThreshold, adjustedRoundaboutGap, false, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(endLeftRearCurve, ref nodes, adjustedRoundaboutThreshold, adjustedRoundaboutGap, !endNodeIsTerminus, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+
+                    if (!endNodeIsTerminus)
+                    {
+                        Utils.MathUtils.Interpolate(endRoundabout, ref nodes, adjustedRoundaboutGap, leftAzimuth, rightAzimuth,
+                                                    center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    }
+
+                    Utils.MathUtils.Interpolate(endRightRearCurve, ref nodes, adjustedRoundaboutThreshold, adjustedRoundaboutGap, false, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(endRightFrontCurve, ref nodes, adjustedRoundaboutThreshold, adjustedRoundaboutGap, !isRightContinuous, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(mainCurveRightEnd, ref nodes, adjustedSegmentThreshold, adjustedSegmentGap, false, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                }
+                else
+                {
+                    Bezier4x3 endCurveLeft = endNodeGeometry.m_Geometry.m_Left.m_Left;
+                    Bezier4x3 endCurveRight = Colossal.Mathematics.MathUtils.Invert(endNodeGeometry.m_Geometry.m_Right.m_Right);
+
+                    // Version 0.3.3: To solve the problem of the parking lot roads and the covered pedestrian bridge missing part of their segmentC and segmentG,
+                    //                the last vertices of these segments are tracked. If the position of the first vertex from the next segment is different, the last vertex would be re-added.
+                    // （0.3.3 版本：為了解決停車巷以及有頂人行天橋遺失一部分 segmentC 及 segmentG 的問題，這兩個路段的最後一個頂點將會被追蹤。
+                    //               若下個路段的首個頂點與該頂點位置不同，該頂點將被重新加入。）
+
+                    bool isLeftContinuous = mainCurveLeftEnd.d.Equals(endCurveLeft.a);
+                    bool isRightContinuous = mainCurveRightEnd.a.Equals(endCurveRight.d);
+                    double3 endNodePosition = Geodata.Transform.Apply(center.Shift(endNode.m_Position.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
+
+                    Utils.MathUtils.Interpolate(mainCurveLeftEnd, ref nodes, adjustedSegmentThreshold, adjustedSegmentGap, !isLeftContinuous, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(endCurveLeft, ref nodes, adjustedNodeThreshold, adjustedNodeGap, true, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    if (!endNodeIsTerminus) nodes.Add(endNodePosition);
+                    Utils.MathUtils.Interpolate(endCurveRight, ref nodes, adjustedNodeThreshold, adjustedNodeGap, !isRightContinuous, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(mainCurveRightEnd, ref nodes, adjustedSegmentThreshold, adjustedSegmentGap, false, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                }
+
+                if (startNodeIsRoundabout)
+                {
+                    if (!roundaboutEntityMap.TryGetValue(startNodeEntity, out Domain.Roundabout startRoundabout)) return;
+
+                    // Version 0.3.6: To solve the defect of the roundabout algorithm introduced back in version 0.1, the code now correctly uses the relevant node geometry's Bezier curve.
+                    // （0.3.6 版本：為了解決 0.1 版本圓環演算法的缺陷，程式現在正確地使用相關的節點幾何貝茲曲線。）
+
+                    Bezier4x3 startLeftFrontCurve = Colossal.Mathematics.MathUtils.Invert(startNodeGeometry.m_Geometry.m_Left.m_Right); // The front part of the left node boundary when facing AWAY from the roundabout.（背對圓環時，節點左側靠前的邊界。）
+                    Bezier4x3 startLeftRearCurve = Colossal.Mathematics.MathUtils.Invert(startNodeGeometry.m_Geometry.m_Right.m_Right); // The rear part of the left node boundary when facing AWAY from the roundabout.（背對圓環時，節點左側靠後的邊界。）
+                    Bezier4x3 startRightFrontCurve = startNodeGeometry.m_Geometry.m_Left.m_Left;                                        // The front part of the right node boundary when facing AWAY from the roundabout.（背對圓環時，節點右側靠前的邊界。）
+                    Bezier4x3 startRightRearCurve = startNodeGeometry.m_Geometry.m_Right.m_Left;                                        // The rear part of the right node boundary when facing AWAY from the roundabout.（背對圓環時，節點右側靠後的邊界。）
+
+                    bool isLeftContinuous = mainCurveLeftStart.a.Equals(startLeftFrontCurve.d);
+                    bool isRightContinuous = mainCurveRightStart.d.Equals(startRightFrontCurve.a);
+                    double leftAzimuth = Utils.MathUtils.Azimuth(startRoundabout.position, startLeftRearCurve.a);
+                    double rightAzimuth = Utils.MathUtils.Azimuth(startRoundabout.position, startRightRearCurve.d);
+
+                    Utils.MathUtils.Interpolate(mainCurveRightStart, ref nodes, adjustedSegmentThreshold, adjustedSegmentGap, !isRightContinuous, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(startRightFrontCurve, ref nodes, adjustedRoundaboutThreshold, adjustedRoundaboutGap, false, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(startRightRearCurve, ref nodes, adjustedRoundaboutThreshold, adjustedRoundaboutGap, !startNodeIsTerminus, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+
+                    if (!startNodeIsTerminus)
+                    {
+                        Utils.MathUtils.Interpolate(startRoundabout, ref nodes, adjustedRoundaboutGap, rightAzimuth, leftAzimuth,
+                                                    center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    }
+
+                    Utils.MathUtils.Interpolate(startLeftRearCurve, ref nodes, adjustedRoundaboutThreshold, adjustedRoundaboutGap, false, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(startLeftFrontCurve, ref nodes, adjustedRoundaboutThreshold, adjustedRoundaboutGap, !isLeftContinuous, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(mainCurveLeftStart, ref nodes, adjustedSegmentThreshold, adjustedSegmentGap, false, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                }
+                else
+                {
+                    Bezier4x3 startCurveLeft = Colossal.Mathematics.MathUtils.Invert(startNodeGeometry.m_Geometry.m_Right.m_Right); 
+                    Bezier4x3 startCurveRight = startNodeGeometry.m_Geometry.m_Left.m_Left;
+
+                    // Version 0.3.3: To solve the problem of the parking lot roads and the covered pedestrian bridge missing part of their segmentC and segmentG,
+                    //                the last vertices of these segments are tracked. If the position of the first vertex from the next segment is different, the last vertex would be re-added.
+                    // （0.3.3 版本：為了解決停車巷以及有頂人行天橋遺失一部分 segmentC 及 segmentG 的問題，這兩個路段的最後一個頂點將會被追蹤。
+                    //               若下個路段的首個頂點與該頂點位置不同，該頂點將被重新加入。）
+
+                    bool isLeftContinuous = mainCurveLeftStart.a.Equals(startCurveLeft.d);
+                    bool isRightContinuous = mainCurveRightStart.d.Equals(startCurveRight.a);
+                    double3 startNodePosition = Geodata.Transform.Apply(center.Shift(startNode.m_Position.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
+
+                    Utils.MathUtils.Interpolate(mainCurveRightStart, ref nodes, adjustedSegmentThreshold, adjustedSegmentGap, !isRightContinuous, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(startCurveRight, ref nodes, adjustedNodeThreshold, adjustedNodeGap, true, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    if (!startNodeIsTerminus) nodes.Add(startNodePosition);
+                    Utils.MathUtils.Interpolate(startCurveLeft, ref nodes, adjustedNodeThreshold, adjustedNodeGap, !isLeftContinuous, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                    Utils.MathUtils.Interpolate(mainCurveLeftStart, ref nodes, adjustedSegmentThreshold, adjustedSegmentGap, false, out _,
+                                                center, sourceCRS, targetCRS, sourceProjection, targetProjection);
+                }
+
+                nodeEntityMap.TryAdd(network, nodes);
             }
         }
 
@@ -1787,6 +2226,79 @@ namespace Carto.Systems
             public void Execute(in Attached attached, Entity attachment)
             {
                 entityMap.TryAdd(attached.m_Parent, attachment);
+            }
+        }
+
+        /// <summary>
+        /// The job to populate the pre-requirements for boundary geometries.
+        /// （填入邊界幾何所需的前置資料的工作。）
+        /// </summary>
+        public partial struct PopulateBoundaryPreRequirementsJob : IJobParallelFor
+        {
+            [ReadOnly]
+            public ComponentLookup<EdgeGeometry> edgeGeometryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<EndNodeGeometry> endNodeGeometryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<StartNodeGeometry> startNodeGeometryLookup;
+
+            [ReadOnly]
+            public NativeList<NetworkStat> networkStats;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter nodeCountMap;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter statsIndexMap;
+
+            public void Execute(int index)
+            {
+                NetworkStat networkStat = networkStats[index];
+                Entity network = networkStat.entity;
+                statsIndexMap.TryAdd(network, index);
+
+                if (!edgeGeometryLookup.TryGetComponent(network, out EdgeGeometry edgeGeometry) ||
+                    !endNodeGeometryLookup.TryGetComponent(network, out EndNodeGeometry endNodeGeometry) ||
+                    !startNodeGeometryLookup.TryGetComponent(network, out StartNodeGeometry startNodeGeometry)) return;
+
+                bool endNodeIsRoundabout = networkStat.roundabout.y;
+                bool startNodeIsRoundabout = networkStat.roundabout.x;
+                int count = 0;
+
+                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_End.m_Left, SegmentInterpolationThreshold, SegmentInterpolationGap);
+                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_Start.m_Left, SegmentInterpolationThreshold, SegmentInterpolationGap);
+                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_End.m_Right, SegmentInterpolationThreshold, SegmentInterpolationGap);
+                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_Start.m_Right, SegmentInterpolationThreshold, SegmentInterpolationGap);
+
+                if (endNodeIsRoundabout)
+                {
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                }
+                else
+                {
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Left, NodeInterpolationThreshold, NodeInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Right, NodeInterpolationThreshold, NodeInterpolationGap);
+                }
+
+                if (startNodeIsRoundabout)
+                {
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                }
+                else
+                {
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Left, NodeInterpolationThreshold, NodeInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Right, NodeInterpolationThreshold, NodeInterpolationGap);
+                }
+
+                nodeCountMap.TryAdd(network, count);
             }
         }
 
