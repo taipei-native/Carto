@@ -413,6 +413,7 @@ namespace Carto.IO
             Instance.Building.Dispose();
             Instance.Network.Dispose();
             Instance.POI.Dispose();
+            Instance.Route.Dispose();
             Instance.Shared.Dispose();
         }
 

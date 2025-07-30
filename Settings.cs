@@ -384,6 +384,7 @@ namespace Carto
 # if DEBUG
         [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
         [SettingsUIButton]
+        [SettingsUIDeveloper]
         [SettingsUIDisableByCondition(typeof(Settings), nameof(IsInGameOrEditor), invert: true)]
         public bool TestButton
         {

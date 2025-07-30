@@ -404,7 +404,7 @@ namespace Carto.Utils
         /// <param name="item">The object to insert.（插入的項目。）</param>
         public static void Insert<T>(ref NativeList<T> list, int index, T item) where T : unmanaged
         {
-            if (index > list.Length) return;
+            if ((index > list.Length) || index <= 0) return;
             list.Add(default);
             for (int i = list.Length - 1; i > index; i--)
             {
@@ -625,6 +625,29 @@ namespace Carto.Utils
             if ((collection == null) || collection.Count == 0) return false;
             lastItem = collection[collection.Count - 1];
             return true;
+        }
+
+        /// <summary>
+        /// Bubble sort a native array.
+        /// （泡泡排序一個原生陣列。）
+        /// </summary>
+        /// <typeparam name="T">The type of the array's item.（陣列物件的型別。）</typeparam>
+        /// <param name="array">The input array.（輸入的陣列。）</param>
+        public static void Sort<T>(ref NativeArray<T> array) where T : unmanaged, IComparable<T>
+        {
+            int n = array.Length;
+            for (int i = 0; i < n - 1; i++)
+            {
+                for (int j = 0; j < n - i - 1; j++)
+                {
+                    if (array[j].CompareTo(array[j + 1]) > 0)
+                    {
+                        T temp = array[j];
+                        array[j] = array[j + 1];
+                        array[j + 1] = temp;
+                    }
+                }
+            }
         }
 
         /// <summary>

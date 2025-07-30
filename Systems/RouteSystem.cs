@@ -134,6 +134,7 @@ namespace Carto.Systems
         /// </summary>
         protected override void OnDestroy()
         {
+            _xtm.Dispose();
             Dispose();
             base.OnDestroy();
         }
@@ -150,7 +151,6 @@ namespace Carto.Systems
         /// </summary>
         public void Dispose()
         {
-            _xtm.Dispose();
             // CommonUtils.Dispose(ref _curveEntityMap);
             CommonUtils.Dispose(ref _localRouteStats);
         }

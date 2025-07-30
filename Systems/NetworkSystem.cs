@@ -291,6 +291,7 @@ namespace Carto.Systems
         /// </summary>
         protected override void OnDestroy()
         {
+            _rb.Dispose();
             Dispose();
             base.OnDestroy();
         }
@@ -401,7 +402,6 @@ namespace Carto.Systems
         /// </summary>
         public void Dispose()
         {
-            _rb.Dispose();
             Utils.CommonUtils.Dispose(ref _localNetworkStats);
             Utils.CommonUtils.Dispose(ref _roundaboutEntityMap);
             _networkAssets = null;
@@ -532,10 +532,12 @@ namespace Carto.Systems
         /// <param name="nodeEntityMap">The map between centerline nodes and the networks.（網路與中心線節點的映射表。）</param>
         private void GetCenterlines(Options options, ref NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap)
         {
-            NativeParallelHashMap<Entity, int> nodeCountEntityMap = new(_localNetworkStats.Length, Allocator.Persistent);
+            int networkCount = _localNetworkStats.Length;
+            NativeParallelHashMap<Entity, int> nodeCountEntityMap = new(networkCount, Allocator.Persistent);
+            NativeParallelHashMap<Entity, int> statsIndexMap = new(networkCount, Allocator.Persistent);
             IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
 
-            CountCenterlineNodesJob countNodesJob = new()
+            PopulateCenterlinePreRequirementsJob populatePreRequirementsJob = new()
             {
                 connectedEdgeBufferLookup = GetBufferLookup<ConnectedEdge>(true),
                 curveLookup = GetComponentLookup<Curve>(true),
@@ -544,9 +546,10 @@ namespace Carto.Systems
                 networkStats = _localNetworkStats,
                 roundaboutEntityMap = _roundaboutEntityMap,
                 nodeCountEntityMap = nodeCountEntityMap.AsParallelWriter(),
+                statsIndexMap = statsIndexMap.AsParallelWriter(),
             };
-            JobHandle countNodesHandle = countNodesJob.Schedule(_localNetworkStats.Length, 16, default);
-            countNodesHandle.Complete();
+            JobHandle populatePreRequirementsHandle = populatePreRequirementsJob.Schedule(networkCount, 16, default);
+            populatePreRequirementsHandle.Complete();
 
             CollectCenterlinesJob collectCenterlinesJob = new()
             {
@@ -561,15 +564,17 @@ namespace Carto.Systems
                 targetCRS = targetCRS,
                 networkStats = _localNetworkStats,
                 nodeCountEntityMap = nodeCountEntityMap,
+                statsIndexMap = statsIndexMap,
                 roundaboutEntityMap = _roundaboutEntityMap,
                 sourceProjection = options.GetTMProjectionDefinition(),
                 targetProjection = targetProjection,
                 nodeEntityMap = nodeEntityMap.AsParallelWriter()
             };
-            JobHandle collectCenterlinesHandle = collectCenterlinesJob.Schedule(_localNetworkStats.Length, 16, default);
+            JobHandle collectCenterlinesHandle = collectCenterlinesJob.Schedule(networkCount, 16, default);
             collectCenterlinesHandle.Complete();
 
             Utils.CommonUtils.Dispose(ref nodeCountEntityMap);
+            Utils.CommonUtils.Dispose(ref statsIndexMap);
         }
 
         /// <summary>
@@ -1169,6 +1174,7 @@ namespace Carto.Systems
         /// The job to collect network's boundaries.
         /// （收集網路邊界的工作。）
         /// </summary>
+        [BurstCompile]
         public partial struct CollectBoundariesJob : IJobParallelFor
         {
             [ReadOnly]
@@ -1226,56 +1232,6 @@ namespace Carto.Systems
                 if (!nodeCountEntityMap.TryGetValue(network, out int count) ||
                      count <= 0) return;
 
-                static bool IsTerminusNode(NetworkStat stat, Entity node, DynamicBuffer<ConnectedEdge> edges, ref NativeParallelHashMap<Entity, int> statsEntityMap, ref NativeList<NetworkStat> networkStats, bool hasLocalConnect)
-                {
-                    bool isTerminus = false;
-                    int pathwayCount = 0;
-                    int roadCount = 0;
-                    int trackCount = 0;
-                    NetworkCategory roadCategory = NetworkCategory.Car | NetworkCategory.Highway;
-                    NetworkCategory trackCategory = NetworkCategory.Train | NetworkCategory.Subway | NetworkCategory.Tram;
-
-                    for (int i = 0; i < edges.Length; i++)
-                    {
-                        if (statsEntityMap.TryGetValue(edges[i].m_Edge, out int listIndex) && (listIndex >= 0) && (listIndex < networkStats.Length))
-                        {
-                            NetworkStat edgeStat = networkStats[listIndex];
-                            if (!edgeStat.HasNode(node)) continue;              // Handle the situation of pathway local connection.（處理路徑的當地連結情形。）
-
-                            NetworkCategory edgeCategory = edgeStat.category;
-                            if ((edgeCategory & NetworkCategory.Pathway) != 0)
-                            {
-                                pathwayCount++;
-                            }
-                            else if ((edgeCategory & roadCategory) != 0)
-                            {
-                                roadCount++;
-                            }
-                            else if ((edgeCategory & trackCategory) != 0)
-                            {
-                                trackCount++;
-                            }
-                        }
-                    }
-
-                    if ((stat.category & NetworkCategory.Pathway) != 0)
-                    {
-                        if ((pathwayCount == 1) || !hasLocalConnect) isTerminus = true;
-                    }
-
-                    if ((stat.category & roadCategory) != 0)
-                    {
-                        if ((roadCount <= 2) && (trackCount == 0)) isTerminus = true;   // Handle the situation that a node with only two connected segments.（處理只有兩個連接路段的節點。）
-                    }
-
-                    if ((stat.category & trackCategory) != 0)
-                    {
-                        if ((trackCount <= 2) && (roadCount == 0)) isTerminus = true;   // Handle the situation that a node with only two connected segments.（處理只有兩個連接路段的節點。）
-                    }
-
-                    return isTerminus;
-                }
-
                 bool endNodeIsRoundabout = networkStat.roundabout.y;
                 bool endNodeIsTerminus;
                 bool startNodeIsRoundabout = networkStat.roundabout.x;
@@ -1287,8 +1243,8 @@ namespace Carto.Systems
                 if (connectedEdgeBufferLookup.TryGetBuffer(endNodeEntity, out DynamicBuffer<ConnectedEdge> endConnectedEdges) &&
                     connectedEdgeBufferLookup.TryGetBuffer(startNodeEntity, out DynamicBuffer<ConnectedEdge> startConnectedEdges))
                 {
-                    endNodeIsTerminus = IsTerminusNode(networkStat, endNodeEntity, endConnectedEdges, ref statsEntityMap, ref networkStats, localConnectLookup.HasComponent(endNodeEntity));
-                    startNodeIsTerminus = IsTerminusNode(networkStat, startNodeEntity, startConnectedEdges, ref statsEntityMap, ref networkStats, localConnectLookup.HasComponent(startNodeEntity));
+                    endNodeIsTerminus = IsTerminusNode(networkStat, endNodeEntity, endConnectedEdges, ref statsEntityMap, ref networkStats, localConnectLookup.HasComponent(endNodeEntity), endNodeIsRoundabout);
+                    startNodeIsTerminus = IsTerminusNode(networkStat, startNodeEntity, startConnectedEdges, ref statsEntityMap, ref networkStats, localConnectLookup.HasComponent(startNodeEntity), startNodeIsRoundabout);
                 }
                 else
                 {
@@ -1443,6 +1399,69 @@ namespace Carto.Systems
 
                 nodeEntityMap.TryAdd(network, nodes);
             }
+
+            /// <summary>
+            /// Check whether the node is a terminus node (a node has only one connected network.)
+            /// （確認節點是否為「死路」節點（只有一個網路連接的節點）。）
+            /// </summary>
+            /// <param name="stat">The network statistic data.（網路統計資料。）</param>
+            /// <param name="node">The target node.（目標節點。）</param>
+            /// <param name="edges">The buffer of connected edges at the node.（與節點相連的路段緩衝區。）</param>
+            /// <param name="statsIndexMap">The map between the network entity and its index in <see cref="_localNetworkStats"/>.（網路實體與其在 <see cref="_localNetworkStats"/> 索引值的映射表。）></param>
+            /// <param name="networkStats">See <see cref="_localNetworkStats"/>.（參見 <see cref="_localNetworkStats"/>。）</param>
+            /// <param name="hasLocalConnect">Whether the node has <see cref="LocalConnect"/> component.（節點是否有 <see cref="LocalConnect"/> 組件？）</param>
+            /// <param name="isRoundabout">Whether the node is a roundabout.（節點是否為圓環？）</param>
+            /// <returns>If true, the node is a terminus node.（若為真，節點為「死路」節點。）</returns>
+            private static bool IsTerminusNode(NetworkStat stat, Entity node, DynamicBuffer<ConnectedEdge> edges, ref NativeParallelHashMap<Entity, int> statsIndexMap, ref NativeList<NetworkStat> networkStats, bool hasLocalConnect, bool isRoundabout)
+            {
+                bool isTerminus = false;
+                int pathwayCount = 0;
+                int roadCount = 0;
+                int trackCount = 0;
+                NetworkCategory roadCategory = NetworkCategory.Car | NetworkCategory.Highway;
+                NetworkCategory trackCategory = NetworkCategory.Train | NetworkCategory.Subway | NetworkCategory.Tram;
+
+                for (int i = 0; i < edges.Length; i++)
+                {
+                    if (statsIndexMap.TryGetValue(edges[i].m_Edge, out int listIndex) && (listIndex >= 0) && (listIndex < networkStats.Length))
+                    {
+                        NetworkStat edgeStat = networkStats[listIndex];
+                        if (!edgeStat.HasNode(node)) continue;              // Handle the situation of pathway local connection.（處理路徑的當地連結情形。）
+
+                        NetworkCategory edgeCategory = edgeStat.category;
+                        if ((edgeCategory & NetworkCategory.Pathway) != 0)
+                        {
+                            pathwayCount++;
+                        }
+                        else if ((edgeCategory & roadCategory) != 0)
+                        {
+                            roadCount++;
+                        }
+                        else if ((edgeCategory & trackCategory) != 0)
+                        {
+                            trackCount++;
+                        }
+                    }
+                }
+
+                if ((stat.category & NetworkCategory.Pathway) != 0)
+                {
+                    if ((pathwayCount <= 2) || !hasLocalConnect) isTerminus = true;
+                }
+
+                if ((stat.category & roadCategory) != 0)
+                {
+                    if ((roadCount <= 2) && (trackCount == 0)) isTerminus = true;           // Handle the situation that a node has only two connected segments.（處理只有兩個連接路段的節點。）
+                    if (isTerminus && isRoundabout && (roadCount > 1)) isTerminus = false;  // Force to include the inner ring for roundabouts with two connected segments.（強迫納入只有兩個連接路段圓環的內環。）
+                }
+
+                if ((stat.category & trackCategory) != 0)
+                {
+                    if ((trackCount <= 2) && (roadCount == 0)) isTerminus = true;           // Handle the situation that a node has only two connected segments.（處理只有兩個連接路段的節點。）
+                }
+
+                return isTerminus;
+            }
         }
 
         /// <summary>
@@ -1450,7 +1469,12 @@ namespace Carto.Systems
         /// （收集網路中心線的工作。）
         /// </summary>
         public partial struct CollectCenterlinesJob : IJobParallelFor
-        {
+        {            
+            /*
+             * This job can't be a Burst-compile job, since it has to dynamically create and dispose native containers through managed method.
+             * （這個工作無法使用 Burst 編譯，因為它需要使用受控記憶體方法去動態創造與拋棄原生容器。）
+             */
+            
             [ReadOnly]
             public BufferLookup<ConnectedEdge> connectedEdgeBufferLookup;
 
@@ -1485,6 +1509,9 @@ namespace Carto.Systems
             public NativeParallelHashMap<Entity, int> nodeCountEntityMap;
 
             [ReadOnly]
+            public NativeParallelHashMap<Entity, int> statsIndexMap;
+
+            [ReadOnly]
             public NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap;
 
             [ReadOnly]
@@ -1511,15 +1538,68 @@ namespace Carto.Systems
                         connectedEdgeBufferLookup.TryGetBuffer(network, out DynamicBuffer<ConnectedEdge> connectedEdges) &&
                         nodeLookup.TryGetComponent(network, out Node nodeComponent))
                     {
-                        float radius = (roundabout.innerRingRadius + roundabout.outerRingRadius) / 2;
-                        int nodeCount = Utils.MathUtils.CountInterpolationPoints(radius, 0.5f);
-                        double angle = 2 * math.PI_DBL / nodeCount;
+                        NativeHashMap<double, double3> azimuthMap = new(count, Allocator.Persistent);
+                        Entity node = networkStat.entity;
+                        float3 nodePosition = nodeComponent.m_Position;
+                        double radius = (roundabout.innerRingRadius + roundabout.outerRingRadius) / 2d;
+                        int nodeCount = Utils.MathUtils.CountInterpolationPoints((float)radius, 0.5f);
+                        double angle = math.PI2_DBL / nodeCount;
+                        double3 startPoint = Geodata.Transform.Apply(center.Shift(nodePosition.xzy).Shift(0d, radius, 0d), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3();
 
-                        for (int i = 0; i < nodeCount + 1; i++)
+                        for (int i = 0; i < nodeCount; i++)
                         {
-                            float3 delta = new((float)(radius * -math.sin(angle * i)), (float)(radius * math.cos(angle * i)), 0);
-                            nodes.Add(Geodata.Transform.Apply(center.Shift(nodeComponent.m_Position.xzy + delta), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3());
+                            double rotation = (i + 1) * angle;
+                            double deltaX = math.sin(rotation) * radius;
+                            double deltaY = math.cos(rotation) * radius;
+                            azimuthMap.Add(rotation,
+                                           Geodata.Transform.Apply(center.Shift(nodePosition.xzy).Shift(deltaX, deltaY, 0d), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3());
                         }
+
+                        for (int i = 0; i < connectedEdges.Length; i++)
+                        {
+                            Entity connectedEdge = connectedEdges[i].m_Edge;
+                            if (!nodeCountEntityMap.TryGetValue(connectedEdge, out int edgeNodeCount) ||
+                                !statsIndexMap.TryGetValue(connectedEdge, out int listIndex) ||
+                                (listIndex >= networkStats.Length) ||
+                                (listIndex < 0)) continue;
+
+                            NetworkStat edgeStat = networkStats[listIndex];
+                            bool roundaboutIsEndNode = node.Equals(edgeStat.end);
+                            bool roundaboutIsStartNode = node.Equals(edgeStat.start);
+                            if (!roundaboutIsEndNode && !roundaboutIsStartNode) continue;
+
+                            NativeList<double3> edgeNodes = new(edgeNodeCount, Allocator.Persistent);
+
+                            ConstructCenterlineNodes(edgeStat, ref edgeNodes, ref roundaboutEntityMap,
+                                                     ref curveLookup, ref edgeLookup, ref endNodeGeometryLookup,
+                                                     ref nodeLookup, ref startNodeGeometryLookup);
+
+                            double3 connectionPoint = default;
+                            if (roundaboutIsEndNode) connectionPoint = edgeNodes[^1];
+                            if (roundaboutIsStartNode) connectionPoint = edgeNodes[0];
+
+                            double azimuth = Utils.MathUtils.Azimuth(nodePosition.xzy, connectionPoint);
+                            azimuthMap.Add(azimuth,
+                                           Geodata.Transform.Apply(center.Shift(connectionPoint.x, connectionPoint.y, connectionPoint.z), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3());
+
+                            Utils.CommonUtils.Dispose(ref edgeNodes);
+                        }
+
+                        NativeArray<double> azimuthsArray = azimuthMap.GetKeyArray(Allocator.Persistent);
+                        Utils.CommonUtils.Sort(ref azimuthsArray);
+                        nodes.Capacity = azimuthsArray.Length + 2;
+                        
+                        nodes.Add(startPoint);
+
+                        for (int i = azimuthsArray.Length - 1; i >= 0; i--)
+                        {
+                            if (azimuthMap.TryGetValue(azimuthsArray[i], out double3 coordinate)) nodes.Add(coordinate);
+                        }
+
+                        nodes.Add(startPoint);
+
+                        Utils.CommonUtils.Dispose(ref azimuthsArray);
+                        Utils.CommonUtils.Dispose(ref azimuthMap);
                     }
                 }
                 else
@@ -2108,15 +2188,105 @@ namespace Carto.Systems
         }
 
         /// <summary>
-        /// The job to count the number of nodes for each centerline.
-        /// （計算每條中心線節點數量的工作。）
+        /// The job to map roundabout attachements to a roundabout nodes.
+        /// （將圓環附件映射至圓環節點的工作。）
         /// </summary>
         [BurstCompile]
-        public partial struct CountCenterlineNodesJob : IJobParallelFor
+        public partial struct MapRoundaboutAttachmentsJob : IJobEntity
+        {
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, Entity>.ParallelWriter entityMap;
+
+            public void Execute(in Attached attached, Entity attachment)
+            {
+                entityMap.TryAdd(attached.m_Parent, attachment);
+            }
+        }
+
+        /// <summary>
+        /// The job to populate the pre-requirements for boundary geometries.
+        /// （填入邊界幾何所需的前置資料的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct PopulateBoundaryPreRequirementsJob : IJobParallelFor
+        {
+            [ReadOnly]
+            public ComponentLookup<EdgeGeometry> edgeGeometryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<EndNodeGeometry> endNodeGeometryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<StartNodeGeometry> startNodeGeometryLookup;
+
+            [ReadOnly]
+            public NativeList<NetworkStat> networkStats;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter nodeCountMap;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter statsIndexMap;
+
+            public void Execute(int index)
+            {
+                NetworkStat networkStat = networkStats[index];
+                Entity network = networkStat.entity;
+                statsIndexMap.TryAdd(network, index);
+
+                if (!edgeGeometryLookup.TryGetComponent(network, out EdgeGeometry edgeGeometry) ||
+                    !endNodeGeometryLookup.TryGetComponent(network, out EndNodeGeometry endNodeGeometry) ||
+                    !startNodeGeometryLookup.TryGetComponent(network, out StartNodeGeometry startNodeGeometry)) return;
+
+                bool endNodeIsRoundabout = networkStat.roundabout.y;
+                bool startNodeIsRoundabout = networkStat.roundabout.x;
+                int count = 0;
+
+                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_End.m_Left, SegmentInterpolationThreshold, SegmentInterpolationGap);
+                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_Start.m_Left, SegmentInterpolationThreshold, SegmentInterpolationGap);
+                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_End.m_Right, SegmentInterpolationThreshold, SegmentInterpolationGap);
+                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_Start.m_Right, SegmentInterpolationThreshold, SegmentInterpolationGap);
+
+                if (endNodeIsRoundabout)
+                {
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                }
+                else
+                {
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Left, NodeInterpolationThreshold, NodeInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Right, NodeInterpolationThreshold, NodeInterpolationGap);
+                }
+
+                if (startNodeIsRoundabout)
+                {
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
+                }
+                else
+                {
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Left, NodeInterpolationThreshold, NodeInterpolationGap);
+                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Right, NodeInterpolationThreshold, NodeInterpolationGap);
+                }
+
+                nodeCountMap.TryAdd(network, count);
+            }
+        }
+
+        /// <summary>
+        /// The job to populate the pre-requirements for centerline geometries.
+        /// （填入中心線幾何所需的前置資料的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct PopulateCenterlinePreRequirementsJob : IJobParallelFor
         {
             [ReadOnly]
             public BufferLookup<ConnectedEdge> connectedEdgeBufferLookup;
-            
+
             [ReadOnly]
             public ComponentLookup<Curve> curveLookup;
 
@@ -2134,6 +2304,9 @@ namespace Carto.Systems
 
             [WriteOnly]
             public NativeParallelHashMap<Entity, int>.ParallelWriter nodeCountEntityMap;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, int>.ParallelWriter statsIndexMap;
 
             public void Execute(int index)
             {
@@ -2210,95 +2383,7 @@ namespace Carto.Systems
                 }
 
                 nodeCountEntityMap.TryAdd(network, count);
-            }
-        }
-
-        /// <summary>
-        /// The job to map roundabout attachements to a roundabout nodes.
-        /// （將圓環附件映射至圓環節點的工作。）
-        /// </summary>
-        [BurstCompile]
-        public partial struct MapRoundaboutAttachmentsJob : IJobEntity
-        {
-            [WriteOnly]
-            public NativeParallelHashMap<Entity, Entity>.ParallelWriter entityMap;
-
-            public void Execute(in Attached attached, Entity attachment)
-            {
-                entityMap.TryAdd(attached.m_Parent, attachment);
-            }
-        }
-
-        /// <summary>
-        /// The job to populate the pre-requirements for boundary geometries.
-        /// （填入邊界幾何所需的前置資料的工作。）
-        /// </summary>
-        public partial struct PopulateBoundaryPreRequirementsJob : IJobParallelFor
-        {
-            [ReadOnly]
-            public ComponentLookup<EdgeGeometry> edgeGeometryLookup;
-
-            [ReadOnly]
-            public ComponentLookup<EndNodeGeometry> endNodeGeometryLookup;
-
-            [ReadOnly]
-            public ComponentLookup<StartNodeGeometry> startNodeGeometryLookup;
-
-            [ReadOnly]
-            public NativeList<NetworkStat> networkStats;
-
-            [WriteOnly]
-            public NativeParallelHashMap<Entity, int>.ParallelWriter nodeCountMap;
-
-            [WriteOnly]
-            public NativeParallelHashMap<Entity, int>.ParallelWriter statsIndexMap;
-
-            public void Execute(int index)
-            {
-                NetworkStat networkStat = networkStats[index];
-                Entity network = networkStat.entity;
                 statsIndexMap.TryAdd(network, index);
-
-                if (!edgeGeometryLookup.TryGetComponent(network, out EdgeGeometry edgeGeometry) ||
-                    !endNodeGeometryLookup.TryGetComponent(network, out EndNodeGeometry endNodeGeometry) ||
-                    !startNodeGeometryLookup.TryGetComponent(network, out StartNodeGeometry startNodeGeometry)) return;
-
-                bool endNodeIsRoundabout = networkStat.roundabout.y;
-                bool startNodeIsRoundabout = networkStat.roundabout.x;
-                int count = 0;
-
-                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_End.m_Left, SegmentInterpolationThreshold, SegmentInterpolationGap);
-                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_Start.m_Left, SegmentInterpolationThreshold, SegmentInterpolationGap);
-                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_End.m_Right, SegmentInterpolationThreshold, SegmentInterpolationGap);
-                count += Utils.MathUtils.CountInterpolationPoints(edgeGeometry.m_Start.m_Right, SegmentInterpolationThreshold, SegmentInterpolationGap);
-
-                if (endNodeIsRoundabout)
-                {
-                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
-                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
-                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
-                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
-                }
-                else
-                {
-                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Left.m_Left, NodeInterpolationThreshold, NodeInterpolationGap);
-                    count += Utils.MathUtils.CountInterpolationPoints(endNodeGeometry.m_Geometry.m_Right.m_Right, NodeInterpolationThreshold, NodeInterpolationGap);
-                }
-
-                if (startNodeIsRoundabout)
-                {
-                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
-                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Right, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
-                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
-                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Left, RoundaboutInterpolationThreshold, RoundaboutInterpolationGap);
-                }
-                else
-                {
-                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Left.m_Left, NodeInterpolationThreshold, NodeInterpolationGap);
-                    count += Utils.MathUtils.CountInterpolationPoints(startNodeGeometry.m_Geometry.m_Right.m_Right, NodeInterpolationThreshold, NodeInterpolationGap);
-                }
-
-                nodeCountMap.TryAdd(network, count);
             }
         }
 

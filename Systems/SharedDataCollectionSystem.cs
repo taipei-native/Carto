@@ -348,6 +348,7 @@ namespace Carto.Systems
         /// </summary>
         protected override void OnDestroy()
         {
+            _zcc.Dispose();
             Dispose();
             base.OnDestroy();
         }
@@ -364,7 +365,6 @@ namespace Carto.Systems
         /// </summary>
         public void Dispose()
         {
-            _zcc.Dispose();
             Utils.CommonUtils.Dispose(ref _brandsEntityMap);
             Utils.CommonUtils.Dispose(ref _buildingStats);
             Utils.CommonUtils.Dispose(ref _worldElevation);

@@ -284,7 +284,7 @@ namespace Carto.Utils
         /// </summary>
         /// <param name="vector">The reference vector.（參考向量。）</param>
         /// <returns>The angle in radians.（以弳度計算的角度。）</returns>
-        public static double Azimuth(float2 vector)
+        public static double Azimuth(double2 vector)
         {
             double len = Hypot(vector.x, vector.y);
             double angle = math.asin(vector.x / len);
@@ -307,7 +307,7 @@ namespace Carto.Utils
         /// </summary>
         /// <param name="vector">The reference vector.（參考向量。）</param>
         /// <returns>The angle in radians.（以弳度計算的角度。）</returns>
-        public static double Azimuth(float3 vector) => Azimuth(vector.xz);
+        public static double Azimuth(double3 vector) => Azimuth(vector.xz);
 
         /// <summary>
         /// Find out the bearing angle of the destination.
@@ -316,7 +316,7 @@ namespace Carto.Utils
         /// <param name="fromLocation">The start position.（開始位置。）</param>
         /// <param name="toLocation">The end position.（結束位置。）</param>
         /// <returns>The angle in radians.（以弳度計算的角度。）</returns>
-        public static double Azimuth(float2 fromLocation, float2 toLocation) => Azimuth(toLocation - fromLocation);
+        public static double Azimuth(double2 fromLocation, double2 toLocation) => Azimuth(toLocation - fromLocation);
 
         /// <summary>
         /// Find out the bearing angle of the destination.
@@ -325,7 +325,7 @@ namespace Carto.Utils
         /// <param name="fromLocation">The start position.（開始位置。）</param>
         /// <param name="toLocation">The end position.（結束位置。）</param>
         /// <returns>The angle in radians.（以弳度計算的角度。）</returns>
-        public static double Azimuth(float3 fromLocation, float3 toLocation) => Azimuth(toLocation.xz - fromLocation.xz);
+        public static double Azimuth(double3 fromLocation, double3 toLocation) => Azimuth(toLocation.xz - fromLocation.xz);
 
         /// <summary>
         /// Construct a tight bounding box for the bezier curve.
@@ -770,14 +770,14 @@ namespace Carto.Utils
                 double x;
                 double y;
                 double z;
-                double x0 = roundabout.position.x;
-                double y0 = roundabout.position.z;
+                double x0 = center.x;
+                double y0 = center.y;
                 double x1 = pointA.x;
                 double y1 = pointA.y;
                 double x2 = pointB.x;
                 double y2 = pointB.y;
 
-                if (x2 - x1 < Roots.Epsilon)
+                if (math.abs(x2 - x1) < Roots.Epsilon)
                 {
                     x = x2;
                     Roots yRoots = Roots.Solve(0, 1, -2 * y0, (y0 * y0) + ((x - x0) * (x - x0)) - (radius * radius));
