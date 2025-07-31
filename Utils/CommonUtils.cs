@@ -395,6 +395,17 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Retrieve the number of named flags from the enum type.
+        /// （由枚舉型別獲得命名旗標的數量。）
+        /// </summary>
+        /// <typeparam name="T">The type of the enum.（枚舉的型別。）</typeparam>
+        /// <returns>The number of flags.（旗標的數量。）</returns>
+        public static int GetNamedFlagsCount<T>() where T : Enum
+        {
+            return Enum.GetValues(typeof(T)).Length;
+        }
+
+        /// <summary>
         /// Inserts an element into the list at the specified index.
         /// （在列表的特定位置插入一個元素。）
         /// </summary>

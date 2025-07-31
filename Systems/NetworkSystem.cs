@@ -16,10 +16,12 @@ using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -233,7 +235,6 @@ namespace Carto.Systems
                 {
                     ComponentType.ReadOnly<Building>(),
                     ComponentType.ReadOnly<Game.Objects.SpawnLocation>(),
-                    ComponentType.ReadOnly<Pillar>(),
                     ComponentType.ReadOnly<Game.Routes.TransportStop>(),
                     ComponentType.ReadOnly<Deleted>(),
                     ComponentType.ReadOnly<Temp>()
@@ -593,6 +594,34 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Retrieve the field infos.
+        /// （獲得欄位資訊。）
+        /// </summary>
+        /// <param name="fieldMap">The managed map between property and field infos.（屬性與欄位資訊的受控管記憶體映射表。）</param>
+        private void GetFieldInfos(Dictionary<Property, FieldInfo> fieldMap)
+        {
+            NativeHashMap<EnumWrapper<Property>, FieldInfo> propertyFieldInfoNativeMap = new(IO.IO.PropertyCount, Allocator.Persistent);
+
+            AggregateFieldInfosJob aggregateJob = new()
+            {
+                networkStats = _localNetworkStats,
+                propertyFieldInfoMap = propertyFieldInfoNativeMap
+            };
+            JobHandle aggregateHandle = aggregateJob.Schedule();
+            aggregateHandle.Complete();
+
+            NativeHashMap<EnumWrapper<Property>, FieldInfo>.Enumerator enumerator = propertyFieldInfoNativeMap.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                Property property = enumerator.Current.Key.value;
+                FieldInfo fieldInfo = enumerator.Current.Value;
+                fieldMap.Add(property, Shapefile.ApplyFieldInfoConstraint(property, fieldInfo));
+            }
+
+            Utils.CommonUtils.Dispose(ref propertyFieldInfoNativeMap);
+        }
+
+        /// <summary>
         /// Retrieve the statistics of the network lanes.
         /// （獲得網路的車道統計資訊。）
         /// </summary>
@@ -845,6 +874,90 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Prepare all network statistics before exporting files.
+        /// （在輸出檔案前準備好網路統計資料。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        private void PrepareNetworkStats(Options options)
+        {
+            bool hasName = options.Contains(Property.Name, IO.System.Network);
+            bool hasAsset = options.Contains(Property.Asset, IO.System.Network);
+            bool hasCategory = options.Contains(Property.Category, IO.System.Network);
+
+            // Retrieve network statistics.（獲得網路的統計資訊。）
+            GetNetworkStats(options);
+
+            /*
+             * The `_localNetworkStats` and `_roundaboutEntityMap` properties should be initialized in `GetNetworkStats()`.
+             * The additional validity check is performed to ensure safety.
+             * （`_localNetworkStats` 及 `_roundaboutEntityMap` 屬性應在 `GetNetworkStats()` 被初始化。為確保安全，將執行額外的驗證。）
+             */
+            // Validate native containers integrity.（驗證原生容器的完整性。）
+            Utils.CommonUtils.ValidateIntegrity(ref _localNetworkStats, true);
+            Utils.CommonUtils.ValidateIntegrity(ref _roundaboutEntityMap, true);
+
+            // Initialize managed containers.（初始化控管容器。）
+            _networkAssets ??= new();
+            _networkCategories ??= new();
+            _networkNames ??= new();
+            _networkAssets.Clear();
+            _networkCategories.Clear();
+            _networkNames.Clear();
+            Dictionary<Entity, NetworkCategory> roadCategoryUIGroups = GetRoadCategoryUIGroups();
+
+            // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
+            if (hasName || hasAsset || hasCategory)
+            {
+                for (int i = 0; i < _localNetworkStats.Length; i++)
+                {
+                    NetworkStat networkStat = _localNetworkStats[i];
+                    string aggregationName = (networkStat.aggregation != Entity.Null) ? _name.GetRenderedLabelName(networkStat.aggregation) : string.Empty;
+                    Match assetTitleMatch = Regex.Match(aggregationName, @"Assets\.NAME\[(.*?)\]");
+                    if (assetTitleMatch.Success)
+                    {
+                        string prefabName = assetTitleMatch.Groups[1].Value;
+                        if (LocaleUtils.TryTranslate(aggregationName, out string assetName))
+                        {
+                            aggregationName = assetName;
+                        }
+                        else if (LocaleUtils.TryTranslate($"SubServices.NAME[{prefabName}s]", out string subServiceName))
+                        {
+                            // Pathways（人行道）
+                            aggregationName = subServiceName;
+                        }
+                        else if (LocaleUtils.TryTranslate($"Infoviews.INFOMODE[{prefabName}s]", out string infoviewName))
+                        {
+                            // Subway & train tracks（地鐵與火車軌道）
+                            aggregationName = infoviewName;
+                        }
+                        else if ((prefabName == "Seaway") && LocaleUtils.TryTranslate("Infoviews.INFOMODE[Waterways]", out string infoviewWaterwayName))
+                        {
+                            // Waterway（航道）
+                            aggregationName = infoviewWaterwayName;
+                        }
+                        else
+                        {
+                            aggregationName = string.Empty;
+                        }
+                    }
+
+                    _networkNames.Add(aggregationName);
+
+                    if (networkStat.isRoundabout)
+                    {
+                        _networkAssets.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_prefab.GetPrefabName(networkStat.prefab)}]", out string assetName) ? assetName : string.Empty);
+                    }
+                    else
+                    {
+                        _networkAssets.Add(_name.GetRenderedLabelName(networkStat.entity));
+                    }
+
+                    _networkCategories.Add(GetCategory(options.RoadClassification, networkStat, roadCategoryUIGroups));
+                }
+            }
+        }
+
+        /// <summary>
         /// Round the speed limit to more "beautiful" numbers.
         /// （將速度限制數字取整為「漂亮的」數字。）
         /// </summary>
@@ -861,22 +974,6 @@ namespace Carto.Systems
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
         private void WriteBoundaryFeatures(JsonTextWriter writer, Options options, Action<string, int> onReportMethod)
         {
-            bool hasName = options.Contains(Property.Name, IO.System.Network);
-            bool hasAsset = options.Contains(Property.Asset, IO.System.Network);
-            bool hasCapacity = options.Contains(Property.Capacity, IO.System.Network);
-            bool hasCategory = options.Contains(Property.Category, IO.System.Network);
-            bool hasDirection = options.Contains(Property.Direction, IO.System.Network);
-            bool hasDischarge = options.Contains(Property.Discharge, IO.System.Network);
-            bool hasElevation = options.Contains(Property.Elevation, IO.System.Network);
-            bool hasForm = options.Contains(Property.Form, IO.System.Network);
-            bool hasLane = options.Contains(Property.Lane, IO.System.Network);
-            bool hasLength = options.Contains(Property.Length, IO.System.Network);
-            bool hasLimit = options.Contains(Property.Limit, IO.System.Network);
-            bool hasLoad = options.Contains(Property.Load, IO.System.Network);
-            bool hasObject = options.Contains(Property.Object, IO.System.Network);
-            bool hasVolume = options.Contains(Property.Volume, IO.System.Network);
-            bool hasWidth = options.Contains(Property.Width, IO.System.Network);
-
             // Initialize native containers.（初始化原生容器。）
             NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap = new(_networkQuery.CalculateEntityCount(), Allocator.Persistent);
 
@@ -903,6 +1000,8 @@ namespace Carto.Systems
                         writer.WritePropertyName("properties");
                         writer.WriteStartObject();
 
+                        WriteGeoJson(writer, options, networkStat, i, _networkNames, _networkAssets, _networkCategories);
+
                         writer.WriteEndObject();
                         writer.WriteEndObject();
 
@@ -925,6 +1024,78 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Write boundary geometries to the designated file.
+        /// （寫出邊界幾何至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
+        /// <param name="bounds">The bounding box.（定界框。）</param>
+        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
+        private void WriteBoundarySHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds, out List<Entity> entitySyncList)
+        {
+            // Initialize native containers.（初始化原生容器。）
+            NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap = new(_networkQuery.CalculateEntityCount(), Allocator.Persistent);
+
+            // Initialize out parameters.（初始化回傳參數。）
+            Bounds3 _bounds = new();
+            _bounds.Reset();
+            List<Entity> _entitySyncList = new();
+            List<Shapefile.IndexPair> _indexPairs = new();
+
+            try
+            {
+                GetBoundaries(options, ref nodeEntityMap);
+
+                Task writerThread = Task.Run(() =>
+                {
+                    int enumeratorIndex = 0;
+                    int shapeId = Shapefile.GetShapeType(VectorKind.Boundary, options.Elevation);
+                    NativeParallelHashMap<Entity, NativeList<double3>>.Enumerator enumerator = nodeEntityMap.GetEnumerator();
+
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            enumeratorIndex++;
+                            KeyValue<Entity, NativeList<double3>> feature = enumerator.Current;
+                            Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(ref feature.Value), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            _bounds |= featureBounds;
+                            _entitySyncList.Add(feature.Key);
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                    else
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            enumeratorIndex++;
+                            KeyValue<Entity, NativeList<double3>> feature = enumerator.Current;
+                            Shapefile.WriteGeometryBE(writer, enumeratorIndex, shapeId, new(ref feature.Value), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            _bounds |= featureBounds;
+                            _entitySyncList.Add(feature.Key);
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                bounds = _bounds;
+                entitySyncList = _entitySyncList;
+                indexPairs = _indexPairs;
+            }
+        }
+
+        /// <summary>
         /// Write centerline features (geometries and properties) to the designated file.
         /// （寫出中線圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
@@ -933,22 +1104,6 @@ namespace Carto.Systems
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
         private void WriteCenterlineFeatures(JsonTextWriter writer, Options options, Action<string, int> onReportMethod)
         {
-            bool hasName = options.Contains(Property.Name, IO.System.Network);
-            bool hasAsset = options.Contains(Property.Asset, IO.System.Network);
-            bool hasCapacity = options.Contains(Property.Capacity, IO.System.Network);
-            bool hasCategory = options.Contains(Property.Category, IO.System.Network);
-            bool hasDirection = options.Contains(Property.Direction, IO.System.Network);
-            bool hasDischarge = options.Contains(Property.Discharge, IO.System.Network);
-            bool hasElevation = options.Contains(Property.Elevation, IO.System.Network);
-            bool hasForm = options.Contains(Property.Form, IO.System.Network);
-            bool hasLane = options.Contains(Property.Lane, IO.System.Network);
-            bool hasLength = options.Contains(Property.Length, IO.System.Network);
-            bool hasLimit = options.Contains(Property.Limit, IO.System.Network);
-            bool hasLoad = options.Contains(Property.Load, IO.System.Network);
-            bool hasObject = options.Contains(Property.Object, IO.System.Network);
-            bool hasVolume = options.Contains(Property.Volume, IO.System.Network);
-            bool hasWidth = options.Contains(Property.Width, IO.System.Network);
-
             // Initialize native containers.（初始化原生容器。）
             NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap = new(_networkQuery.CalculateEntityCount(), Allocator.Persistent);
 
@@ -975,69 +1130,7 @@ namespace Carto.Systems
                         writer.WritePropertyName("properties");
                         writer.WriteStartObject();
 
-                        if (hasName)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Name, _networkNames[i]);
-                        }
-                        if (hasAsset)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Asset, _networkAssets[i]);
-                        }
-                        //if (hasCapacity)
-                        //{
-                            // TODO: Not available in 1.0.0 release.
-                        //}
-                        if (hasCategory)
-                        {
-                            NetworkCategory category = _networkCategories[i];
-                            category = options.Display[(Property.Category, IO.System.Network)] ? category : Utils.CommonUtils.GetFirstMatch(category, IO.IO.NetworkCategoryDisplayOrder);
-                            GeoJson.WriteProperty(writer, Property.Category, category.ToString("G"));
-                        }
-                        if (hasDirection)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Direction, networkStat.direction.ToString("G"));
-                        }
-                        //if (hasDischarge)
-                        //{
-                            // TODO: Not available in 1.0.0 release.
-                        //}
-                        if (hasElevation)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Elevation, networkStat.elevation);
-                        }
-                        if (hasForm)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Form, networkStat.form.ToString("G"));
-                        }
-                        if (hasLane)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Lane, networkStat.lane);
-                        }
-                        if (hasLength)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Length, networkStat.length);
-                        }
-                        if (hasLimit)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Limit, networkStat.limit);
-                        }
-                        //if (hasLoad)
-                        //{
-                            // TODO: Not available in 1.0.0 release.
-                        //}
-                        if (hasObject)
-                        {
-                            Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? networkStat.Object : Utils.CommonUtils.GetFirstMatch(networkStat.Object, IO.IO.FeatureDisplayOrder);
-                            GeoJson.WriteProperty(writer, Property.Object, displayType.ToString("G"));
-                        }
-                        if (hasVolume)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Volume, networkStat.volume);
-                        }
-                        if (hasWidth)
-                        {
-                            GeoJson.WriteProperty(writer, Property.Width, networkStat.width);
-                        }
+                        WriteGeoJson(writer, options, networkStat, i, _networkNames, _networkAssets, _networkCategories);
 
                         writer.WriteEndObject();
                         writer.WriteEndObject();
@@ -1061,6 +1154,251 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Write centerline geometries to the designated file.
+        /// （寫出中心線幾何至指定的檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="indexPairs">The index pairs used in .shx file.（用於 .shx 檔案的索引對。）</param>
+        /// <param name="bounds">The bounding box.（定界框。）</param>
+        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
+        private void WriteCenterlineSHP(BinaryWriter writer, Options options, out List<Shapefile.IndexPair> indexPairs, out Bounds3 bounds, out List<Entity> entitySyncList)
+        {
+            // Initialize native containers.（初始化原生容器。）
+            NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap = new(_networkQuery.CalculateEntityCount(), Allocator.Persistent);
+
+            // Initialize out parameters.（初始化回傳參數。）
+            Bounds3 _bounds = new();
+            _bounds.Reset();
+            List<Entity> _entitySyncList = new();
+            List<Shapefile.IndexPair> _indexPairs = new();
+
+            try
+            {
+                GetCenterlines(options, ref nodeEntityMap);
+
+                Task writerThread = Task.Run(() =>
+                {
+                    int enumeratorIndex = 0;
+                    int shapeId = Shapefile.GetShapeType(VectorKind.Centerline, options.Elevation);
+                    NativeParallelHashMap<Entity, NativeList<double3>>.Enumerator enumerator = nodeEntityMap.GetEnumerator();
+
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            enumeratorIndex++;
+                            KeyValue<Entity, NativeList<double3>> feature = enumerator.Current;
+                            Shapefile.WriteGeometryLE(writer, enumeratorIndex, shapeId, new(ref feature.Value), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            _bounds |= featureBounds;
+                            _entitySyncList.Add(feature.Key);
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                    else
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            enumeratorIndex++;
+                            KeyValue<Entity, NativeList<double3>> feature = enumerator.Current;
+                            Shapefile.WriteGeometryBE(writer, enumeratorIndex, shapeId, new(ref feature.Value), out Shapefile.IndexPair indexPair, out Bounds3 featureBounds);
+                            _bounds |= featureBounds;
+                            _entitySyncList.Add(feature.Key);
+                            _indexPairs.Add(indexPair);
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                IO.IO.DisposeAll();
+            }
+            finally
+            {
+                Utils.CommonUtils.Dispose(ref nodeEntityMap);
+                bounds = _bounds;
+                entitySyncList = _entitySyncList;
+                indexPairs = _indexPairs;
+            }
+        }
+
+        /// <summary>
+        /// Write attributes to the designated DBF file.
+        /// （寫出屬性至指定的 DBF 檔案中。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="validatedFields">The actually written fields.（實際寫入的欄位。）</param>
+        /// <param name="entitySyncList">The list of entities, which is the reference of synchronization.（實體的列表，作為同步的參考。）</param>
+        /// <param name="fieldMap">The map between the property and the fields.（屬性與欄位的映射表。）</param>
+        private void WriteDBF(BinaryWriter writer, Options options, HashSet<Property> validatedFields, List<Entity> entitySyncList, out Dictionary<Property, FieldInfo> fieldMap)
+        {
+            bool hasName = options.Contains(Property.Name, IO.System.Network) && validatedFields.Contains(Property.Name);
+            bool hasAsset = options.Contains(Property.Asset, IO.System.Network) && validatedFields.Contains(Property.Asset);
+            bool hasCapacity = options.Contains(Property.Capacity, IO.System.Network) && validatedFields.Contains(Property.Capacity);
+            bool hasCategory = options.Contains(Property.Category, IO.System.Network) && validatedFields.Contains(Property.Category);
+            bool hasDirection = options.Contains(Property.Direction, IO.System.Network) && validatedFields.Contains(Property.Direction);
+            bool hasDischarge = options.Contains(Property.Discharge, IO.System.Network) && validatedFields.Contains(Property.Discharge);
+            bool hasElevation = options.Contains(Property.Elevation, IO.System.Network) && validatedFields.Contains(Property.Elevation);
+            bool hasForm = options.Contains(Property.Form, IO.System.Network) && validatedFields.Contains(Property.Form);
+            bool hasLane = options.Contains(Property.Lane, IO.System.Network) && validatedFields.Contains(Property.Lane);
+            bool hasLength = options.Contains(Property.Length, IO.System.Network) && validatedFields.Contains(Property.Length);
+            bool hasLimit = options.Contains(Property.Limit, IO.System.Network) && validatedFields.Contains(Property.Limit);
+            bool hasLoad = options.Contains(Property.Load, IO.System.Network) && validatedFields.Contains(Property.Load);
+            bool hasObject = options.Contains(Property.Object, IO.System.Network) && validatedFields.Contains(Property.Object);
+            bool hasVolume = options.Contains(Property.Volume, IO.System.Network) && validatedFields.Contains(Property.Volume);
+            bool hasWidth = options.Contains(Property.Width, IO.System.Network) && validatedFields.Contains(Property.Width);
+
+            // Validate native containers integrity.（驗證原生容器的完整性。）
+            Utils.CommonUtils.ValidateIntegrity(ref _localNetworkStats, true);
+
+            // Initialize native containers.（初始化原生容器。）
+            NativeParallelHashMap<Entity, int> syncMap = new(_localNetworkStats.Length, Allocator.Persistent);
+
+            // Initialize managed containers.（初始化控管容器。）
+            Dictionary<Property, FieldInfo> _fieldMap = new();
+
+            try
+            {
+                FieldInfo assetField = new(0, 0, false, FieldType.String);
+                FieldInfo categoryField = new(0, 0, false, FieldType.String);
+                FieldInfo directionField = new(Direction.Backward.ToString("G"));
+                FieldInfo formField = new(Form.Elevated.ToString("G"));
+                FieldInfo nameField = new(0, 0, false, FieldType.String);
+                FieldInfo objectField = new(0, 0, false, FieldType.String);
+
+                // Sync the entity order with that of the .shp file.（與 .shp 檔案的實體順序同步。）
+                Shapefile.SyncStatsToIndex(entitySyncList, ref _localNetworkStats, ref syncMap);
+
+                // Retrieve the field info for Burst-compatible fields.（獲得可 Burst 編譯屬性的欄位資訊。）
+                GetFieldInfos(_fieldMap);
+
+                for (int index = 0; index < entitySyncList.Count; index++)
+                {
+                    if (!syncMap.TryGetValue(entitySyncList[index], out int i))
+                    {
+                        _log.Error($"Couldn't find the statistical object of {entitySyncList[index]} at index {index}. 無法找到位於索引值 {index} 的實體 {entitySyncList[index]} 之統計物件。");
+                        continue;
+                    }
+
+                    NetworkCategory category = _networkCategories[i];
+                    NetworkStat networkStat = _localNetworkStats[i];
+                    Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? networkStat.Object : Utils.CommonUtils.GetFirstMatch(networkStat.Object, IO.IO.FeatureDisplayOrder);
+                    category = options.Display[(Property.Category, IO.System.Network)] ? category : Utils.CommonUtils.GetFirstMatch(category, IO.IO.NetworkCategoryDisplayOrder);
+
+                    nameField  += new FieldInfo(_networkNames[i]);
+                    assetField += new FieldInfo(_networkAssets[i]);
+                    categoryField += new FieldInfo(category.ToString("G"));
+                    objectField += new FieldInfo(displayType.ToString("G"));
+                }
+
+                _fieldMap.Add(Property.Asset, assetField);
+                _fieldMap.Add(Property.Category, categoryField);
+                _fieldMap.Add(Property.Direction, directionField);
+                _fieldMap.Add(Property.Form, formField);
+                _fieldMap.Add(Property.Name, nameField);
+                _fieldMap.Add(Property.Object, objectField);
+                
+                Task writerThread = Task.Run(() =>
+                {
+                    for (int index = 0; index < entitySyncList.Count; index++)
+                    {
+                        if (!syncMap.TryGetValue(entitySyncList[index], out int i))
+                        {
+                            // Do nothing. The order of records have to be consistent across .dbf, .shp, and .shx files.
+                            // （不做任何事。記錄的順序必須在 .dbf、.shp 和 .shx 檔案間保持一致。）
+                        }
+                        
+                        NetworkStat networkStat = _localNetworkStats[i];
+                        Entity network = networkStat.entity;
+                        writer.Write((byte)32);
+
+                        if (hasName)
+                        {
+                            Shapefile.WriteRecord(writer, nameField, _networkNames[i]);
+                        }
+                        if (hasAsset)
+                        {
+                            Shapefile.WriteRecord(writer, assetField, _networkAssets[i]);
+                        }
+                        //if (hasCapacity)
+                        //{
+                        // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasCategory)
+                        {
+                            NetworkCategory category = _networkCategories[i];
+                            category = options.Display[(Property.Category, IO.System.Network)] ? category : Utils.CommonUtils.GetFirstMatch(category, IO.IO.NetworkCategoryDisplayOrder);
+                            Shapefile.WriteRecord(writer, categoryField, category.ToString("G"));
+                        }
+                        if (hasDirection)
+                        {
+                            Shapefile.WriteRecord(writer, directionField, networkStat.direction.ToString("G"));
+                        }
+                        //if (hasDischarge)
+                        //{
+                        // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasElevation && _fieldMap.TryGetValue(Property.Elevation, out FieldInfo elevationField))
+                        {
+                            Shapefile.WriteRecord(writer, elevationField, networkStat.elevation);
+                        }
+                        if (hasForm)
+                        {
+                            Shapefile.WriteRecord(writer, formField, networkStat.form.ToString("G"));
+                        }
+                        if (hasLane && _fieldMap.TryGetValue(Property.Lane, out FieldInfo laneField))
+                        {
+                            Shapefile.WriteRecord(writer, laneField, networkStat.lane);
+                        }
+                        if (hasLength && _fieldMap.TryGetValue(Property.Length, out FieldInfo lengthField))
+                        {
+                            Shapefile.WriteRecord(writer, lengthField, networkStat.length);
+                        }
+                        if (hasLimit && _fieldMap.TryGetValue(Property.Limit, out FieldInfo limitField))
+                        {
+                            Shapefile.WriteRecord(writer, limitField, networkStat.limit);
+                        }
+                        //if (hasLoad)
+                        //{
+                        // TODO: Not available in 1.0.0 release.
+                        //}
+                        if (hasObject)
+                        {
+                            Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? networkStat.Object : Utils.CommonUtils.GetFirstMatch(networkStat.Object, IO.IO.FeatureDisplayOrder);
+                            Shapefile.WriteRecord(writer, objectField, displayType.ToString("G"));
+                        }
+                        if (hasVolume && _fieldMap.TryGetValue(Property.Volume, out FieldInfo volumeField))
+                        {
+                            Shapefile.WriteRecord(writer, volumeField, networkStat.volume);
+                        }
+                        if (hasWidth && _fieldMap.TryGetValue(Property.Width, out FieldInfo widthField))
+                        {
+                            Shapefile.WriteRecord(writer, widthField, networkStat.width);
+                        }
+                    }
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+                Utils.CommonUtils.Dispose(ref syncMap);
+                IO.IO.DisposeAll();
+            }
+            finally
+            {
+                // The lifecycle of system native containers is managed by `WriteShapefiles()`. DON'T dispose of them here.
+                // （系統原生容器的生命週期是由 `WriteShapefiles()` 管理的。「不要」在此拋棄它們。）
+                fieldMap = _fieldMap;
+                Utils.CommonUtils.Dispose(ref syncMap);
+            }
+        }
+
+        /// <summary>
         /// Write features (geometries and properties) to the designated file.
         /// （寫出圖徵（幾何與屬性）至指定的檔案中。）
         /// </summary>
@@ -1070,83 +1408,10 @@ namespace Carto.Systems
         public void WriteFeatures(Options options, Action<string, int> onReportMethod, out int filesCount)
         {
             filesCount = 0;
-            bool hasName = options.Contains(Property.Name, IO.System.Network);
-            bool hasAsset = options.Contains(Property.Asset, IO.System.Network);
-            bool hasCategory = options.Contains(Property.Category, IO.System.Network);
 
             try
             {
-                // Retrieve network statistics.（獲得網路的統計資訊。）
-                GetNetworkStats(options);
-
-                /*
-                 * The `_localNetworkStats` and `_roundaboutEntityMap` properties should be initialized in `GetNetworkStats()`.
-                 * The additional validity check is performed to ensure safety.
-                 * （`_localNetworkStats` 及 `_roundaboutEntityMap` 屬性應在 `GetNetworkStats()` 被初始化。為確保安全，將執行額外的驗證。）
-                 */
-                // Validate native containers integrity.（驗證原生容器的完整性。）
-                Utils.CommonUtils.ValidateIntegrity(ref _localNetworkStats, true);
-                Utils.CommonUtils.ValidateIntegrity(ref _roundaboutEntityMap, true);
-
-                // Initialize managed containers.（初始化控管容器。）
-                _networkAssets ??= new();
-                _networkCategories ??= new();
-                _networkNames ??= new();
-                _networkAssets.Clear();
-                _networkCategories.Clear();
-                _networkNames.Clear();
-                Dictionary<Entity, NetworkCategory> roadCategoryUIGroups = GetRoadCategoryUIGroups();
-
-                // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
-                if (hasName || hasAsset)
-                {
-                    for (int i = 0; i < _localNetworkStats.Length; i++)
-                    {
-                        NetworkStat networkStat = _localNetworkStats[i];
-                        string aggregationName = (networkStat.aggregation != Entity.Null) ? _name.GetRenderedLabelName(networkStat.aggregation) : string.Empty;
-                        Match assetTitleMatch = Regex.Match(aggregationName, @"Assets\.NAME\[(.*?)\]");
-                        if (assetTitleMatch.Success)
-                        {
-                            string prefabName = assetTitleMatch.Groups[1].Value;
-                            if (LocaleUtils.TryTranslate(aggregationName, out string assetName))
-                            {
-                                aggregationName = assetName;
-                            }
-                            else if (LocaleUtils.TryTranslate($"SubServices.NAME[{prefabName}s]", out string subServiceName))
-                            {
-                                // Pathways（人行道）
-                                aggregationName = subServiceName;
-                            }
-                            else if (LocaleUtils.TryTranslate($"Infoviews.INFOMODE[{prefabName}s]", out string infoviewName))
-                            {
-                                // Subway & train tracks（地鐵與火車軌道）
-                                aggregationName = infoviewName;
-                            }
-                            else if ((prefabName == "Seaway") && LocaleUtils.TryTranslate("Infoviews.INFOMODE[Waterways]", out string infoviewWaterwayName))
-                            {
-                                // Waterway（航道）
-                                aggregationName = infoviewWaterwayName;
-                            }
-                            else
-                            {
-                                aggregationName = string.Empty;
-                            }
-                        }
-
-                        _networkNames.Add(aggregationName);
-
-                        if (networkStat.isRoundabout)
-                        {
-                            _networkAssets.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_prefab.GetPrefabName(networkStat.prefab)}]", out string assetName) ? assetName : string.Empty);
-                        }
-                        else
-                        {
-                            _networkAssets.Add(_name.GetRenderedLabelName(networkStat.entity));
-                        }
-
-                        _networkCategories.Add(GetCategory(options.RoadClassification, networkStat, roadCategoryUIGroups));
-                    }
-                }
+                PrepareNetworkStats(options);
 
                 if (options.Has(IO.System.Network, VectorKind.Boundary))
                 {
@@ -1167,6 +1432,189 @@ namespace Carto.Systems
             finally
             {
                 Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Write <see cref="NetworkStat"/> as GeoJSON.
+        /// （將 <see cref="NetworkStat"/> 寫出為 GeoJSON。）
+        /// </summary>
+        /// <param name="writer">Current file's writer.（目前檔案的寫入者。）</param>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="networkStat">The network statistic container.（網路統計資訊容器。）</param>
+        /// <param name="statsIndex"><paramref name="networkStat"/>'s index in <see cref="_localNetworkStats"/>.（<paramref name="networkStat"/> 在 <see cref="_localNetworkStats"/> 的索引。）</param>
+        /// <param name="networkNames">The list of network names.（網路名稱列表。）</param>
+        /// <param name="networkAssets">The list of network asset titles.（網路資產名稱列表。）</param>
+        /// <param name="networkCategories">The list of network categories.（網路分類列表。）</param>
+        private static void WriteGeoJson(JsonTextWriter writer, Options options, NetworkStat networkStat, int statsIndex,
+                                        List<string> networkNames, List<string> networkAssets, List<NetworkCategory> networkCategories)
+        {
+            bool hasName = options.Contains(Property.Name, IO.System.Network);
+            bool hasAsset = options.Contains(Property.Asset, IO.System.Network);
+            bool hasCapacity = options.Contains(Property.Capacity, IO.System.Network);
+            bool hasCategory = options.Contains(Property.Category, IO.System.Network);
+            bool hasDirection = options.Contains(Property.Direction, IO.System.Network);
+            bool hasDischarge = options.Contains(Property.Discharge, IO.System.Network);
+            bool hasElevation = options.Contains(Property.Elevation, IO.System.Network);
+            bool hasForm = options.Contains(Property.Form, IO.System.Network);
+            bool hasLane = options.Contains(Property.Lane, IO.System.Network);
+            bool hasLength = options.Contains(Property.Length, IO.System.Network);
+            bool hasLimit = options.Contains(Property.Limit, IO.System.Network);
+            bool hasLoad = options.Contains(Property.Load, IO.System.Network);
+            bool hasObject = options.Contains(Property.Object, IO.System.Network);
+            bool hasVolume = options.Contains(Property.Volume, IO.System.Network);
+            bool hasWidth = options.Contains(Property.Width, IO.System.Network);
+
+            if (hasName)
+            {
+                GeoJson.WriteProperty(writer, Property.Name, networkNames[statsIndex]);
+            }
+            if (hasAsset)
+            {
+                GeoJson.WriteProperty(writer, Property.Asset, networkAssets[statsIndex]);
+            }
+            //if (hasCapacity)
+            //{
+            // TODO: Not available in 1.0.0 release.
+            //}
+            if (hasCategory)
+            {
+                NetworkCategory category = networkCategories[statsIndex];
+                category = options.Display[(Property.Category, IO.System.Network)] ? category : Utils.CommonUtils.GetFirstMatch(category, IO.IO.NetworkCategoryDisplayOrder);
+                GeoJson.WriteProperty(writer, Property.Category, category.ToString("G"));
+            }
+            if (hasDirection)
+            {
+                GeoJson.WriteProperty(writer, Property.Direction, networkStat.direction.ToString("G"));
+            }
+            //if (hasDischarge)
+            //{
+            // TODO: Not available in 1.0.0 release.
+            //}
+            if (hasElevation)
+            {
+                GeoJson.WriteProperty(writer, Property.Elevation, networkStat.elevation);
+            }
+            if (hasForm)
+            {
+                GeoJson.WriteProperty(writer, Property.Form, networkStat.form.ToString("G"));
+            }
+            if (hasLane)
+            {
+                GeoJson.WriteProperty(writer, Property.Lane, networkStat.lane);
+            }
+            if (hasLength)
+            {
+                GeoJson.WriteProperty(writer, Property.Length, networkStat.length);
+            }
+            if (hasLimit)
+            {
+                GeoJson.WriteProperty(writer, Property.Limit, networkStat.limit);
+            }
+            //if (hasLoad)
+            //{
+            // TODO: Not available in 1.0.0 release.
+            //}
+            if (hasObject)
+            {
+                Feature displayType = options.Display[(Property.Object, IO.System.Unknown)] ? networkStat.Object : Utils.CommonUtils.GetFirstMatch(networkStat.Object, IO.IO.FeatureDisplayOrder);
+                GeoJson.WriteProperty(writer, Property.Object, displayType.ToString("G"));
+            }
+            if (hasVolume)
+            {
+                GeoJson.WriteProperty(writer, Property.Volume, networkStat.volume);
+            }
+            if (hasWidth)
+            {
+                GeoJson.WriteProperty(writer, Property.Width, networkStat.width);
+            }
+        }
+
+        /// <summary>
+        /// Write features (geometries and properties) to the designated Shapefile.
+        /// （寫出圖徵（幾何與屬性）至指定的 Shapefile 中。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        /// <param name="filesCount">The number of exported files.（輸出的檔案數量。）</param>
+        public void WriteShapefiles(Options options, Action<string, int> onReportMethod, out int filesCount)
+        {
+            filesCount = 0;
+
+            try
+            {
+                PrepareNetworkStats(options);
+
+                if (options.Has(IO.System.Network, VectorKind.Boundary))
+                {
+                    Shapefile.Write<Entity>(options, IO.System.Network, VectorKind.Boundary, WriteBoundarySHP, WriteDBF, onReportMethod);
+                    filesCount += 5;
+                }
+                if (options.Has(IO.System.Network, VectorKind.Centerline))
+                {
+                    Shapefile.Write<Entity>(options, IO.System.Network, VectorKind.Centerline, WriteCenterlineSHP, WriteDBF, onReportMethod);
+                    filesCount += 5;
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.ToString());
+                IO.IO.DisposeAll();
+            }
+            finally
+            {
+                Dispose();
+            }
+        }
+
+        /// <summary>
+        /// The job to aggregate network's field info.
+        /// （聚合網路欄位資訊的工作。）
+        /// </summary>
+        [BurstCompile]
+        public partial struct AggregateFieldInfosJob : IJob
+        {
+            [ReadOnly]
+            public NativeList<NetworkStat> networkStats;
+
+            [WriteOnly]
+            public NativeHashMap<EnumWrapper<Property>, FieldInfo> propertyFieldInfoMap;
+
+            public void Execute()
+            {
+                FieldInfo capacityField = new(0f);
+                FieldInfo dischargeField = new(0f);
+                FieldInfo elevationField = new(0f);
+                FieldInfo laneField = new(0);
+                FieldInfo lengthField = new(0f);
+                FieldInfo limitField = new(0f);
+                FieldInfo loadField = new(0f);
+                FieldInfo volumeField = new(0f);
+                FieldInfo widthField = new(0f);
+                
+                for (int i = 0; i < networkStats.Length; i++)
+                {
+                    NetworkStat networkStat = networkStats[i];
+                    capacityField  += new FieldInfo(networkStat.capacity);
+                    dischargeField += new FieldInfo(networkStat.discharge);
+                    elevationField += new FieldInfo(networkStat.elevation);
+                    laneField      += new FieldInfo(networkStat.lane);
+                    lengthField    += new FieldInfo(networkStat.length);
+                    limitField     += new FieldInfo(networkStat.limit);
+                    loadField      += new FieldInfo(networkStat.load);
+                    volumeField    += new FieldInfo(networkStat.volume);
+                    widthField     += new FieldInfo(networkStat.width);
+                }
+
+                propertyFieldInfoMap.Add(new(Property.Capacity),  capacityField);
+                propertyFieldInfoMap.Add(new(Property.Discharge), dischargeField);
+                propertyFieldInfoMap.Add(new(Property.Elevation), elevationField);
+                propertyFieldInfoMap.Add(new(Property.Lane),      laneField);
+                propertyFieldInfoMap.Add(new(Property.Length),    lengthField);
+                propertyFieldInfoMap.Add(new(Property.Limit),     limitField);
+                propertyFieldInfoMap.Add(new(Property.Load),      loadField);
+                propertyFieldInfoMap.Add(new(Property.Volume),    volumeField);
+                propertyFieldInfoMap.Add(new(Property.Width),     widthField);
             }
         }
 
@@ -1578,7 +2026,7 @@ namespace Carto.Systems
                             if (roundaboutIsEndNode) connectionPoint = edgeNodes[^1];
                             if (roundaboutIsStartNode) connectionPoint = edgeNodes[0];
 
-                            double azimuth = Utils.MathUtils.Azimuth(nodePosition.xzy, connectionPoint);
+                            double azimuth = Utils.MathUtils.Azimuth(nodePosition.xz, connectionPoint.xy);
                             azimuthMap.Add(azimuth,
                                            Geodata.Transform.Apply(center.Shift(connectionPoint.x, connectionPoint.y, connectionPoint.z), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3());
 
@@ -2092,10 +2540,9 @@ namespace Carto.Systems
 
                             if (laneCount > maxLaneCount)
                             {
-                                // TODO: Somehow the roundabouts created by pillars have no Name and Asset property (string.Empty)
                                 maxLaneCount = laneCount;
                                 edgeAggregation = aggregatedLookup.TryGetComponent(connectedNetwork, out Aggregated aggregatedComponent) ? aggregatedComponent.m_Aggregate : connectedNetwork;
-                                edgePrefab = prefabRefLookup.TryGetComponent(connectedNetwork, out PrefabRef prefabRef) ? prefabRef.m_Prefab : Entity.Null;
+                                edgePrefab = prefabRefLookup.TryGetComponent(connectedNetwork, out PrefabRef networkPrefab) ? networkPrefab.m_Prefab : Entity.Null;
                             }
                         }
                     }
@@ -2123,7 +2570,7 @@ namespace Carto.Systems
                     aggregation = createdByPillar ? edgeAggregation : roundabout.attached,
                     capacity = 0f,
                     category = highwayConnection ? NetworkCategory.Highway : NetworkCategory.Car,
-                    direction = leftHandTraffic ? Direction.Forward : Direction.Backward,
+                    direction = leftHandTraffic ? Direction.Backward : Direction.Forward,
                     discharge = 0f,
                     elevation = node.m_Position.y,
                     end = Entity.Null,
@@ -2199,7 +2646,7 @@ namespace Carto.Systems
 
             public void Execute(in Attached attached, Entity attachment)
             {
-                entityMap.TryAdd(attached.m_Parent, attachment);
+                if (attached.m_Parent != Entity.Null) entityMap.TryAdd(attached.m_Parent, attachment);
             }
         }
 

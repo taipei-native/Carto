@@ -314,6 +314,12 @@ namespace Carto.IO
         };
 
         /// <summary>
+        /// The number of Carto's property.
+        /// （Carto 的屬性數量。）
+        /// </summary>
+        public static int PropertyCount => Utils.CommonUtils.GetNamedFlagsCount<Property>() - 1; 
+
+        /// <summary>
         /// The look-up table of each <see cref="Property"/>'s corresponding type.<br/>
         /// （每個 <see cref="Property"/> 的對應型別表。）
         /// </summary>
@@ -642,7 +648,11 @@ namespace Carto.IO
                             }
                             if (useNetwork)
                             {
-
+                                if (networkHasBoundary || networkHasCenterline)
+                                {
+                                    Instance.Network.WriteShapefiles(options, OnReport, out int networkFilesCount);
+                                    filesCount += networkFilesCount;
+                                }
                             }
                             if (useRoute)
                             {

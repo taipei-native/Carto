@@ -186,7 +186,7 @@ namespace Carto.Systems
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="nodeEntityMap">The map between centerline nodes and the routes.（運輸服務路線與中心線節點的映射表。）</param>
-        private void GetCenterline(Options options, ref NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap)
+        private void GetCenterlines(Options options, ref NativeParallelHashMap<Entity, NativeList<double3>> nodeEntityMap)
         {
             NativeParallelHashMap<Entity, int> nodeCountEntityMap = new(_routeQuery.CalculateEntityCount(), Allocator.Persistent);
             IOUtils.GetTargetProjections(options, out Geodata.CRS targetCRS, out ProjectionDefinition targetProjection);
@@ -791,7 +791,7 @@ namespace Carto.Systems
             try
             {
                 GetRouteStats(options);
-                GetCenterline(options, ref nodeEntityMap);
+                GetCenterlines(options, ref nodeEntityMap);
                 Dictionary<Entity, string> routeAcronymMap = GetRouteAcronyms(options);
 
                 // Prepare data that can only be retrieved in the main thread.（準備只能在主執行緒獲得的資料。）
@@ -933,7 +933,7 @@ namespace Carto.Systems
             try
             {
                 GetRouteStats(options);
-                GetCenterline(options, ref nodeEntityMap);
+                GetCenterlines(options, ref nodeEntityMap);
                 
                 Task writerThread = Task.Run(() =>
                 {
