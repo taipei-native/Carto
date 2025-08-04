@@ -1865,8 +1865,11 @@ namespace Carto.Systems
                 bool isTerminus = false;
                 int pathwayCount = 0;
                 int roadCount = 0;
+                int taxiwayCount = 0;
                 int trackCount = 0;
+                int waterwayCount = 0;
                 NetworkCategory roadCategory = NetworkCategory.Car | NetworkCategory.Highway;
+                NetworkCategory taxiwayCategory = NetworkCategory.Runway | NetworkCategory.Taxiway;
                 NetworkCategory trackCategory = NetworkCategory.Train | NetworkCategory.Subway | NetworkCategory.Tram;
 
                 for (int i = 0; i < edges.Length; i++)
@@ -1885,9 +1888,17 @@ namespace Carto.Systems
                         {
                             roadCount++;
                         }
+                        else if ((edgeCategory & taxiwayCategory) != 0)
+                        {
+                            taxiwayCount++;
+                        }
                         else if ((edgeCategory & trackCategory) != 0)
                         {
                             trackCount++;
+                        }
+                        else if ((edgeCategory & NetworkCategory.Waterway) != 0)
+                        {
+                            waterwayCount++;
                         }
                     }
                 }
@@ -1903,9 +1914,19 @@ namespace Carto.Systems
                     if (isTerminus && isRoundabout && (roadCount > 1)) isTerminus = false;  // Force to include the inner ring for roundabouts with two connected segments.（強迫納入只有兩個連接路段圓環的內環。）
                 }
 
+                if ((stat.category & taxiwayCategory) != 0)
+                {
+                    if (taxiwayCount <= 2) isTerminus = true;
+                }
+
                 if ((stat.category & trackCategory) != 0)
                 {
                     if ((trackCount <= 2) && (roadCount == 0)) isTerminus = true;           // Handle the situation that a node has only two connected segments.（處理只有兩個連接路段的節點。）
+                }
+
+                if ((stat.category & NetworkCategory.Waterway) != 0)
+                {
+                    if (waterwayCount <= 2) isTerminus = true;
                 }
 
                 return isTerminus;
