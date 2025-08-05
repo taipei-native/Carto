@@ -8,12 +8,71 @@
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset-->
 	<!--LongDescription Value="This is a long description" /-->
 	<LongDescription>
-This is a long description
+# Carto
+
+**Carto** is a Cities: Skylines II mod designed to extract in-game spatial data and convert it into widely used geospatial file formats.
+
+## Features
+
+* **Vector data export** – Export buildings, districts, map tiles, pathways, POIs, roads, routes, tracks, zoning cells, and more.
+* **Raster data export** – Export terrain elevation and water depth.
+* **Attribute-rich output** – Includes object attributes such as names, direction, and other metadata.
+* **Multiple file formats** – Supports GeoJSON and ESRI Shapefile for vector data; GeoTIFF for raster data.
+* **Projection support** – Uses WGS84 / UTM (EPSG: 326xx / 327xx) by default. Custom Transverse Mercator projections are also supported.
+
+## Getting Started
+
+1. Load a save, start a new game, or open the editor.
+2. Open **Options** and select **Carto** from the sidebar.
+3. In the **General** tab, choose file format and output name.
+4. Select data types to export in the **Feature** tab.
+5. Configure geometry and attributes in the **Properties** tab.
+6. Set your projection in the **Projection** tab.
+7. Click **Export Files** in the **General** tab.
+8. Your data will be saved to: `C:\Users\&lt;YourName&gt;\AppData\LocalLow\Colossal Order\Cities Skylines II\ModsData\Carto`
+
+See the [Tutorials](https://github.com/taipei-native/Carto/wiki/Tutorial) for making maps with QGIS, and the [User Manual](https://github.com/taipei-native/Carto/wiki) for detailed documentation.
+
+## Languages
+
+Carto currently supports the following languages:
+* **English** (en-US)
+* **日本語** / Japanese (ja-JP)
+* **简体中文** / Simplified Chinese (zh-HANS)
+* **正體中文** / Traditional Chinese (zh-HANT)
+
+## Future Roadmap
+
+*Note: Items are not listed in order of priority.*
+* Support for additional raster data exports, such as pollution levels, resource deposits, and more.
+* A companion web platform to explore your saves and download rendered maps.
+* ...and a secret feature in the works 😉
+
+## Credits
+
+Since April 2024, when I started to develop Carto, I’ve learned from and been inspired by the open-source work of amazing Cities: Skylines II modders including **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang** — a big shout-out to them!
+
+Special thanks also to beta testers like **Allegretic**, **Excellent Guy**, **jefferyharrell**, **LightLight**, and members of the *Cities: Skylines Modding* and *Cities: Skylines Taiwan Assets* Discord servers for their feedback and support.
+
+Carto also includes C# adaptations of parts of [PROJ](https://github.com/OSGeo/PROJ) and [PROJ4JS](https://github.com/proj4js/proj4js), optimized for Unity’s Burst compiler. License details are available in the `Licenses` directory of the Github Repo.
+
+## Contact
+
+You can reach out via:
+
+* [Paradox Forum](https://forum.paradoxplaza.com/forum/threads/carto.1699089/) (English / Chinese)
+* [Cities: Skylines Modding Discord](https://discord.gg/HTav7ARPs2) (English)
+* [Cities: Skylines Taiwan Assets Discord](https://discord.gg/Gz4K66jT64) (Chinese preferred)
+
+For bug reports or in-depth discussions, please consider using [GitHub Issues](https://github.com/taipei-native/Carto/issues) or [Discussions](https://github.com/taipei-native/Carto/discussions) to keep things organized.
 	</LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
 	<!--Screenshot, can be set multiple times-->
-	<Screenshot Value="" />
+	<Screenshot Value="Properties/Screenshot 1.png" />
+	<Screenshot Value="Properties/Screenshot 2.png" />
+	<Screenshot Value="Properties/Screenshot 3.png" />
+	<Screenshot Value="Properties/Screenshot 4.png" />
 	<!--Tag, can be set multiple times-->
 	<Tag Value="Code Mod" />
 	<!--Link to the forum post where the mod can be discussed-->
@@ -26,9 +85,46 @@ This is a long description
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
+## Version 1.0
+
+This major release is a complete rewrite of the mod, addressing longstanding performance bottlenecks and introducing powerful new features.
+
+### Performance Boosts
+
+Export speeds have been significantly optimized:
+* GeoJSON exports are now **95%–99% faster** than in v0.3.7.
+* ESRI Shapefile exports are now **80%–90% faster** than in v0.3.7.
+
+For example, exporting 450,000 zoning cells:
+* GeoJSON: reduced from **13 minutes** → **7 seconds**
+* Shapefile: reduced from **2 minutes** → **4 seconds**
+
+### Improved User Experience
+
+The options UI has been redesigned for clarity and efficiency:
+* Simultaneous vector and raster exports—no more clicking twice.
+* Field selectors have been moved into a dedicated tab.
+* Feature sub-categories can now be toggled individually.
+
+### Support for Routes &amp; Specialized Industries
+
+Newly supported exports include:
+* Transport routes (as a separate feature type)
+* Specialized industries and landfills (exported under the *Buildings* feature type)
+
+### Custom Transverse Mercator Projection Support
+
+You can now define and apply a **custom** Transverse Mercator (TM) projection to align your exports with real-world coordinate systems.
+
+### Expanded Attribute Support
+
+Carto now exports more in-game attribute data, including: average age, labor count, average profit, sex ratio, spped limit, average wage, ... and more!
+
+### Additional Improvements
+
+* Integration with **Extended Transport Manager** by *klyte45* — route acronyms defined in the mod are now exportable.
+* Added **Japanese** translation. 初めまして、どうぞよろしくお願いします。
 	</ChangeLog>
-	<!--ChangeLog>
-	</ChangeLog-->
 	<!--External link. supported types are discord, github, youtube, twitch, x, paypal, patreon, buymeacoffee, kofi, crowdin, gitlab-->
 	<ExternalLink Type="discord" Url="https://discord.gg/HTav7ARPs2" />
 	<ExternalLink Type="github" Url="https://github.com/taipei-native/Carto" />

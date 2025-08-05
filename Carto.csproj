@@ -13,6 +13,10 @@
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
+
+	<PropertyGroup>
+		<DefaultItemExcludes>$(DefaultItemExcludes);Styles\**\*</DefaultItemExcludes>
+	</PropertyGroup>
 	
 	<!--Imports must be after PropertyGroup block-->
 	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props" />
@@ -64,6 +68,9 @@
 		<Reference Include="Colossal.Collections">
 			<Private>False</Private>
 		</Reference>
+		<Reference Include="Colossal.IO">
+			<Private>False</Private>
+		</Reference>
 		<Reference Include="Colossal.Mathematics">
 			<Private>False</Private>
 		</Reference>
@@ -96,8 +103,18 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<EmbeddedResource Include="Styles.zip" />
+	</ItemGroup>
+	
+	<ItemGroup>
 		<None Include="$(ModPropsFile)" Link="Properties\Mod.props" />
 		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
 	</ItemGroup>
+
+	<Target Name="ZipStyles" BeforeTargets="BeforeBuild">
+		<ZipDirectory SourceDirectory="Styles\Styles"
+			          DestinationFile="Styles.zip"
+			          Overwrite="true" />
+	</Target>
 
 </Project>

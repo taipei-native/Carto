@@ -400,5 +400,8 @@ FodyWeavers.xsd
 # Markdownlint
 *.markdownlint.json
 
+# QGIS style XMLs zip file
+Styles.zip
+
 # Posponed UI Project
 UI/

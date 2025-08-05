@@ -1,11 +1,14 @@
 using Carto.IO;
+using Colossal.IO;
 using Colossal.Logging;
+using Colossal.PSI.Environment;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -56,7 +59,17 @@ namespace Carto.Utils
             if (!Directory.Exists(geoJSON)) Directory.CreateDirectory(geoJSON);
             if (!Directory.Exists(geoTIFF)) Directory.CreateDirectory(geoTIFF);
             if (!Directory.Exists(shapefile)) Directory.CreateDirectory(shapefile);
-            if (!Directory.Exists(styles)) Directory.CreateDirectory(styles);
+            if (!Directory.Exists(styles))
+            {
+                Directory.CreateDirectory(styles);
+            }
+            else
+            {
+                // Force refresh the folder.
+                // （強制重新載入資料夾。）
+                Directory.Delete(styles, recursive: true);
+                Directory.CreateDirectory(styles);
+            }
         }
 
         /// <summary>
@@ -73,6 +86,45 @@ namespace Carto.Utils
                 Display.Single => false,
                 _ => false,
             };
+        }
+
+        /// <summary>
+        /// Extract the embedded QGIS style resources to the disk.
+        /// （將嵌入的 QGIS 樣式資源擷取至硬碟。）
+        /// </summary>
+        /// <param name="dir">The path to the output directory.（指向輸出目錄的路徑。）</param>
+        public static void ExtractEmbeddedStyles(string dir)
+        {            
+            string[] resources = Assembly.GetExecutingAssembly().GetManifestResourceNames();
+
+            foreach (string embedded in resources)
+            {
+                if (embedded == "Carto.Styles.zip")
+                {
+                    string zipPath = Path.Combine(EnvPath.kTempDataPath, "Carto_Mod_QGIS_Styles.zip");
+
+                    using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(embedded))
+                    {
+                        using (FileStream fs = new(zipPath, FileMode.Create, FileAccess.Write))
+                        {
+                            stream.CopyTo(fs);
+                        }
+                    }
+
+                    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+                    try
+                    {
+                        ZipUtilities.Unzip(zipPath, dir);
+                    }
+                    catch (Exception ex)
+                    {
+                        Instance.Log.Warn($"Cannot extract QGIS style presets to the target directory. 無法將 QGIS 預設樣式表擷取至目標目錄。{ex}");
+                    }
+
+                    break;
+                }
+            }
         }
 
         public static byte[] GetBytes<T>(T value, bool stringify = false)

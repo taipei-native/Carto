@@ -48,6 +48,10 @@ namespace Carto
             //（創造必要的資料夾。）
             IOUtils.CreateUserDataDirectories();
 
+            // Extract QGIS style presets.
+            // （萃取 QGIS 樣式模板。）
+            IOUtils.ExtractEmbeddedStyles(IOUtils.CombinePath(Instance.CartoDataPath, "Styles"));
+
             _log.Info("Mod instance loaded. 模組實例載入完成。");
         }
 
