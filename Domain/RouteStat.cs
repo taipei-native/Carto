@@ -91,7 +91,7 @@ namespace Carto.Domain
         /// The type of the transport.
         /// （運輸路線的種類。）
         /// </summary>
-        public Game.Prefabs.TransportType transport;
+        public TransportCategory transport;
 
         /// <summary>
         /// The number of vehicles serving on the route.

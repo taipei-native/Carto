@@ -92,8 +92,8 @@ This major release is a complete rewrite of the mod, addressing longstanding per
 ### Performance Boosts
 
 Export speeds have been significantly optimized:
-* GeoJSON exports are now **95%–99% faster** than in v0.3.7.
-* ESRI Shapefile exports are now **80%–90% faster** than in v0.3.7.
+* Save **95%–99% of time** when exporting GeoJSON.
+* Save **80%–90% of time** when exporting ESRI Shapefile.
 
 For example, exporting 450,000 zoning cells:
 * GeoJSON: reduced from **13 minutes** → **7 seconds**

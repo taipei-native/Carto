@@ -521,6 +521,24 @@ namespace Carto.Domain
     }
 
     /// <summary>
+    /// The transport types in the game.
+    /// （遊戲內運輸的種類。）
+    /// </summary>
+    [Flags]
+    public enum TransportCategory
+    {
+        None = 0,
+        Airplane = 1 << 0,
+        Bus = 1 << 1,
+        Helicopter = 1 << 2,
+        Ship = 1 << 3,
+        Subway = 1 << 4,
+        Taxi = 1 << 5,
+        Train = 1 << 6,
+        Tram = 1 << 7
+    }
+
+    /// <summary>
     /// The basic zoning types in the game.
     /// （遊戲內的基本分區類別。）
     /// </summary>

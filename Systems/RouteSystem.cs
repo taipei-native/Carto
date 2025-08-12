@@ -156,31 +156,6 @@ namespace Carto.Systems
         }
 
         /// <summary>
-        /// Retrieve the length of the route.
-        /// （獲得運輸服務路線的長度。）
-        /// </summary>
-        /// <param name="routeSegments">The buffer of route segments.（路線片段的緩衝區。）</param>
-        /// <param name="pathInformationLookup">The lookup that searches for <see cref="PathInformation"/>.（搜尋 <see cref="PathInformation"/> 的查詢。）</param>
-        /// <returns>The length of the route in meters (m).（以公尺計算的路線長度。）</returns>
-        private static float GetRouteLength(DynamicBuffer<RouteSegment> routeSegments, ref ComponentLookup<PathInformation> pathInformationLookup)
-        {
-            ///  This is the burst-compatible version of <see cref="Game.UI.InGame.TransportUIUtils.GetRouteLength(EntityManager, Entity)"/>.
-            /// （這是 <see cref="Game.UI.InGame.TransportUIUtils.GetRouteLength(EntityManager, Entity)"/> 的可 Burst 編譯版本。）。
-
-            float length = 0f;
-
-            for (int i = 0; i < routeSegments.Length; i++)
-            {
-                if (pathInformationLookup.TryGetComponent(routeSegments[i].m_Segment, out PathInformation pathInformationComponent))
-                {
-                    length += pathInformationComponent.m_Distance;
-                }
-            }
-
-            return length;
-        }
-
-        /// <summary>
         /// Retrieve the centerline of the routes.
         /// （獲得運輸服務路線的中心線。）
         /// </summary>
@@ -247,6 +222,31 @@ namespace Carto.Systems
             }
 
             return acronymEntityMap;
+        }
+
+        /// <summary>
+        /// Retrieve the length of the route.
+        /// （獲得運輸服務路線的長度。）
+        /// </summary>
+        /// <param name="routeSegments">The buffer of route segments.（路線片段的緩衝區。）</param>
+        /// <param name="pathInformationLookup">The lookup that searches for <see cref="PathInformation"/>.（搜尋 <see cref="PathInformation"/> 的查詢。）</param>
+        /// <returns>The length of the route in meters (m).（以公尺計算的路線長度。）</returns>
+        private static float GetRouteLength(DynamicBuffer<RouteSegment> routeSegments, ref ComponentLookup<PathInformation> pathInformationLookup)
+        {
+            ///  This is the burst-compatible version of <see cref="Game.UI.InGame.TransportUIUtils.GetRouteLength(EntityManager, Entity)"/>.
+            /// （這是 <see cref="Game.UI.InGame.TransportUIUtils.GetRouteLength(EntityManager, Entity)"/> 的可 Burst 編譯版本。）。
+
+            float length = 0f;
+
+            for (int i = 0; i < routeSegments.Length; i++)
+            {
+                if (pathInformationLookup.TryGetComponent(routeSegments[i].m_Segment, out PathInformation pathInformationComponent))
+                {
+                    length += pathInformationComponent.m_Distance;
+                }
+            }
+
+            return length;
         }
 
         /// <summary>
@@ -524,6 +524,30 @@ namespace Carto.Systems
                    // ...or a cargo transport vehicle?（或貨運車輛嗎？）
                     (cargoTransportLookup.TryGetComponent(routeVehicle, out CargoTransport cargoTransportComponent) &&
                     (cargoTransportComponent.m_State & CargoTransportFlags.EnRoute) != 0));
+        }
+
+        /// <summary>
+        /// Convert a <see cref="Game.Prefabs.TransportType"/> to a <see cref="TransportCategory"/> enum.<br/>
+        /// （將一個 <see cref="Game.Prefabs.TransportType"/> 轉換為 <see cref="TransportCategory"/> 枚舉。）
+        /// </summary>
+        /// <param name="transportType">The input vanilla enum.（輸入的遊戲原版枚舉。）</param>
+        /// <returns>Carto's enum.（Carto 的枚舉。）</returns>
+        public static TransportCategory ToTransportCategory(Game.Prefabs.TransportType transportType)
+        {
+            return transportType switch
+            {
+                // TODO: Ensure the consistency of the vanilla enum after each update.（確保每次更新後和原版枚舉的一致性。）
+                Game.Prefabs.TransportType.Airplane => TransportCategory.Airplane,
+                Game.Prefabs.TransportType.Bus => TransportCategory.Bus,
+                Game.Prefabs.TransportType.Helicopter => TransportCategory.Helicopter,
+                Game.Prefabs.TransportType.Ship => TransportCategory.Ship,
+                Game.Prefabs.TransportType.Subway => TransportCategory.Subway,
+                Game.Prefabs.TransportType.Taxi => TransportCategory.Taxi,
+                Game.Prefabs.TransportType.Train => TransportCategory.Train,
+                Game.Prefabs.TransportType.Tram => TransportCategory.Tram,
+                Game.Prefabs.TransportType.None => TransportCategory.None,
+                _ => TransportCategory.None,
+            };
         }
 
         /// <summary>
@@ -1201,7 +1225,7 @@ namespace Carto.Systems
                     passenger = passengerCount,
                     prefab = prefabRef.m_Prefab,
                     stop = GetStopCount(routeWaypoints, ref connectedLookup, ref taxiStandLookup, ref transportStopLookup),
-                    transport = routeData.m_TransportType,
+                    transport = ToTransportCategory(routeData.m_TransportType),
                     vehicle = vehicleCount,
                     weight = cargoAmount
                 };

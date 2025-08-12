@@ -6,6 +6,7 @@ using Game.UI;
 using Game.UI.Widgets;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 
 namespace Carto
@@ -381,14 +382,19 @@ namespace Carto
             set { IO.IO.Export(); }
         }
 
-# if DEBUG
+# if false
         [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
         [SettingsUIButton]
         [SettingsUIDeveloper]
         [SettingsUIDisableByCondition(typeof(Settings), nameof(IsInGameOrEditor), invert: true)]
         public bool TestButton
         {
-            set { }
+            set
+            {
+                //Colossal.ScreenUtility.CaptureScreenshot();
+                //Game.SceneFlow.GameManager.instance.TakeScreenshot();
+                //Colossal.PSI.Common.PlatformManager.instance.TakeScreenshot();
+            }
         }
 #endif
 
@@ -1939,12 +1945,18 @@ namespace Carto
                 if (PropertyThemeZoning) TryAddPropertyEntry(properties, IO.System.Zoning, IO.Property.Theme);
                 if (PropertyZoningZoning) TryAddPropertyEntry(properties, IO.System.Zoning, IO.Property.Zoning);
             }
-            if (FeatureTerrain || FeatureWater) system |= IO.System.Raster;
 
-            if (GeometryDepthWater) rasterKinds |= IO.RasterKind.Depth;
-            if (GeometryElevationTerrain) rasterKinds |= IO.RasterKind.Elevation;
-            if (GeometryWorldDepthWater) rasterKinds |= IO.RasterKind.WorldDepth;
-            if (GeometryWorldElevationTerrain) rasterKinds |= IO.RasterKind.WorldElevation;
+            if (FeatureTerrain || FeatureWater) system |= IO.System.Raster;
+            if (FeatureTerrain)
+            {
+                if (GeometryElevationTerrain) rasterKinds |= IO.RasterKind.Elevation;
+                if (GeometryWorldElevationTerrain) rasterKinds |= IO.RasterKind.WorldElevation;
+            }
+            if (FeatureWater)
+            {
+                if (GeometryDepthWater) rasterKinds |= IO.RasterKind.Depth;
+                if (GeometryWorldDepthWater) rasterKinds |= IO.RasterKind.WorldDepth;
+            }
 
             switch (SourceCRS)
             {
