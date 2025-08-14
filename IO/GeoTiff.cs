@@ -337,7 +337,7 @@ namespace Carto.IO
             writerThread.Wait();
 
             stopwatch.Stop();
-            Instance.Log.Debug($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
+            Instance.Log.Info($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
         }
 
         /// <summary>

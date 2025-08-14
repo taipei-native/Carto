@@ -134,13 +134,23 @@ namespace Carto.IO
             Feature.None
         };
 
+        /// <summary>
+        /// The predefined ellipsoids.
+        /// （預先定義的橢球體。）
+        /// </summary>
         public static readonly Dictionary<Ellipsoid, EllipsoidDefinition> EllipsoidTable = new()
         {
+            { Ellipsoid.Airy30, new(6377563.396d, 299.3249646d) },
             { Ellipsoid.Bssl41, new(6377397.155d, 299.1528128d) },
             { Ellipsoid.Clrk66, new(6378206.4d, 294.978698213898d) },
             { Ellipsoid.Evrst37, new(6377276.345d, 300.8017d) },
+            { Ellipsoid.GRS67, new(6378160d, 298.247167427d) },
             { Ellipsoid.GRS80, new(6378137d, 298.257222101d) },
+            { Ellipsoid.GSK11, new(6378136.5d, 298.2564151d) },
+            { Ellipsoid.IGN80, new(6378249.2d, 293.466021293627d) },
             { Ellipsoid.Intl24, new(6378388d, 297d) },
+            { Ellipsoid.Krsky40, new(6378245d, 298.3d) },
+            { Ellipsoid.RGS80, new(6378249.145d, 293.465d) },
             { Ellipsoid.WGS84, new(6378137d, 298.257223563d) },
             { Ellipsoid.Custom, new() }
         };

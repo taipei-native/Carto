@@ -113,8 +113,8 @@
 
 	<Target Name="ZipStyles" BeforeTargets="BeforeBuild">
 		<ZipDirectory SourceDirectory="Styles\Styles"
-			          DestinationFile="Styles.zip"
-			          Overwrite="true" />
+					  DestinationFile="Styles.zip"
+					  Overwrite="true" />
 	</Target>
 
 </Project>

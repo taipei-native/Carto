@@ -51,6 +51,18 @@ namespace Carto.IO
     public enum Ellipsoid
     {
         /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.GSK11"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.GSK11"/>。）
+        /// </summary>
+        GSK11,
+
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.Airy30"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Airy30"/>。）
+        /// </summary>
+        Airy30,
+
+        /// <summary>
         /// See <see cref="Geodata.Epsg.Ellipsoid.Bssl41"/>.
         /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Bssl41"/>。）
         /// </summary>
@@ -61,6 +73,18 @@ namespace Carto.IO
         /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Clarke66"/>。）
         /// </summary>
         Clrk66,
+
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.IGN80"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.IGN80"/>。）
+        /// </summary>
+        IGN80,
+
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.RGS80"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.RGS80"/>。）
+        /// </summary>
+        RGS80,
 
         /// <summary>
         /// See <see cref="Geodata.Epsg.Ellipsoid.Everest37"/>.
@@ -81,10 +105,22 @@ namespace Carto.IO
         Intl24,
 
         /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.Krsky40"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.Krsky40"/>。）
+        /// </summary>
+        Krsky40,
+
+        /// <summary>
         /// See <see cref="Geodata.Epsg.Ellipsoid.WGS84"/>.
         /// （請見 <see cref="Geodata.Epsg.Ellipsoid.WGS84"/>。）
         /// </summary>
         WGS84,
+
+        /// <summary>
+        /// See <see cref="Geodata.Epsg.Ellipsoid.GRS67"/>.
+        /// （請見 <see cref="Geodata.Epsg.Ellipsoid.GRS67"/>。）
+        /// </summary>
+        GRS67,
 
         /// <summary>
         /// The custom ellipsoid.

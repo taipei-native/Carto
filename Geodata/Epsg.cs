@@ -27,6 +27,13 @@ namespace Carto.Geodata
         public static class Ellipsoid
         {
             /// <summary>
+            /// urn:ogc:def:ellipsoid:EPSG::7001 "Airy 1830"<br/>
+            /// The 1830 Airy ellipsoid is the primary ellipsoid in British Isles.<br/>
+            /// （1830 年的艾里橢球體是不列顛群島的主要橢球體。）
+            /// </summary>
+            public const int Airy30 = 7001;
+
+            /// <summary>
             /// urn:ogc:def:ellipsoid:EPSG::7004 "Bessel 1841"<br/>
             /// The 1841 Bessel ellipsoid was one of the most widely used ellipsoid before the Hayford ellipsoid (EPSG: 7022).<br/>
             /// （1841 年的貝塞爾橢球體，曾是在海福德橢球體（EPSG: 7022）問世前最常用的橢球體之一。）
@@ -48,6 +55,13 @@ namespace Carto.Geodata
             public const int Everest37 = 7015;
 
             /// <summary>
+            /// urn:ogc:def:ellipsoid:EPSG::7036 "GRS 1967"<br/>
+            /// The ellipsoid for the Geodetic Reference System 1967, which is the international standard between 1967 and 1979.<br/>
+            /// （1967 年世界大地參考系統的參考橢球體，在 1967 年至 1979 年間曾為國際標準。）
+            /// </summary>
+            public const int GRS67 = 7036;
+
+            /// <summary>
             /// urn:ogc:def:ellipsoid:EPSG::7019 "GRS 1980"<br/>
             /// The ellipsoid for the Geodetic Reference System 1980, which is the international standard since 1979.<br/>
             /// （1980 年世界大地參考系統的參考橢球體，為自 1979 年以來的國際標準。）
@@ -55,11 +69,39 @@ namespace Carto.Geodata
             public const int GRS80 = 7019;
 
             /// <summary>
+            /// urn:ogc:def:ellipsoid:EPSG::1025 "GSK-2011"<br/>
+            /// The ellipsoid for PZ-90, which is the ellipsoid for GLONASS.<br/>
+            /// （GLONASS 之大地基準 PZ-90 的參考橢球體。）
+            /// </summary>
+            public const int GSK11 = 1025;
+
+            /// <summary>
+            /// urn:ogc:def:ellipsoid:EPSG::7011 "Clarke 1880 (IGN)"<br/>
+            /// The 1866 Clarke ellipsoid modified by Institut Géographique National in 1880.<br/>
+            /// （1866 年的克拉克橢球體，於 1880 年被國家地理研究院修改的版本。）
+            /// </summary>
+            public const int IGN80 = 7011;
+
+            /// <summary>
             /// urn:ogc:def:ellipsoid:EPSG::7022 "International 1924"<br/>
             /// The Hayford ellipsoid was the international standard between 1924 and 1967.<br/>
             /// （海福德（Hayford）橢球體在 1924 年至 1967 年間曾為國際標準。）
             /// </summary>
             public const int Intl24 = 7022;
+
+            /// <summary>
+            /// urn:ogc:def:ellipsoid:EPSG::7024 "Krassowsky 1940"<br/>
+            /// The ellipsoid that was first adopted by USSR in 1942.<br/>
+            /// （最早於 1942 年由蘇聯採用的橢球體。）
+            /// </summary>
+            public const int Krsky40 = 7024;
+
+            /// <summary>
+            /// urn:ogc:def:ellipsoid:EPSG::7012 "Clarke 1880 (RGS)"<br/>
+            /// The 1866 Clarke ellipsoid modified by Royal Geographical Society in 1880.<br/>
+            /// （1866 年的克拉克橢球體，於 1880 年被皇家地理學會修改的版本。）
+            /// </summary>
+            public const int RGS80 = 7012;
 
             /// <summary>
             /// urn:ogc:def:ellipsoid:EPSG::7030 "WGS84"<br/>
@@ -78,11 +120,17 @@ namespace Carto.Geodata
             {
                 return ellipsoid switch
                 {
+                    IO.Ellipsoid.Airy30 => Airy30,
                     IO.Ellipsoid.Bssl41 => Bssl41,
                     IO.Ellipsoid.Clrk66 => Clarke66,
                     IO.Ellipsoid.Evrst37 => Everest37,
+                    IO.Ellipsoid.GRS67 => GRS67,
                     IO.Ellipsoid.GRS80 => GRS80,
+                    IO.Ellipsoid.GSK11 => GSK11,
+                    IO.Ellipsoid.IGN80 => IGN80,
                     IO.Ellipsoid.Intl24 => Intl24,
+                    IO.Ellipsoid.Krsky40 => Krsky40,
+                    IO.Ellipsoid.RGS80 => RGS80,
                     IO.Ellipsoid.WGS84 => WGS84,
                     _ => UserDefined
                 };
@@ -98,11 +146,17 @@ namespace Carto.Geodata
             {
                 return ellipsoid switch
                 {
+                    IO.Ellipsoid.Airy30 => "Airy 1830",
                     IO.Ellipsoid.Bssl41 => "Bessel 1841",
                     IO.Ellipsoid.Clrk66 => "Clarke 1866",
                     IO.Ellipsoid.Evrst37 => "Everest 1830 (1937 Adjustment)",
+                    IO.Ellipsoid.GRS67 => "GRS 1967",
                     IO.Ellipsoid.GRS80 => "GRS 1980",
+                    IO.Ellipsoid.GSK11 => "GSK-2011",
+                    IO.Ellipsoid.IGN80 => "Clarke 1880 (IGN)",
                     IO.Ellipsoid.Intl24 => "International 1924",
+                    IO.Ellipsoid.Krsky40 => "Krassowsky 1940",
+                    IO.Ellipsoid.RGS80 => "Clarke 1880 (RGS)",
                     IO.Ellipsoid.WGS84 => "WGS 84",
                     _ => "User Defined Ellipsoid"
                 };
