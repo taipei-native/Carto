@@ -89,41 +89,44 @@ For bug reports or in-depth discussions, please consider using [GitHub Issues](h
 
 This major release is a complete rewrite of the mod, addressing longstanding performance bottlenecks and introducing powerful new features.
 
+### New Feature Types
+
+Newly supported exports include:
+
+* Transport routes (as a separate feature type)
+* Specialized industries and landfills (exported under the *Building* feature type)
+* Runways, taxiways, and waterways (exported under the *Network* feature type)
+
+### New Attributes
+
+* Added 17 new attribute types to export, e.g. age, labor, profit, speed limit, volume, wage, and more.
+
 ### Performance Boosts
 
 Export speeds have been significantly optimized:
+
 * Save **95%–99% of time** when exporting GeoJSON.
 * Save **80%–90% of time** when exporting ESRI Shapefile.
 
 For example, exporting 450,000 zoning cells:
+
 * GeoJSON: reduced from **13 minutes** → **7 seconds**
 * Shapefile: reduced from **2 minutes** → **4 seconds**
 
 ### Improved User Experience
 
 The options UI has been redesigned for clarity and efficiency:
+
 * Simultaneous vector and raster exports—no more clicking twice.
 * Field selectors have been moved into a dedicated tab.
 * Feature sub-categories can now be toggled individually.
+* Added **Japanese** translation.
 
-### Support for Routes &amp; Specialized Industries
+### Additional Projections
 
-Newly supported exports include:
-* Transport routes (as a separate feature type)
-* Specialized industries and landfills (exported under the *Buildings* feature type)
+You can now define and apply **UTM** or a custom **Transverse Mercator** projection to align your exports with real-world coordinate systems.
 
-### Custom Transverse Mercator Projection Support
-
-You can now define and apply a **custom** Transverse Mercator (TM) projection to align your exports with real-world coordinate systems.
-
-### Expanded Attribute Support
-
-Carto now exports more in-game attribute data, including: average age, labor count, average profit, sex ratio, spped limit, average wage, ... and more!
-
-### Additional Improvements
-
-* Integration with **Extended Transport Manager** by *klyte45* — route acronyms defined in the mod are now exportable.
-* Added **Japanese** translation. 初めまして、どうぞよろしくお願いします。
+Read the full changelog on [Wiki](https://github.com/taipei-native/Carto/wiki/Changelog#10).
 	</ChangeLog>
 	<!--External link. supported types are discord, github, youtube, twitch, x, paypal, patreon, buymeacoffee, kofi, crowdin, gitlab-->
 	<ExternalLink Type="discord" Url="https://discord.gg/HTav7ARPs2" />
