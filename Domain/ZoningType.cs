@@ -1,78 +1,60 @@
+using Game.Prefabs;
+using Unity.Entities;
+using UnityEngine;
+
 namespace Carto.Domain
 {
-    using Carto.Utils;
-    using Unity.Entities;
-    using ZoningCategory = Systems.ZoningSystem.ZoningCategory;
-    using ZoningDensity = Systems.ZoningSystem.ZoningDensity;
-
     /// <summary>
-    /// The class to store the metadata of each zoning type.
-    /// （儲存各個分區類型基礎資料的類別。）
+    /// The container of zoning type information.
+    /// （分區類型資訊的容器。）
     /// </summary>
-    public class ZoningType
+    public struct ZoningType
     {
+        /// <summary>
+        /// The zoning type entity.
+        /// （分區類型實體。）
+        /// </summary>
+        public Entity entity;
+        
         /// <summary>
         /// The category of the zoning type.
         /// （分區類型的分類。）
         /// </summary>
-        public ZoningCategory? Category { get; set; }
+        public ZoningCategory category;
 
         /// <summary>
-        /// The rendering color of the zoning type.
-        /// （分區類型的渲染顏色。）
+        /// The color of the zoning type.
+        /// （分區類型的顏色。）
         /// </summary>
-        public string Color { get; set; }
+        public Color color;
 
         /// <summary>
-        /// The estimated density of the zoning type.
-        /// （分區類型的密度。）
+        /// The density of the zoning type.
+        /// （分區類型的發展強度。）
         /// </summary>
-        public ZoningDensity? Density { get; set; }
+        public ZoningDensity density;
 
         /// <summary>
-        /// The zoning type entity itself.
-        /// （分區類型實體本身。）
+        /// The unique index of each zoning types loaded in-game.
+        /// （遊戲中已載入分區類型的唯一識別碼。）
         /// </summary>
-        public Entity Entity { get; set; }
+        public ushort id;
 
         /// <summary>
-        /// The UID of each zoning type.
-        /// （各個分區類型的唯一代碼。）
+        /// The prefab information of the entity.
+        /// （實體的預製模板資訊。）
         /// </summary>
-        public ushort? Index { get; set; }
+        public PrefabData prefabData;
 
         /// <summary>
-        /// The localized name of the zoning type.
-        /// （分區類型的在地化名稱。）
+        /// The index of the theme that the zoning type belongs to.
+        /// （分區類型所屬的風格索引值。）
         /// </summary>
-        public string Name => LocaleUtils.Translate($"Assets.NAME[{PrefabName}]");
+        public int theme;
 
-        /// <summary>
-        /// The prefab name of the zoning type.
-        /// （分區類型的預製模板名稱。）
-        /// </summary>
-        public string PrefabName { get; set; }
-
-        /// <summary>
-        /// The theme of the zoning type.
-        /// （分區類型的主題風格。）
-        /// </summary>
-        public string Theme { get; set; }
-
-        /// <summary>
-        /// The method to turn the class into a string.
-        /// （用以將類別轉換為字串的方法。）
-        /// </summary>
-        public override string ToString()
+        public override readonly string ToString()
         {
-            string notSet = "Not Set";
-            string category = (Category == null) ? notSet : $"{Category}";
-            string color = (Color == null) ? notSet : Color;
-            string density = (Density == null) ? notSet : $"{Density}";
-            string index = (Index == null) ? notSet : $"{Index}";
-            string name = (PrefabName == null) ? notSet : Name;
-            string theme = (Theme == null) ? notSet : Theme;
-            return $"ZoningTypeInfo({index} [{name}], Category = {{{category}}}, Density = {density}, Theme = {theme}, Color = {color})";
+            return $"Zoning ({entity.Index}:{entity.Version}) - Category [{category}], Color [{color}], Density [{density}], Id [{id}], PrefabData [{prefabData.m_Index}], Theme [{theme}]";
         }
     }
 }

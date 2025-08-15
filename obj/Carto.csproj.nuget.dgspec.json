@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Documents\\source\\repos\\Carto\\Carto.csproj": {}
+    "D:\\Documents\\[by-type]\\github\\Carto\\Carto.csproj": {}
   },
   "projects": {
-    "D:\\Documents\\source\\repos\\Carto\\Carto.csproj": {
-      "version": "0.3.7",
+    "D:\\Documents\\[by-type]\\github\\Carto\\Carto.csproj": {
+      "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Documents\\source\\repos\\Carto\\Carto.csproj",
+        "projectUniqueName": "D:\\Documents\\[by-type]\\github\\Carto\\Carto.csproj",
         "projectName": "Carto",
-        "projectPath": "D:\\Documents\\source\\repos\\Carto\\Carto.csproj",
+        "projectPath": "D:\\Documents\\[by-type]\\github\\Carto\\Carto.csproj",
         "packagesPath": "C:\\Users\\Daniel\\.nuget\\packages\\",
-        "outputPath": "D:\\Documents\\source\\repos\\Carto\\obj\\",
+        "outputPath": "D:\\Documents\\[by-type]\\github\\Carto\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

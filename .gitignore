@@ -397,5 +397,11 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
+# Markdownlint
+*.markdownlint.json
+
+# QGIS style XMLs zip file
+Styles.zip
+
 # Posponed UI Project
 UI/

@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.9.34723.18
+VisualStudioVersion = 17.11.35222.181
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Carto", "Carto.csproj", "{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Carto", "Carto.csproj", "{D533BC7C-229C-41C3-BC41-955B931A8237}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{360366C3-5BA8-4E6B-B502-E6CFE575DFFB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D533BC7C-229C-41C3-BC41-955B931A8237}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D533BC7C-229C-41C3-BC41-955B931A8237}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D533BC7C-229C-41C3-BC41-955B931A8237}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D533BC7C-229C-41C3-BC41-955B931A8237}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {D8CB9ECF-71E6-4B14-AE19-8F04875861F6}
+		SolutionGuid = {7E45238D-56D7-40AB-A76C-C5E89E0DED61}
 	EndGlobalSection
 EndGlobal

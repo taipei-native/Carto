@@ -1,163 +1,93 @@
+using Carto.Domain;
+using Carto.Systems;
+using Colossal.Localization;
+using Colossal.Logging;
+using Colossal.PSI.Environment;
+using Game;
+using Game.Audio;
+using Game.City;
+using Game.Modding;
+using Game.Prefabs;
+using Game.SceneFlow;
+using Game.Simulation;
+using Game.UI;
+using System.Reflection;
+using Unity.Entities;
+
 namespace Carto
 {
-    using Carto.Systems;
-    using Carto.Utils;
-    using Colossal.Localization;
-    using Colossal.Logging;
-    using Game;
-    using Game.Audio;
-    using Game.City;
-    using Game.Modding;
-    using Game.Prefabs;
-    using Game.SceneFlow;
-    using Game.Simulation;
-    using Game.UI;
-    using System.IO;
-    using System.Reflection;
-    using Unity.Entities;
-
-    public class Instance
+    /// <summary>
+    /// The class that provides unified access to current instances.
+    /// （提供統一存取現有實例途徑的類別。）
+    /// </summary>
+    public static class Instance
     {
+        // Game instances（遊戲的實例）
         /// <summary>
-        /// The Carto mod's AreaSystem instance.
-        /// （Carto模組的AreaSystem個體。）
+        /// The system managing sound effects.
+        /// （管理音效的系統。）
         /// </summary>
-        public static AreaSystem Area => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<AreaSystem>();
+        public static AudioManager Audio => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<AudioManager>();
 
         /// <summary>
-        /// The Carto mod's AudioSystem instance.
-        /// （Carto模組的AudioSystem個體。）
-        /// </summary>
-        public static AudioSystem Audio => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<AudioSystem>();
-
-        /// <summary>
-        /// The manager controlling sound effects.
-        /// （音效的管理者。）
-        /// </summary>
-        public static AudioManager AudioManager => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<AudioManager>();
-
-        /// <summary>
-        /// The Carto mod's BuildingSystem instance.
-        /// （Carto模組的BuildingSystem個體。）
-        /// </summary>
-        public static BuildingSystem Building => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<BuildingSystem>();
-
-        /// <summary>
-        /// The system managing the city starting options.
-        /// （管理城市開始選項的系統。）
+        /// The system managing the initializing options.
+        /// （管理程式初始化選項的系統。）
         /// </summary>
         public static CityConfigurationSystem City => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<CityConfigurationSystem>();
 
         /// <summary>
-        /// The name of the current city.
-        /// （目前城市的名稱。）
+        /// The current game mode.
+        /// （目前的遊戲模式。）
         /// </summary>
-        public static string CityName
-        {
-            get
-            {
-                if (Mode == GameMode.Game) return City.cityName;
-                return LocaleUtils.Translate("Carto.export.UNKNOWN[City]");
-            }
-        }
+        public static GameMode GameMode => GameManager.instance.gameMode;
 
         /// <summary>
-        /// The container dealing with the localization.
-        /// （處理在地化的容器。）
+        /// The manager of the localization data.
+        /// （語系資料的管理者。）
         /// </summary>
         public static LocalizationManager Localization => GameManager.instance.localizationManager;
 
         /// <summary>
-        /// The logger documenting the information, warnings, and errors as needed.
-        /// （記錄執行時資訊、警告或錯誤的記錄器。）
+        /// The manager of the mod assemblies.
+        /// （模組組件的管理者。）
         /// </summary>
-        public static ILog Log => LogManager.GetLogger(nameof(Carto)).SetShowsErrorsInUI(false);
+        public static ModManager Mod => GameManager.instance.modManager;
 
         /// <summary>
-        /// The system querying the map abstracts.
-        /// （查詢地圖概要的系統。）
+        /// The system querying map data.
+        /// （查詢地圖資料的系統。）
         /// </summary>
         public static MapMetadataSystem Map => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<MapMetadataSystem>();
 
         /// <summary>
-        /// The name of the current map.
-        /// （目前地圖的名稱。）
-        /// </summary>
-        public static string MapName
-        {
-            get
-            {
-                if (Mode == GameMode.Game) return LocaleUtils.Translate($"Maps.MAP_TITLE[{Map.mapName}]");
-                return LocaleUtils.Translate("Carto.export.UNKNOWN[Map]");
-            }
-        }
-
-        /// <summary>
-        /// The current game mode (main menu, game, or editor.)
-        /// （目前的遊戲模式（主目錄、遊戲內、編輯器）。）
-        /// </summary>
-        public static GameMode Mode => GameManager.instance.gameMode;
-
-        /// <summary>
-        /// The system managing names of objects.
-        /// （管理物件名稱的系統。）
+        /// The system managing the names of each entity.
+        /// （管理各實體名稱的系統。）
         /// </summary>
         public static NameSystem Name => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<NameSystem>();
 
         /// <summary>
-        /// The Carto mod's NetSystem instance.
-        /// （Carto模組的NetSystem個體。）
-        /// </summary>
-        public static NetSystem Net => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<NetSystem>();
-
-        /// <summary>
-        /// The Carto mod's POISystem instance.
-        /// （Carto模組的POISystem個體。）
-        /// </summary>
-        public static POISystem POI => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<POISystem>();
-
-        /// <summary>
-        /// The system managing prefabricated templates of objects.
-        /// （管理物件預製組件模板的系統。）
+        /// The system managing the prefabricated data.
+        /// （管理預製模板資料的系統。）
         /// </summary>
         public static PrefabSystem Prefab => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<PrefabSystem>();
 
         /// <summary>
-        /// The options to change how the mods execute.
-        /// （改變模組運作的選項。）
+        /// The system managing the game simulation.
+        /// （管理遊戲模擬的系統。）
         /// </summary>
-        public static Setting Settings { get; set; }
+        public static SimulationSystem Simulation => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SimulationSystem>();
 
         /// <summary>
-        /// The system managing the transformation from the heightmap to the world terrain.
-        /// （管理由高度圖至世界地形轉換的系統。）
+        /// The system managing the terrain.
+        /// （管理地形的系統。）
         /// </summary>
-        public static Game.Simulation.TerrainSystem GameTerrain => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<Game.Simulation.TerrainSystem>();
+        public static TerrainSystem Terrain => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<TerrainSystem>();
 
         /// <summary>
-        /// The Carto mod's TerrainSystem instance.
-        /// （Carto模組的TerrainSystem個體。）
-        /// </summary>
-        public static Systems.TerrainSystem ModTerrain => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<Systems.TerrainSystem>();
-
-        /// <summary>
-        /// The system managing the in-game time.
-        /// （管理遊戲內時間的系統。）
+        /// The system managing simulation time synchronization.
+        /// （管理遊戲模擬時間同步的系統。）
         /// </summary>
         public static TimeSystem Time => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<TimeSystem>();
-
-        /// <summary>
-        /// The traffic handedness of the current save.
-        /// （目前存檔的交通通行方向。）
-        /// </summary>
-        public static string Traffic
-        {
-            get
-            {
-                if (City.leftHandTraffic) return "Left";
-                return "Right";
-            }
-        }
 
         /// <summary>
         /// The user interface manager of the game.
@@ -166,191 +96,118 @@ namespace Carto
         public static UserInterface UI => GameManager.instance.userInterface;
 
         /// <summary>
+        /// The path to the user data folder.
+        /// （指向使用者資料的路徑。）
+        /// </summary>
+        public static string UserDataPath => EnvPath.kUserDataPath;
+
+        /// <summary>
+        /// The system managing the water.
+        /// （管理水體的系統。）
+        /// </summary>
+        public static WaterSystem Water => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<WaterSystem>();
+
+        // Carto instances（Carto 的實例）
+        /// <summary>
+        /// The system that searches areas.
+        /// （搜尋區域的系統。）
+        /// </summary>
+        public static AreaSystem Area => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<AreaSystem>();
+
+        /// <summary>
+        /// The assembly of the Carto mod.
+        /// （Carto 的程式組件。）
+        /// </summary>
+        public static Assembly Assembly => Assembly.GetExecutingAssembly();
+
+        /// <summary>
+        /// The system that searches buildings.
+        /// （搜尋建築的系統。）
+        /// </summary>
+        public static BuildingSystem Building => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<BuildingSystem>();
+
+        /// <summary>
+        /// The path to Carto's data directory.
+        /// （指向 Carto 資料目錄的路徑。）
+        /// </summary>
+        public static string CartoDataPath => Utils.IOUtils.CombinePath(UserDataPath, "ModsData", nameof(Carto));
+
+        /// <summary>
+        /// The dedicated logger documenting the information, warnings, and errors.
+        /// （記錄執行時資訊、警告或錯誤的記錄器。）
+        /// </summary>
+        public static ILog Log { get; } = LogManager.GetLogger(nameof(Carto)).SetShowsErrorsInUI(true);
+
+        /// <summary>
+        /// The system that searches networks.
+        /// （搜尋網路的系統。）
+        /// </summary>
+        public static NetworkSystem Network => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<NetworkSystem>();
+
+        /// <summary>
+        /// The system that searches point of interests (POIs).
+        /// （搜尋興趣點（POI）的系統。）
+        /// </summary>
+        public static POISystem POI => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<POISystem>();
+
+        /// <summary>
+        /// The system that handles grid data.
+        /// （處理網格資料的系統。）
+        /// </summary>
+        public static RasterSystem Raster => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<RasterSystem>();
+
+        /// <summary>
+        /// The wrapper of the assembly of Road Builder mod developed by TDW.<br/>
+        /// （由 TDW 開發的 Road Builder 模組組件的包裝器。）
+        /// </summary>
+        public static RoadBuilder Rb { get; } = new();
+
+        /// <summary>
+        /// The system that searches transportation routes.
+        /// （搜尋運輸服務路線的系統。）
+        /// </summary>
+        public static RouteSystem Route => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<RouteSystem>();
+
+        /// <summary>
+        /// The options to change mod behaviors.
+        /// （改變模組執行方式的設定。）
+        /// </summary>
+        public static Settings Settings { get; set; }
+
+        /// <summary>
+        /// The system that collects shared data across various systems.
+        /// （收集多種系統所需之共享資料的系統。）
+        /// </summary>
+        public static SharedDataCollectionSystem Shared => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SharedDataCollectionSystem>();
+
+        /// <summary>
+        /// The system that manages sounds.
+        /// （管理聲音的系統。）
+        /// </summary>
+        public static SoundSystem Sound => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SoundSystem>();
+
+        /// <summary>
         /// The current running Carto version.
         /// （目前執行中的 Carto 版本。）
         /// </summary>
-        public static string Version => Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyFileVersionAttribute>().Version;
+        public static string Version => Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version;
 
         /// <summary>
-        /// The system managing the world water allocation.
-        /// （管理世界內水的安置的系統。）
+        /// The wrapper of the assembly of Extended Transport Manager mod developed by klyte45.<br/>
+        /// （由 klyte45 開發的 Extended Transport Manager 模組組件的包裝器。）
         /// </summary>
-        public static Game.Simulation.WaterSystem GameWater => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<Game.Simulation.WaterSystem>();
+        public static ExtendedTransportManager Xtm { get; } = new(); 
 
         /// <summary>
-        /// The Carto mod's WaterSystem instance.
-        /// （Carto模組的WaterSystem個體。）
+        /// The wrapper of the assembly of Zone Color Changer mod developed by TDW.<br/>
+        /// （由 TDW 開發的 Zone Color Changer 模組組件的包裝器。）
         /// </summary>
-        public static Systems.WaterSystem ModWater => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<Systems.WaterSystem>();
+        public static ZoneColorChanger Zcc { get; } = new();
 
         /// <summary>
-        /// The Carto mod's ZoningSystem instance.
-        /// （Carto模組的ZoningSystem個體。）
+        /// The system that searches zoning blocks.
+        /// （搜尋分區的系統。）
         /// </summary>
-        public static ZoningSystem Zoning => World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<ZoningSystem>();
-
-        /// <summary>
-        /// Road Builder mod developed by TDW and Trejak.
-        /// （由TDW和Trejak開發的Road Builder模組。）
-        /// </summary>
-        //  PDX Mods link: https://mods.paradoxplaza.com/mods/87190/Windows
-        //  （PDX Mods 連結：https://mods.paradoxplaza.com/mods/87190/Windows）
-        public static class RBMod
-        {
-            private static Assembly assembly;
-            private static bool ready = false;
-            private static string version = string.Empty;
-
-            static RBMod()
-            {
-                try
-                {
-                    foreach (ModManager.ModInfo modInfo in GameManager.instance.modManager)
-                    {
-                        if (modInfo.name.StartsWith("RoadBuilder"))
-                        {
-                            assembly = modInfo.asset.assembly;
-                            ready = true;
-                            version = assembly.GetName().Version.ToString();
-                            Log.Debug($"Instance.RBMod: Successfully retrieve the assembly of Road Builder [{version}]. 成功獲取 Road Builder [{version}] 模組組件。");
-                            break;
-                        }
-                    }
-
-                    if (!ready) Log.Debug($"Instance.RBMod: Failed to retrieve the assembly of Road Builder. 無法獲取 Road Builder 模組組件。");
-                }
-                catch
-                {
-                    Log.Debug($"Instance.RBMod: Road Builder mod is not loaded. Road Builder 模組尚未載入。");
-                }
-            }
-
-            /// <summary>
-            /// The assembly of the mod.
-            /// （模組的組件。）
-            /// </summary>
-            public static Assembly Assembly
-            {
-                get
-                {
-                    if (assembly == null)
-                    {
-                        throw new FileNotFoundException("Road Builder mod is not loaded. Road Builder 模組尚未載入。");
-                    }
-                    return assembly;
-                }
-            }
-
-            /// <summary>
-            /// The activation status of the mod.
-            /// （模組的啟用狀態。）
-            /// </summary>
-            public static bool Ready => ready;
-
-            /// <summary>
-            /// The version of the assembly of the mod which works smoothly with Carto mod.
-            /// （能與Carto模組正常運行的模組組件版本。）
-            /// </summary>
-            public const string SuggestedVersion = "0.1.0.0";
-
-            /// <summary>
-            /// The version of the assembly.
-            /// （模組組件的版本。）
-            /// </summary>
-            public static string Version => version;
-
-            /// <summary>
-            /// The literal representation of the mod status.
-            /// （模組狀態的字面表示。）
-            /// </summary>
-            public static string Status()
-            {
-                return ready ? $"v{version}" : "Not Detected";
-            }
-        }
-
-        /// <summary>
-        /// Zone Color Changer mod developed by TDW.
-        /// （由TDW開發的Zone Color Changer模組。）
-        /// </summary>
-        //  PDX Mods link: https://mods.paradoxplaza.com/mods/81568/Windows
-        //  （PDX Mods 連結：https://mods.paradoxplaza.com/mods/81568/Windows）
-        public static class ZCCMod
-        {
-            private static Assembly assembly;
-            private static bool ready = false;
-            private static string version = string.Empty;
-
-            /// <summary>
-            /// The constructor of Carto.Instance.ZCCMod.
-            /// （Carto.Instance.ZCCMod的建構函式。）
-            /// </summary>
-            static ZCCMod()
-            {
-                try
-                {
-                    foreach (ModManager.ModInfo modInfo in GameManager.instance.modManager)
-                    {
-                        if (modInfo.name.StartsWith("ZoneColorChanger"))
-                        {
-                            assembly = modInfo.asset.assembly;
-                            ready = true;
-                            version = assembly.GetName().Version.ToString();
-                            Log.Debug($"Instance.ZCCMod: Successfully retrieve the assembly of Zone Color Changer [{version}]. 成功獲取 Zone Color Changer [{version}] 模組組件。");
-                            break;
-                        }
-                    }
-
-                    if (!ready) Log.Debug($"Instance.ZCCMod: Failed to retrieve the assembly of Zone Color Changer. 無法獲取 Zone Color Changer 模組組件。");
-                }
-                catch
-                {
-                    Log.Debug($"Instance.ZCCMod: Zone Color Changer mod is not loaded. Zone Color Changer 模組尚未載入。");
-                }
-            }
-
-            /// <summary>
-            /// The assembly of the mod.
-            /// （模組的組件。）
-            /// </summary>
-            public static Assembly Assembly
-            {
-                get
-                {
-                    if (assembly == null )
-                    {
-                        throw new FileNotFoundException("Zone Color Changer mod is not loaded. Zone Color Changer 模組尚未載入。");
-                    }
-                    return assembly;
-                }
-            }
-
-            /// <summary>
-            /// The activation status of the mod.
-            /// （模組的啟用狀態。）
-            /// </summary>
-            public static bool Ready => ready;
-
-            /// <summary>
-            /// The version of the assembly of the mod which works smoothly with Carto mod.
-            /// （能與Carto模組正常運行的模組組件版本。）
-            /// </summary>
-            public const string SuggestedVersion = "1.1.0.0";
-
-            /// <summary>
-            /// The version of the assembly.
-            /// （模組組件的版本。）
-            /// </summary>
-            public static string Version => version;
-
-            /// <summary>
-            /// The literal representation of the mod status.
-            /// （模組狀態的字面表示。）
-            /// </summary>
-            public static string Status()
-            {
-                return ready ? $"v{version}" : "Not Detected";
-            }
-        }
+        public static ZoningSystem Zoning => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<ZoningSystem>();
     }
 }

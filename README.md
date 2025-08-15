@@ -1,38 +1,58 @@
+<p align="center">
+    <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="./Documentation/Banner-Dark.png">
+        <source media="(prefers-color-scheme: light)" srcset="./Documentation/Banner-Bright.png">
+        <img alt="Carto Logo" src="./Documentation/Banner-Bright.png" width=250>
+    </picture>
+</p>
+
 # Carto
 
-**Carto** is a Cities: Skylines II mod aiming at collecting in-game objects’ spatial data and converting them into geospatial file formats.
+**Carto** is a Cities: Skylines II mod designed to extract in-game spatial data and convert it into widely used geospatial file formats.
 
-### Features
+## Features
 
-* Export Vector Data - Carto currently supports exporting districts, map tiles, buildings, roads, tracks, pathways, points of interest (POIs), and zoning cells into GeoJSON and Esri Shapefile.
-* Export Raster Data - Carto currently supports exporting the elevation and water depths into GeoTIFF.
-* Additional Information - Carto can collect other vital data from your save with the vector geodata, such as asset names, driving directions, etc.
-* UTM Projection - Carto uses WGS84 / UTM projections (EPSG: 326xx / 327xx) to reproject your save to real-life locations.
+* **Vector data export** – Export buildings, districts, map tiles, pathways, POIs, roads, routes, tracks, zoning cells, and more.
+* **Raster data export** – Export terrain elevation and water depth.
+* **Attribute-rich output** – Includes object attributes such as names, direction, and other metadata.
+* **Multiple file formats** – Supports GeoJSON and ESRI Shapefile for vector data; GeoTIFF for raster data.
+* **Projection support** – Uses WGS84 / UTM (EPSG: 326xx / 327xx) by default. Custom Transverse Mercator projections are also supported.
 
-### Usage
+## Installation
 
-Go to the options and click Carto in the sidebar. In the *General* tab, you can set the latitude and the longitude of your map’s center, as well as the exported file format. You can access individual item’s export settings in the *Custom Export* tab, where you can also configure each field’s status by clicking the “Show Advanced” button. Other miscellaneous options are in the *Miscellaneous* tab, including the advanced GeoTIFF format settings and other settings interacting with other mods. When satisfied with the settings, go to the *General* tab and hit the “Export Files” button. Once the button is clickable again, your files are already exported into Carto’s dedicated directory in the user data folder (`C:\Users\UserName\AppData\LocalLow\Colossal Order\Cities Skylines II\ModsData\Carto`). Regarding other features, please refer to the [user manual](https://github.com/taipei-native/Carto/wiki) for further information.
+Carto is available exclusively via [Paradox Mods](https://mods.paradoxplaza.com/mods/87428/Windows), the official distribution platform. You can install it through the in-game mod browser, their website, or via [Skyve](https://github.com/JadHajjar/Skyve).
 
-### Known Issues (for now)
+## Getting Started
 
-* Exporting GeoJSON is extremely slow when the number of features exceeds 10k ~ 20k. Please try to export them as shapefiles.
-* Due to the complicated shape of networks (roads, tracks, and pathways), there might be some invalid geometries in the exported file. You can try using the “fix geometry” functions in some GIS software to solve the problems.
+1. Load a save, start a new game, or open the editor.
+2. Open **Options** and select **Carto** from the sidebar.
+3. In the **General** tab, choose file format and output name.
+4. Select data types to export in the **Feature** tab.
+5. Configure geometry and attributes in the **Properties** tab.
+6. Set your projection in the **Projection** tab.
+7. Click **Export Files** in the **General** tab.
+8. Your data will be saved to: `C:\Users\<YourName>\AppData\LocalLow\Colossal Order\Cities Skylines II\ModsData\Carto`
 
-### Future Roadmap
+See the [Tutorials](https://github.com/taipei-native/Carto/wiki/Tutorial) for making maps with QGIS, and the [User Manual](https://github.com/taipei-native/Carto/wiki) for detailed documentation.
 
-* Ability to export public transport routes, natural resources, pollution, land values, etc.
-* Advanced statistic module that reports detailed census data by districts or buildings (This may be integrated with other mods.)
-* An external website to let users browse their saves (by uploading a compressed binary file) and download rendered maps.
-*The list is not sorted by the priority*
+## Credits
 
-### Supported Languages
+Since April 2024, when I started to develop Carto, I’ve learned from and been inspired by the open-source work of amazing Cities: Skylines II modders including **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang** — a big shout-out to them!
 
-**English** (en-US), **简体中文** (zh-HANS),  **繁體中文** (zh-HANT)
+Special thanks also to beta testers like **Allegretic**, **Excellent Guy**, **jefferyharrell**, **LightLight**, and members of the *Cities: Skylines Modding* and *Cities: Skylines Taiwan Assets* Discord servers for their feedback and support.
 
-### Credits
+Carto also includes C# adaptations of parts of [PROJ](https://github.com/OSGeo/PROJ) and [PROJ4JS](https://github.com/proj4js/proj4js), optimized for Unity’s Burst compiler. License details are available in the `Licenses` directory.
 
-Since April 2024, when I started to develop Carto, I’ve been referring to other amazing Cities: Skylines II modders’ open source codes available on GitHub, including but not limited to **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang**. A big shout-out to them! Aside from the inspiring modders, I am really grateful to beta testers for their precious feedback, including but not limited to **Allegretic**, **Excellent Guy**, **LightLight**, **jefferyharrell**, and other members in the two Discord servers listed below.
+## Contact
 
-### Feedback and Contacts
+You can reach out via:
 
-You can reach me at the [PDX forum’s](https://forum.paradoxplaza.com/forum/threads/carto.1699089/) comment section (English / Chinese), [Cities: Skylines Modding](https://discord.gg/HTav7ARPs2) Discord server (English only), or [Cities: Skylines Taiwan Assets](https://discord.gg/Gz4K66jT64) Discord server (Chinese preferred). If you need to start a more in-depth discussion or report complicated bugs, I’d suggest using GitHub’s issues or discussions, as it isn’t easy to track them between threads.
+* [Paradox Forum](https://forum.paradoxplaza.com/forum/threads/carto.1699089/) (English / Chinese)
+* [Cities: Skylines Modding Discord](https://discord.gg/HTav7ARPs2) (English)
+* [Cities: Skylines Taiwan Assets Discord](https://discord.gg/Gz4K66jT64) (Chinese preferred)
+
+For bug reports or in-depth discussions, please use [GitHub Issues](https://github.com/taipei-native/Carto/issues) or [Discussions](https://github.com/taipei-native/Carto/discussions) to keep things organized.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE.txt](LICENSE.txt) for full details.
