@@ -6,7 +6,6 @@ using Game.UI;
 using Game.UI.Widgets;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using UnityEngine;
 
 namespace Carto

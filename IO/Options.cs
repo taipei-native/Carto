@@ -397,8 +397,8 @@ namespace Carto.IO
         private string GetFileBaseName(string text)
         {
             DateTime gameTime = Instance.Time.GetCurrentDateTime();
-            string cityName = (Instance.GameMode == Game.GameMode.Game) ? IOUtils.RemoveInvalidChars(Instance.City.cityName) : LocaleUtils.Translate("Carto.Address.NULL[City]");
-            string mapName = (Instance.GameMode == Game.GameMode.Game) ? IOUtils.RemoveInvalidChars(Instance.Map.mapName) : LocaleUtils.Translate("Carto.Address.NULL[Map]");
+            string cityName = (Instance.GameMode == Game.GameMode.Game) && (Instance.City.cityName != null) ? IOUtils.RemoveInvalidChars(Instance.City.cityName) : LocaleUtils.Translate("Carto.Address.NULL[City]");
+            string mapName = (Instance.GameMode == Game.GameMode.Game) && (Instance.Map.mapName != null) ? IOUtils.RemoveInvalidChars(Instance.Map.mapName) : LocaleUtils.Translate("Carto.Address.NULL[Map]");
             string name = CommonUtils.ReplaceTokens(text, @"\{(\w+)\}", new()
             {
                 { "City", cityName },
