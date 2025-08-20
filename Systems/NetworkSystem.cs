@@ -12,7 +12,6 @@ using Game.Objects;
 using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
-using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -77,16 +76,10 @@ namespace Carto.Systems
         static readonly ILog _log = Instance.Log;
 
         /// <summary>
-        /// The system managing names.（管理名稱的系統。）<br/>
+        /// The wrapper managing names.（管理名稱的包裝器。）<br/>
         /// See <see cref="Instance.Name"/> for more information.
         /// </summary>
-        static readonly NameSystem _name = Instance.Name;
-
-        /// <summary>
-        /// The system managing prefabricated data.（管理預製模板資料的系統。）<br/>
-        /// See <see cref="Instance.Prefab"/> for more information.
-        /// </summary>
-        static readonly PrefabSystem _prefab = Instance.Prefab;
+        static readonly NameManager _name = Instance.Name;
 
         /// <summary>
         /// The assembly of Road Builder mod.（Road Builder 模組組件。）<br/>
@@ -782,7 +775,7 @@ namespace Carto.Systems
             for (int i = 0; i < uiGroups.Length; i++)
             {
                 Entity uiGroup = uiGroups[i];
-                string groupName = _prefab.GetPrefabName(uiGroup);
+                string groupName = _name.GetPrefabName(uiGroup);
                 switch (groupName)
                 {
                     case "RoadsSmallRoads":
@@ -911,7 +904,7 @@ namespace Carto.Systems
                 for (int i = 0; i < _localNetworkStats.Length; i++)
                 {
                     NetworkStat networkStat = _localNetworkStats[i];
-                    string aggregationName = (networkStat.aggregation != Entity.Null) ? _name.GetRenderedLabelName(networkStat.aggregation) : string.Empty;
+                    string aggregationName = (networkStat.aggregation != Entity.Null) ? _name.GetLabelName(networkStat.aggregation) : string.Empty;
                     Match assetTitleMatch = Regex.Match(aggregationName, @"Assets\.NAME\[(.*?)\]");
                     if (assetTitleMatch.Success)
                     {
@@ -945,11 +938,11 @@ namespace Carto.Systems
 
                     if (networkStat.isRoundabout)
                     {
-                        _networkAssets.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_prefab.GetPrefabName(networkStat.prefab)}]", out string assetName) ? assetName : string.Empty);
+                        _networkAssets.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_name.GetPrefabName(networkStat.prefab)}]", out string assetName) ? assetName : string.Empty);
                     }
                     else
                     {
-                        _networkAssets.Add(_name.GetRenderedLabelName(networkStat.entity));
+                        _networkAssets.Add(_name.GetLabelName(networkStat.entity));
                     }
 
                     _networkCategories.Add(GetCategory(options.RoadClassification, networkStat, roadCategoryUIGroups));

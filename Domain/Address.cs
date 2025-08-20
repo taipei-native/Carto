@@ -63,23 +63,26 @@ namespace Carto.Domain
         /// Convert the entity address to literal one.
         /// （將實體地址轉換為文字地址。）
         /// </summary>
-        /// <param name="nameSystem">The system managing names.（管理名稱的系統。）</param>
+        /// <param name="nameManager">The wrapper managing names.（管理名稱的包裝器。）</param>
         /// <returns>The literal address of the struct.（結構的文字地址。）</returns>
-        public readonly LiteralAddress ToLiteral(NameSystem nameSystem)
+        public readonly LiteralAddress ToLiteral(NameManager nameManager)
         {
             LiteralAddress literal = default;
 
-            if (district != Entity.Null)
+            if ((nameManager != null) && nameManager.IsValid)
             {
-                literal.district = nameSystem.GetRenderedLabelName(district);
-            }
-            else
-            {
-                literal.district = LocaleUtils.TryTranslate("Carto.Address.NULL[District]", out string unincorporated) ? unincorporated : string.Empty;
-            }
+                if (district != Entity.Null)
+                {
+                    literal.district = nameManager.GetLabelName(district);
+                }
+                else
+                {
+                    literal.district = LocaleUtils.TryTranslate("Carto.Address.NULL[District]", out string unincorporated) ? unincorporated : string.Empty;
+                }
 
-            literal.street = (street != Entity.Null) ? nameSystem.GetRenderedLabelName(street) : string.Empty;
-            literal.number = number;
+                literal.street = (street != Entity.Null) ? nameManager.GetLabelName(street) : string.Empty;
+                literal.number = number;
+            }
 
             return literal;
         }

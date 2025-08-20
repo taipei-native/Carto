@@ -46,6 +46,12 @@ namespace Carto.Domain
         public bool hasCustomName;
 
         /// <summary>
+        /// Whether this POI has a owner (is this POI an integrated marker?).
+        /// （這個興趣點是否有擁有者？它是整合式的標記嗎？）
+        /// </summary>
+        public bool hasOwner;
+
+        /// <summary>
         /// Whether the address of this `POI` is mapped to a district or not.
         /// （這個 `POI` 是否已映射至一個行政區？）
         /// </summary>
@@ -69,9 +75,15 @@ namespace Carto.Domain
         /// </summary>
         public Feature objectType;
 
+        /// <summary>
+        /// The owner of this POI.
+        /// （興趣點的擁有者。）
+        /// </summary>
+        public Entity owner;
+
         public override readonly string ToString()
         {
-            return $"POI({entity.Index}:{entity.Version}) - Brand [{brand}], Has Custom Name [{hasCustomName}], Is Address Verified [{isAddressVerified}], Is Privte [{isPrivate}], Object Type [{objectType}]";
+            return $"POI({entity.Index}:{entity.Version}) - Brand [{brand}], Has Custom Name [{hasCustomName}], Has Owner [{hasOwner}], Is Address Verified [{isAddressVerified}], Is Privte [{isPrivate}], Object Type [{objectType}], Owner [{owner.Index}:{owner.Version}]";
         }
     }
 }

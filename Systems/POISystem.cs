@@ -46,16 +46,10 @@ namespace Carto.Systems
         static readonly ILog _log = Instance.Log;
 
         /// <summary>
-        /// The system managing names.（管理名稱的系統。）<br/>
+        /// The wrapper managing names.（管理名稱的包裝器。）<br/>
         /// See <see cref="Instance.Name"/> for more information.
         /// </summary>
-        static readonly NameSystem _name = Instance.Name;
-
-        /// <summary>
-        /// The system managing prefabricated data.（管理預製模板資料的系統。）<br/>
-        /// See <see cref="Instance.Prefab"/> for more information.
-        /// </summary>
-        static readonly Game.Prefabs.PrefabSystem _prefab = Instance.Prefab;
+        static readonly NameManager _name = Instance.Name;
 
         /// <summary>
         /// The system collecting shared data.（收集共享資料的系統。）<br/>
@@ -543,7 +537,7 @@ namespace Carto.Systems
             for (int i = 0; i < parkPrefabs.Length; i++)
             {
                 PrefabUIGroup prefabSet = parkPrefabs[i];
-                string uiGroupName = _prefab.GetPrefabName(prefabSet.uiGroup);
+                string uiGroupName = _name.GetPrefabName(prefabSet.uiGroup);
                 switch (uiGroupName)
                 {
                     // Pre-order Pack & Treasure Hunt buildings.（預購包及尋寶活動建築。）
@@ -1200,12 +1194,77 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Retrieve the name of the POI.
+        /// （獲得興趣點的名稱。）
+        /// </summary>
+        /// <param name="poi">The input POI.（輸入的興趣點。）</param>
+        /// <param name="brands">The list of brands.（品牌的列表。）</param>
+        /// <param name="categoryEntityMap">The mpa between entities and their POI categories.（實體與其興趣點分類的映射表。）</param>
+        /// <returns>The name of the POI.（興趣點的名稱。）</returns>
+        private static string GetPOIName(POI poi, List<Brand> brands,
+                                         ref NativeParallelHashMap<Entity, NativeParallelHashSet<EnumWrapper<POICategory>>> categoryEntityMap)
+        {
+            Entity entity = poi.entity;
+            
+            if (poi.isPrivate && (poi.brand >= 0) && (poi.brand < brands.Count))
+            {
+                return brands[poi.brand].name;
+            }
+            else if (categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories) && categories.IsCreated)
+            {
+                int entityIndex = entity.Index;
+
+                if (categories.Contains(POICategory.Helipad))
+                {
+                    return $"Helipad {entityIndex}";
+                }
+                else if (categories.Contains(POICategory.LevelCrossing))
+                {
+                    return $"Level Crossing {entityIndex}";
+                }
+                else if (categories.Contains(POICategory.TrafficLight))
+                {
+                    return $"Traffic Light {entityIndex}";
+                }
+                else if (categories.Contains(POICategory.UtilityPylon))
+                {
+                    return $"Utility Pylon {entityIndex}";
+                }
+                else if (categories.Contains(POICategory.UtilityPole))
+                {
+                    return $"Utility Pole {entityIndex}";
+                }
+                else if (HasTransportStopPOI(ref categories) && !poi.hasCustomName)
+                {
+                    if (poi.hasOwner)
+                    {
+                        return _name.GetLabelName(poi.owner);
+                    }
+                    else
+                    {
+                        string streetName = _name.GetLabelName(poi.address.street);
+                        string stopName = LocaleUtils.TryTranslate($"Assets.ADDRESS_NAME_FORMAT", out string translated) ? translated : _name.GetLabelName(entity);
+                        return stopName.Replace("{ROAD}", streetName).Replace("{NUMBER}", poi.address.number.ToString("G"));
+                    }
+                }
+                else
+                {
+                    return _name.GetLabelName(entity);
+                }
+            }
+            else
+            {
+                return _name.GetLabelName(entity);
+            }
+        }
+
+        /// <summary>
         /// Check whether the input POI includes transport stop POI categories.
         /// （確認輸入的興趣點是否包含運輸場站興趣點分類。）
         /// </summary>
         /// <param name="categories">The input hashset.（輸入的集合。）</param>
         /// <returns>If true, the input set has transport stop POI categories.（若為真，則該集合包含運輸場站興趣點分類。）</returns>
-        private bool HasTransportStopPOI(ref NativeParallelHashSet<EnumWrapper<POICategory>> categories)
+        private static bool HasTransportStopPOI(ref NativeParallelHashSet<EnumWrapper<POICategory>> categories)
         {
             return categories.Contains(POICategory.StopBus) ||
                    categories.Contains(POICategory.StopCargoAirplane) ||
@@ -1318,51 +1377,9 @@ namespace Carto.Systems
 
                     if (hasName)
                     {
-                        if (poi.isPrivate && (poi.brand >= 0) && (poi.brand < brands.Count))
-                        {
-                            POINames.Add(brands[poi.brand].name);
-                        }
-                        else if (_categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories) && categories.IsCreated)
-                        {
-                            int entityIndex = entity.Index;
-
-                            if (categories.Contains(POICategory.Helipad))
-                            {
-                                POINames.Add($"Helipad {entityIndex}");
-                            }
-                            else if (categories.Contains(POICategory.LevelCrossing))
-                            {
-                                POINames.Add($"Level Crossing {entityIndex}");
-                            }
-                            else if (categories.Contains(POICategory.TrafficLight))
-                            {
-                                POINames.Add($"Traffic Light {entityIndex}");
-                            }
-                            else if (categories.Contains(POICategory.UtilityPylon))
-                            {
-                                POINames.Add($"Utility Pylon {entityIndex}");
-                            }
-                            else if (categories.Contains(POICategory.UtilityPole))
-                            {
-                                POINames.Add($"Utility Pole {entityIndex}");
-                            }
-                            else if (HasTransportStopPOI(ref categories) && !poi.hasCustomName)
-                            {
-                                string streetName = _name.GetRenderedLabelName(poi.address.street);
-                                string stopName = LocaleUtils.TryTranslate($"Assets.ADDRESS_NAME_FORMAT", out string translated) ? translated : _name.GetRenderedLabelName(entity);
-                                POINames.Add(stopName.Replace("{ROAD}", streetName).Replace("{NUMBER}", poi.address.number.ToString("G")));
-                            }
-                            else
-                            {
-                                POINames.Add(_name.GetRenderedLabelName(entity));
-                            }
-                        }
-                        else
-                        {
-                            POINames.Add(_name.GetRenderedLabelName(entity));
-                        }
-
-                        nameField += new FieldInfo(POINames[^1]);
+                        string poiName = GetPOIName(poi, brands, ref _categoryEntityMap);
+                        POINames.Add(poiName);
+                        nameField += new FieldInfo(poiName);
                     }
                     if (hasAddress)
                     {
@@ -1569,49 +1586,7 @@ namespace Carto.Systems
 
                         if (hasName)
                         {
-                            if (poi.isPrivate && (poi.brand >= 0) && (poi.brand < brands.Count))
-                            {
-                                POINames.Add(brands[poi.brand].name);
-                            }
-                            else if (_categoryEntityMap.TryGetValue(entity, out NativeParallelHashSet<EnumWrapper<POICategory>> categories) && categories.IsCreated)
-                            {
-                                int entityIndex = entity.Index;
-
-                                if (categories.Contains(POICategory.Helipad))
-                                {
-                                    POINames.Add($"Helipad {entityIndex}");
-                                }
-                                else if (categories.Contains(POICategory.LevelCrossing))
-                                {
-                                    POINames.Add($"Level Crossing {entityIndex}");
-                                }
-                                else if (categories.Contains(POICategory.TrafficLight))
-                                {
-                                    POINames.Add($"Traffic Light {entityIndex}");
-                                }
-                                else if (categories.Contains(POICategory.UtilityPylon))
-                                {
-                                    POINames.Add($"Utility Pylon {entityIndex}");
-                                }
-                                else if (categories.Contains(POICategory.UtilityPole))
-                                {
-                                    POINames.Add($"Utility Pole {entityIndex}");
-                                }
-                                else if (HasTransportStopPOI(ref categories) && !poi.hasCustomName)
-                                {
-                                    string streetName = _name.GetRenderedLabelName(poi.address.street);
-                                    string stopName = LocaleUtils.TryTranslate($"Assets.ADDRESS_NAME_FORMAT", out string translated) ? translated : _name.GetRenderedLabelName(entity);
-                                    POINames.Add(stopName.Replace("{ROAD}", streetName).Replace("{NUMBER}", poi.address.number.ToString("G")));
-                                }
-                                else
-                                {
-                                    POINames.Add(_name.GetRenderedLabelName(entity));
-                                }
-                            }
-                            else
-                            {
-                                POINames.Add(_name.GetRenderedLabelName(entity));
-                            }
+                            POINames.Add(GetPOIName(poi, brands, ref _categoryEntityMap));
                         }
 
                         if (hasAddress)
@@ -1884,6 +1859,7 @@ namespace Carto.Systems
                     entity = helipad,
                     address = default,
                     brand = -1,
+                    hasOwner = false,
                     inGamePosition = transform.m_Position,
                     isAddressVerified = false,
                     isPrivate = false,
@@ -1969,6 +1945,7 @@ namespace Carto.Systems
                     entity = pylon,
                     address = default,
                     brand = -1,
+                    hasOwner = false,
                     inGamePosition = transform.m_Position,
                     isAddressVerified = false,
                     isPrivate = false,
@@ -2080,6 +2057,7 @@ namespace Carto.Systems
                     entity = trafficLight,
                     address = default,
                     brand = -1,
+                    hasOwner = false,
                     inGamePosition = node.m_Position,
                     isAddressVerified = false,
                     isPrivate = false,
@@ -2207,11 +2185,13 @@ namespace Carto.Systems
                     address = default,
                     brand = -1,
                     hasCustomName = customNameLookup.HasComponent(stop),
+                    hasOwner = ownerLookup.HasComponent(stop),
                     inGamePosition = transform.m_Position,
                     isAddressVerified = false,
                     isPrivate = false,
                     location = Geodata.Transform.Apply(center.Shift(transform.m_Position.xzy), sourceCRS, targetCRS, sourceProjection, targetProjection).Round().ToDouble3(),
-                    objectType = Feature.POITransport
+                    objectType = Feature.POITransport,
+                    owner = Entity.Null
                 };
 
                 Entity stopOwner = stop;
@@ -2221,6 +2201,8 @@ namespace Carto.Systems
                     ownerLookup.TryGetComponent(stopOwner, out Game.Common.Owner owner);
                     stopOwner = owner.m_Owner;
                 }
+
+                if (poi.hasOwner) poi.owner = stopOwner;
 
                 if (buildingLookup.TryGetComponent(stopOwner, out Building ownerBuilding))
                 {

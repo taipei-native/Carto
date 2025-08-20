@@ -8,7 +8,6 @@ using Game;
 using Game.Areas;
 using Game.Common;
 using Game.Tools;
-using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -51,10 +50,10 @@ namespace Carto.Systems
         static readonly ILog _log = Instance.Log;
 
         /// <summary>
-        /// The system managing names.（管理名稱的系統。）<br/>
+        /// The wrapper managing names.（管理名稱的包裝器。）<br/>
         /// See <see cref="Instance.Name"/> for more information.
         /// </summary>
-        static readonly NameSystem _name = Instance.Name;
+        static readonly NameManager _name = Instance.Name;
 
         /// <summary>
         /// The query for existing map tiles.（現有地圖區塊的查詢。）
@@ -293,7 +292,7 @@ namespace Carto.Systems
                     for (int i = 0; i < areaStats.Length; i++)
                     {
                         AreaStat stat = areaStats[i];
-                        areaNames.Add(stat.objectType == Feature.District ? _name.GetRenderedLabelName(stat.entity) : _name.GetDebugName(stat.entity));
+                        areaNames.Add(stat.objectType == Feature.District ? _name.GetLabelName(stat.entity) : _name.GetDebugName(stat.entity));
                         nameField += new FieldInfo(areaNames[i]);
                     }
 
@@ -509,7 +508,7 @@ namespace Carto.Systems
                     for (int i = 0; i < areaStats.Length; i++)
                     {
                         AreaStat stat = areaStats[i];
-                        areaNames.Add(stat.objectType == Feature.District ? _name.GetRenderedLabelName(stat.entity) : _name.GetDebugName(stat.entity));
+                        areaNames.Add(stat.objectType == Feature.District ? _name.GetLabelName(stat.entity) : _name.GetDebugName(stat.entity));
                     }
                 }
 

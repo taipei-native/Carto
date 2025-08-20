@@ -60,12 +60,6 @@ namespace Carto
         public static MapMetadataSystem Map => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<MapMetadataSystem>();
 
         /// <summary>
-        /// The system managing the names of each entity.
-        /// （管理各實體名稱的系統。）
-        /// </summary>
-        public static NameSystem Name => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<NameSystem>();
-
-        /// <summary>
         /// The system managing the prefabricated data.
         /// （管理預製模板資料的系統。）
         /// </summary>
@@ -137,6 +131,12 @@ namespace Carto
         /// （記錄執行時資訊、警告或錯誤的記錄器。）
         /// </summary>
         public static ILog Log { get; } = LogManager.GetLogger(nameof(Carto)).SetShowsErrorsInUI(true);
+
+        /// <summary>
+        /// The warapper of vanilla <see cref="NameSystem"/>, which manages the name of each entity.
+        /// （遊戲原生 <see cref="NameSystem"/> 的包裝器，該系統管理著各實體的名稱。）
+        /// </summary>
+        public static NameManager Name { get; } = new();
 
         /// <summary>
         /// The system that searches networks.

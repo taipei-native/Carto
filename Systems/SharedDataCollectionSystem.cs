@@ -42,6 +42,18 @@ namespace Carto.Systems
         static readonly ILog _log = Instance.Log;
 
         /// <summary>
+        /// The wrapper managing names.（管理名稱的包裝器。）<br/>
+        /// See <see cref="Instance.Name"/> for more information.
+        /// </summary>
+        static readonly NameManager _name = Instance.Name;
+
+        /// <summary>
+        /// The system managing prefabricated data.（管理預製模板資料的系統。）<br/>
+        /// See <see cref="Instance.Prefab"/> for more information.
+        /// </summary>
+        static readonly PrefabSystem _prefab = Instance.Prefab;
+
+        /// <summary>
         /// The system managing the terrain.（管理地形的系統。）<br/>
         /// See <see cref="Instance.Terrain"/> for more information.
         /// </summary>
@@ -646,7 +658,7 @@ namespace Carto.Systems
                 Brand data = new()
                 {
                     entity = brand,
-                    name = Instance.Prefab.GetPrefabName(brand)
+                    name = _name.GetPrefabName(brand)
                 };
                 brands.Add(data);
                 entityMap.Add(brand, brands.Count - 1);
@@ -1081,10 +1093,10 @@ namespace Carto.Systems
             NativeArray<PrefabData> themePrefabs = _themePrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
             for (int i = 0; i < themeEntities.Length; i++)
             {
-                if (Instance.Prefab.TryGetPrefab(themePrefabs[i], out PrefabBase themePrefab))
+                if (_prefab.TryGetPrefab(themePrefabs[i], out PrefabBase themePrefab))
                 {
                     Entity theme = themeEntities[i];
-                    string themePrefabName = Instance.Prefab.GetPrefabName(theme);
+                    string themePrefabName = _name.GetPrefabName(theme);
                     Theme data = new()
                     {
                         entity = theme,
@@ -1102,10 +1114,10 @@ namespace Carto.Systems
                 NativeArray<PrefabData> assetPackPrefabs = _assetPackPrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
                 for (int i = 0; i < assetPacks.Length; i++)
                 {
-                    if (Instance.Prefab.TryGetPrefab(assetPackPrefabs[i], out PrefabBase assetPackPrefab))
+                    if (_prefab.TryGetPrefab(assetPackPrefabs[i], out PrefabBase assetPackPrefab))
                     {
                         Entity assetPack = assetPacks[i];
-                        string assetPackPrefabName = Instance.Prefab.GetPrefabName(assetPack);
+                        string assetPackPrefabName = _name.GetPrefabName(assetPack);
                         Theme data = new()
                         {
                             entity = assetPack,
@@ -1252,13 +1264,13 @@ namespace Carto.Systems
 
                     // Ensure safety when the zonings are not correctly loaded (e.g. a region pack is missing).
                     // （確保分區未正確載入時的安全性（例如缺少地區包）。）
-                    if (!Instance.Prefab.TryGetPrefab(zoningType.prefabData, out ZonePrefab zonePrefabData))
+                    if (!_prefab.TryGetPrefab(zoningType.prefabData, out ZonePrefab zonePrefabData))
                     {
                         names.Add(new("Placeholder", Allocator.Persistent));
                         continue;
                     }
 
-                    string zoningTypeName = Instance.Prefab.GetPrefabName(zoningType.entity);
+                    string zoningTypeName = _name.GetPrefabName(zoningType.entity);
                     string zccName = groupThemes ? Regex.Replace(zoningTypeName, "^[A-Z]{2,3} ", string.Empty) : zoningTypeName;
                     if (vanillaColorAccessible && vanillaColorMap.TryGetValue(zccName, out UnityEngine.Color zoningVanillaColor))
                     {

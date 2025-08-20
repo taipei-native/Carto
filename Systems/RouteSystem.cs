@@ -40,16 +40,10 @@ namespace Carto.Systems
         static readonly ILog _log = Instance.Log;
 
         /// <summary>
-        /// The system managing names.（管理名稱的系統。）<br/>
+        /// The wrapper managing names.（管理名稱的包裝器。）<br/>
         /// See <see cref="Instance.Name"/> for more information.
         /// </summary>
-        static readonly NameSystem _name = Instance.Name;
-
-        /// <summary>
-        /// The system managing prefabricated data.（管理預製模板資料的系統。）<br/>
-        /// See <see cref="Instance.Prefab"/> for more information.
-        /// </summary>
-        static readonly Game.Prefabs.PrefabSystem _prefab = Instance.Prefab;
+        static readonly NameManager _name = Instance.Name;
 
         /// <summary>
         /// The assembly of Extended Transport Manager mod.（Extended Transport Manager 模組組件。）<br/>
@@ -607,11 +601,11 @@ namespace Carto.Systems
                     RouteStat routeStat = _localRouteStats[i];
                     if (hasName)
                     {
-                        string renderedName = _name.GetRenderedLabelName(routeStat.entity);
+                        string renderedName = _name.GetLabelName(routeStat.entity);
 
                         if (!routeStat.hasCustomName)
                         {
-                            renderedName = LocaleUtils.Translate($"Assets.ROUTE_NAME[{_prefab.GetPrefabName(routeStat.prefab)}]").Replace("{NUMBER}", routeStat.number.ToString());
+                            renderedName = LocaleUtils.Translate($"Assets.ROUTE_NAME[{_name.GetPrefabName(routeStat.prefab)}]").Replace("{NUMBER}", routeStat.number.ToString());
                         }
 
                         routeNames.Add(renderedName);
@@ -623,7 +617,7 @@ namespace Carto.Systems
                     }
                     if (hasModel)
                     {
-                        routeModels.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_prefab.GetPrefabName(routeStat.model)}]", out string translated) ? translated : _prefab.GetPrefabName(routeStat.model));
+                        routeModels.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_name.GetPrefabName(routeStat.model)}]", out string translated) ? translated : _name.GetPrefabName(routeStat.model));
                         modelField += new FieldInfo(routeModels[^1]);
                     }
                     if (hasObject)
@@ -824,14 +818,14 @@ namespace Carto.Systems
                     for (int i = 0; _localRouteStats.IsCreated && (i < _localRouteStats.Length); i++)
                     {
                         RouteStat routeStat = _localRouteStats[i];
-                        string renderedName = _name.GetRenderedLabelName(routeStat.entity);
+                        string renderedName = _name.GetLabelName(routeStat.entity);
 
                         if (!routeStat.hasCustomName)
                         {
-                            renderedName = LocaleUtils.Translate($"Assets.ROUTE_NAME[{_prefab.GetPrefabName(routeStat.prefab)}]").Replace("{NUMBER}", routeStat.number.ToString());
+                            renderedName = LocaleUtils.Translate($"Assets.ROUTE_NAME[{_name.GetPrefabName(routeStat.prefab)}]").Replace("{NUMBER}", routeStat.number.ToString());
                         }
 
-                        routeModels.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_prefab.GetPrefabName(routeStat.model)}]", out string translated) ? translated : _prefab.GetPrefabName(routeStat.model));
+                        routeModels.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_name.GetPrefabName(routeStat.model)}]", out string translated) ? translated : _name.GetPrefabName(routeStat.model));
                         routeNames.Add(renderedName);
 
                         string routeNumbering = routeStat.number.ToString("G");

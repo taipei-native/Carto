@@ -13,7 +13,6 @@ using Game.Net;
 using Game.Objects;
 using Game.Prefabs;
 using Game.Tools;
-using Game.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -55,10 +54,10 @@ namespace Carto.Systems
         static readonly ILog _log = Instance.Log;
 
         /// <summary>
-        /// The system managing names.（管理名稱的系統。）<br/>
+        /// The wrapper managing names.（管理名稱的包裝器。）<br/>
         /// See <see cref="Instance.Name"/> for more information.
         /// </summary>
-        static readonly NameSystem _name = Instance.Name;
+        static readonly NameManager _name = Instance.Name;
 
         /// <summary>
         /// The system managing prefabricated data.（管理預製模板資料的系統。）<br/>
@@ -156,7 +155,7 @@ namespace Carto.Systems
             NativeArray<PrefabData> buildingPrefabData = _buildingPrefabQuery.ToComponentDataArray<PrefabData>(Allocator.Temp);
             for (int i = 0; i < buildingPrefabEntities.Length; i++)
             {
-                if (Instance.Prefab.TryGetPrefab(buildingPrefabData[i], out BuildingPrefab buildingPrefab) && buildingPrefab != null)
+                if (_prefab.TryGetPrefab(buildingPrefabData[i], out BuildingPrefab buildingPrefab) && buildingPrefab != null)
                 {
                     if (buildingPrefab.m_Circular) circularBuildingPrefabs.Add(buildingPrefabEntities[i]);
                 }
@@ -255,7 +254,7 @@ namespace Carto.Systems
 
                     if (hasName)
                     {
-                        buildingNames.Add(_name.GetRenderedLabelName(stat.entity));
+                        buildingNames.Add(_name.GetLabelName(stat.entity));
                         nameField += new FieldInfo(buildingNames[i]);
                     }
                     if (hasAddress)
@@ -271,7 +270,7 @@ namespace Carto.Systems
                     }
                     if (hasAsset)
                     {
-                        string prefabName = _prefab.GetPrefabName(stat.prefab);
+                        string prefabName = _name.GetPrefabName(stat.prefab);
                         buildingAssets.Add(LocaleUtils.TryTranslate($"Assets.NAME[{prefabName}]", out string assetName) ? assetName : prefabName);
                         assetField += new FieldInfo(buildingAssets[i]);
                     }
@@ -750,7 +749,7 @@ namespace Carto.Systems
 
                         if (hasName)
                         {
-                            buildingNames.Add(_name.GetRenderedLabelName(stat.entity));
+                            buildingNames.Add(_name.GetLabelName(stat.entity));
                         }
 
                         if (hasAddress)
@@ -760,7 +759,7 @@ namespace Carto.Systems
 
                         if (hasAsset)
                         {
-                            string prefabName = _prefab.GetPrefabName(stat.prefab);
+                            string prefabName = _name.GetPrefabName(stat.prefab);
                             buildingAssets.Add(LocaleUtils.TryTranslate($"Assets.NAME[{prefabName}]", out string assetName) ? assetName : prefabName);
                         }
                     }
