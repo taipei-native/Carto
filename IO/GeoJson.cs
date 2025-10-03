@@ -109,7 +109,7 @@ namespace Carto.IO
         private static void WriteDouble3Array(JsonTextWriter writer, double3[] array, bool isRing, bool writeElevation = false)
         {
             writer.WriteStartArray();
-            for (int i = 0; i < array.Length; i++) WriteDouble3(writer, array[i]);
+            for (int i = 0; i < array.Length; i++) WriteDouble3(writer, array[i], writeElevation);
             if (isRing) WriteDouble3(writer, array[0], writeElevation);
             writer.WriteEndArray();
         }

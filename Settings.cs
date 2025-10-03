@@ -29,7 +29,7 @@ namespace Carto
     {
         public Settings(IMod mod) : base(mod) { SetDefaults(); }
 
-        // TODO NOTE: Update these properties / methods when adding a new one:
+        // NOTE: Update these properties / methods when adding a new one:
         //           （當添加新屬性／方法時，更新以下屬性：）
         // - DisableFeaturesButton
         // - DisablePropertiesButton

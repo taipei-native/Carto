@@ -213,6 +213,11 @@ namespace Carto.Geodata
                     https://github.com/OSGeo/PROJ/blob/master/src/projections/tmerc.cpp#L293
              */
 
+            // Version 1.0.4: Save a copy of the height, so the output z value is correct.
+            // （1.0.4 版本：儲存一個高度的複本，並使用其作為輸出的 z 值。）
+
+            double z = wgs84.z;
+
             // Datum Transformation（大地基準轉換）
             if (projection.HasTransform)
             {
@@ -255,11 +260,11 @@ namespace Carto.Geodata
             {
                 double x = projection.meridianQuadrant * Ce * projection.ellipsoid.a + projection.shift.x;
                 double y = (projection.meridianQuadrant * Cn + projection.radiusVector) * projection.ellipsoid.a + projection.shift.y;
-                return new(x, y, wgs84.z, CRS.TransverseMercator);
+                return new(x, y, z, CRS.TransverseMercator);
             }
             else
             {
-                return new(double.MaxValue, double.MaxValue, wgs84.z, CRS.TransverseMercator);
+                return new(double.MaxValue, double.MaxValue, z, CRS.TransverseMercator);
             }
         }
 
