@@ -257,7 +257,7 @@ namespace Carto.Systems
             param.scaleY = Math.Abs(Math.Round(_terrain.worldSize.y / map.height, 4, MidpointRounding.AwayFromZero));
             GeoTiff.WriteHeader(writer, ref param);
             GeoTiff.Parameter _param = param;
-            float seaLevel = WaterSystem.SeaLevel;
+            float seaLevel = Instance.Water.SeaLevel;
 
             float GetDepthAsFloat(ushort value, Bounds1 bounds, float nodata)
             {

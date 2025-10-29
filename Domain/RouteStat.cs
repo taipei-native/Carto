@@ -58,12 +58,6 @@ namespace Carto.Domain
         public float length;
 
         /// <summary>
-        /// The model used on the route.
-        /// （在運輸服務路線上服務的車型。）
-        /// </summary>
-        public Entity model;
-
-        /// <summary>
         /// The serial number of the route.
         /// （運輸服務路線的流水號。）
         /// </summary>
@@ -136,7 +130,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Route({entity.Index}:{entity.Version}) - Capacity [{capacity}], Color [{color}], Has Custom Name [{hasCustomName}], Is Cargo [{isCargo}], Is Passenger [{isPassenger}], Length [{length}], Model [{model.Index}:{model.Version}], Number [{number}], Passenger [{passenger}], Prefab [{prefab.Index}:{prefab.Version}], Stop [{stop}], Transport [{transport}], Vehicle [{vehicle}], Weight [{weight}]";
+            return $"Route({entity.Index}:{entity.Version}) - Capacity [{capacity}], Color [{color}], Has Custom Name [{hasCustomName}], Is Cargo [{isCargo}], Is Passenger [{isPassenger}], Length [{length}], Number [{number}], Passenger [{passenger}], Prefab [{prefab.Index}:{prefab.Version}], Stop [{stop}], Transport [{transport}], Vehicle [{vehicle}], Weight [{weight}]";
         }
     }
 }

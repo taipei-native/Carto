@@ -670,7 +670,7 @@ namespace Carto.Systems
             }
             if ((buildingCategory & BuildingCategory.Transportation) != 0)
             {
-                maxCount += 19;
+                maxCount += 21;
             }
             if ((buildingCategory & BuildingCategory.Waste) != 0)
             {
@@ -1065,6 +1065,10 @@ namespace Carto.Systems
                                 categories.Add(new(POICategory.DepotBus));
                                 break;
 
+                            case Game.Prefabs.TransportType.Ferry:
+                                categories.Add(new(POICategory.DepotFerry));
+                                break;
+
                             case Game.Prefabs.TransportType.Rocket:
                                 categories.Add(new(POICategory.SpaceCenter));
                                 break;
@@ -1120,6 +1124,11 @@ namespace Carto.Systems
 
                                 case Game.Prefabs.TransportType.Bus:
                                     categories.Add(new(POICategory.BuildingBus));
+                                    hasAnyTransportationSubCategory = true;
+                                    break;
+
+                                case Game.Prefabs.TransportType.Ferry:
+                                    categories.Add(new(POICategory.BuildingFerry));
                                     hasAnyTransportationSubCategory = true;
                                     break;
 
@@ -1270,6 +1279,7 @@ namespace Carto.Systems
                    categories.Contains(POICategory.StopCargoAirplane) ||
                    categories.Contains(POICategory.StopCargoShip) ||
                    categories.Contains(POICategory.StopCargoTrain) ||
+                   categories.Contains(POICategory.StopFerry) ||
                    categories.Contains(POICategory.StopHelicopter) ||
                    categories.Contains(POICategory.StopPassengerAirplane) ||
                    categories.Contains(POICategory.StopPassengerShip) ||
@@ -2249,6 +2259,10 @@ namespace Carto.Systems
 
                         case Game.Prefabs.TransportType.Bus:
                             passengerStopCategory = POICategory.StopBus;
+                            break;
+
+                        case Game.Prefabs.TransportType.Ferry:
+                            passengerStopCategory= POICategory.StopFerry;
                             break;
 
                         case Game.Prefabs.TransportType.Helicopter:

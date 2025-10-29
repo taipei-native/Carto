@@ -70,12 +70,19 @@ namespace Carto.Systems
         private NativeList<RouteStat> _localRouteStats;
 
         /// <summary>
+        /// The map of the routes and their vehicle models.
+        /// （運輸路線與其車輛模型的映射表。）
+        /// </summary>
+        private NativeParallelHashMap<Entity, NativeList<Entity>> _localRouteModelsMap;
+
+        /// <summary>
         /// The type of transportation routes that can be exported.
         /// （可被輸出的運輸路線種類。）
         /// </summary>
         public static HashSet<Game.Prefabs.TransportType> ExportableTransportTypes = new()
         {
             Game.Prefabs.TransportType.Bus,
+            Game.Prefabs.TransportType.Ferry,
             Game.Prefabs.TransportType.Train,
             Game.Prefabs.TransportType.Tram,
             Game.Prefabs.TransportType.Ship,
@@ -146,6 +153,7 @@ namespace Carto.Systems
         public void Dispose()
         {
             // CommonUtils.Dispose(ref _curveEntityMap);
+            CommonUtils.Dispose(ref _localRouteModelsMap);
             CommonUtils.Dispose(ref _localRouteStats);
         }
 
@@ -227,6 +235,7 @@ namespace Carto.Systems
         /// <returns>The length of the route in meters (m).（以公尺計算的路線長度。）</returns>
         private static float GetRouteLength(DynamicBuffer<RouteSegment> routeSegments, ref ComponentLookup<PathInformation> pathInformationLookup)
         {
+            // TODO: Ensure the consistency of the vanilla method after each update.（確保每次更新後和原版方法的一致性。）
             ///  This is the burst-compatible version of <see cref="Game.UI.InGame.TransportUIUtils.GetRouteLength(EntityManager, Entity)"/>.
             /// （這是 <see cref="Game.UI.InGame.TransportUIUtils.GetRouteLength(EntityManager, Entity)"/> 的可 Burst 編譯版本。）。
 
@@ -252,6 +261,7 @@ namespace Carto.Systems
         {
             bool countPets = options.PetPassenger;
             bool includeInactive = options.InactiveRoute;
+            _localRouteModelsMap = new(_routeQuery.CalculateEntityCount(), Allocator.Persistent);
             NativeParallelHashMap<Entity, Game.Prefabs.TransportLineData> validRoutePrefabsDataMap = new(_routePrefabQuery.CalculateEntityCount(), Allocator.Persistent);
             NativeParallelHashSet<EnumWrapper<Game.Prefabs.TransportType>> exportableTransportTypes = new(ExportableTransportTypes.Count, Allocator.Persistent);
             CommonUtils.UnmanagedCopy(ExportableTransportTypes, ref exportableTransportTypes);
@@ -272,6 +282,7 @@ namespace Carto.Systems
                 layoutElementBufferLookup = GetBufferLookup<LayoutElement>(true),
                 passengerBufferLookup = GetBufferLookup<Passenger>(true),
                 resourcesBufferLookup = GetBufferLookup<Resources>(true),
+                vehicleModelBufferLookup = GetBufferLookup<VehicleModel>(true),
                 cargoTransportLookup = GetComponentLookup<CargoTransport>(true),
                 cargoTransportVehicleDataLookup = GetComponentLookup<Game.Prefabs.CargoTransportVehicleData>(true),
                 connectedLookup = GetComponentLookup<Connected>(true),
@@ -284,9 +295,9 @@ namespace Carto.Systems
                 publicTransportVehicleDataLookup = GetComponentLookup<Game.Prefabs.PublicTransportVehicleData>(true),
                 taxiStandLookup = GetComponentLookup<TaxiStand>(true),
                 transportStopLookup = GetComponentLookup<TransportStop>(true),
-                vehicleModelLookup = GetComponentLookup<VehicleModel>(true),
                 validRoutePrefabsDataMap = validRoutePrefabsDataMap,
-                routeStats = _localRouteStats.AsParallelWriter()
+                routeStats = _localRouteStats.AsParallelWriter(),
+                routeModelsMap = _localRouteModelsMap.AsParallelWriter(),
             };
             JobHandle collectStatsHandle = collectStatsJob.ScheduleParallel(_routeQuery, default);
             collectStatsHandle.Complete();
@@ -307,6 +318,7 @@ namespace Carto.Systems
         private static int GetStopCount(DynamicBuffer<RouteWaypoint> routeWaypoints, ref ComponentLookup<Connected> connectedLookup,
                                         ref ComponentLookup<TaxiStand> taxiStandLookup, ref ComponentLookup<TransportStop> transportStopLookup)
         {
+            // TODO: Ensure the consistency of the vanilla method after each update.（確保每次更新後和原版方法的一致性。）
             ///  This is the burst-compatible version of <see cref="Game.UI.InGame.TransportUIUtils.GetStopCount(EntityManager, Entity)"/>.
             /// （這是 <see cref="Game.UI.InGame.TransportUIUtils.GetStopCount(EntityManager, Entity)"/> 的可 Burst 編譯版本。）。
             
@@ -533,6 +545,7 @@ namespace Carto.Systems
                 // TODO: Ensure the consistency of the vanilla enum after each update.（確保每次更新後和原版枚舉的一致性。）
                 Game.Prefabs.TransportType.Airplane => TransportCategory.Airplane,
                 Game.Prefabs.TransportType.Bus => TransportCategory.Bus,
+                Game.Prefabs.TransportType.Ferry => TransportCategory.Ferry,
                 Game.Prefabs.TransportType.Helicopter => TransportCategory.Helicopter,
                 Game.Prefabs.TransportType.Ship => TransportCategory.Ship,
                 Game.Prefabs.TransportType.Subway => TransportCategory.Subway,
@@ -570,6 +583,7 @@ namespace Carto.Systems
 
             // Validate native containers integrity.（驗證原生容器的完整性。）
             CommonUtils.ValidateIntegrity(ref _localRouteStats, true);
+            CommonUtils.ValidateIntegrity(ref _localRouteModelsMap, true);
 
             // Initialize native containers.（初始化原生容器。）
             NativeParallelHashMap<Entity, int> syncMap = new(_localRouteStats.Length, Allocator.Persistent);
@@ -617,8 +631,24 @@ namespace Carto.Systems
                     }
                     if (hasModel)
                     {
-                        routeModels.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_name.GetPrefabName(routeStat.model)}]", out string translated) ? translated : _name.GetPrefabName(routeStat.model));
-                        modelField += new FieldInfo(routeModels[^1]);
+                        if (_localRouteModelsMap.TryGetValue(routeStat.entity, out NativeList<Entity> routeModelsList))
+                        {
+                            List<string> modelList = new();
+                            for (int j = 0; j < routeModelsList.Length; j++)
+                            {
+                                Entity model = routeModelsList[j];
+                                modelList.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_name.GetPrefabName(model)}]", out string translated) ? translated : _name.GetPrefabName(model));
+                            }
+
+                            string modelNames = string.Join(", ", modelList);
+                            routeModels.Add(modelNames);
+                            modelField += new FieldInfo(modelNames);
+                        }
+                        else
+                        {
+                            routeModels.Add(string.Empty);
+                            modelField += new FieldInfo(string.Empty);
+                        }
                     }
                     if (hasObject)
                     {
@@ -825,7 +855,23 @@ namespace Carto.Systems
                             renderedName = LocaleUtils.Translate($"Assets.ROUTE_NAME[{_name.GetPrefabName(routeStat.prefab)}]").Replace("{NUMBER}", routeStat.number.ToString());
                         }
 
-                        routeModels.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_name.GetPrefabName(routeStat.model)}]", out string translated) ? translated : _name.GetPrefabName(routeStat.model));
+                        if (_localRouteModelsMap.TryGetValue(routeStat.entity, out NativeList<Entity> routeModelsList))
+                        {
+                            List<string> modelList = new();
+                            for (int j = 0; j < routeModelsList.Length; j++)
+                            {
+                                Entity model = routeModelsList[j];
+                                modelList.Add(LocaleUtils.TryTranslate($"Assets.NAME[{_name.GetPrefabName(model)}]", out string translated) ? translated : _name.GetPrefabName(model));
+                            }
+
+                            string modelNames = string.Join(", ", modelList);
+                            routeModels.Add(modelNames);
+                        }
+                        else
+                        {
+                            routeModels.Add(string.Empty);
+                        }
+
                         routeNames.Add(renderedName);
 
                         string routeNumbering = routeStat.number.ToString("G");
@@ -1147,6 +1193,9 @@ namespace Carto.Systems
             public BufferLookup<Resources> resourcesBufferLookup;
 
             [ReadOnly]
+            public BufferLookup<VehicleModel> vehicleModelBufferLookup;
+
+            [ReadOnly]
             public ComponentLookup<CargoTransport> cargoTransportLookup;
 
             [ReadOnly]
@@ -1183,13 +1232,13 @@ namespace Carto.Systems
             public ComponentLookup<TransportStop> transportStopLookup;
 
             [ReadOnly]
-            public ComponentLookup<VehicleModel> vehicleModelLookup;
-
-            [ReadOnly]
             public NativeParallelHashMap<Entity, Game.Prefabs.TransportLineData> validRoutePrefabsDataMap;
 
             [WriteOnly]
             public NativeList<RouteStat>.ParallelWriter routeStats;
+
+            [WriteOnly]
+            public NativeParallelHashMap<Entity, NativeList<Entity>>.ParallelWriter routeModelsMap;
 
             public void Execute(in Game.Prefabs.PrefabRef prefabRef, in Route routeComponent, in Color routeColor, in RouteNumber routeNumber, Entity route,
                                 in DynamicBuffer<RouteSegment> routeSegments, in DynamicBuffer<RouteVehicle> routeVehicles,
@@ -1214,7 +1263,6 @@ namespace Carto.Systems
                     isCargo = routeData.m_CargoTransport,
                     isPassenger = routeData.m_PassengerTransport,
                     length = GetRouteLength(routeSegments, ref pathInformationLookup),
-                    model = vehicleModelLookup.TryGetComponent(route, out VehicleModel modelComponent) ? modelComponent.m_PrimaryPrefab : default,
                     number = routeNumber.m_Number,
                     passenger = passengerCount,
                     prefab = prefabRef.m_Prefab,
@@ -1225,6 +1273,17 @@ namespace Carto.Systems
                 };
 
                 routeStats.AddNoResize(stat);
+
+                if (vehicleModelBufferLookup.TryGetBuffer(route, out DynamicBuffer<VehicleModel> vehicleModels))
+                {
+                    NativeList<Entity> models = new(vehicleModels.Length, Allocator.Persistent);
+                    for (int i = 0; i < vehicleModels.Length; i++)
+                    {
+                        models.AddNoResize(vehicleModels[i].m_PrimaryPrefab);
+                    }
+
+                    routeModelsMap.TryAdd(route, models);
+                }
             }
         }
 

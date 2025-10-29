@@ -207,10 +207,10 @@ namespace Carto.IO
             POICategory.BuildingBus, POICategory.BuildingTaxi,
 
             //  Group A4: Uncommon Transportation Buildings（A4 組：非常見運輸建築）
-            POICategory.BuildingHelicopter, POICategory.SpaceCenter,
+            POICategory.BuildingFerry, POICategory.BuildingHelicopter, POICategory.SpaceCenter,
 
             //  Group A5: Depots（A5 組：機廠）
-            POICategory.DepotTrain, POICategory.DepotSubway, POICategory.DepotTram, POICategory.DepotBus, POICategory.DepotTaxi, POICategory.DepotGeneric,
+            POICategory.DepotTrain, POICategory.DepotSubway, POICategory.DepotTram, POICategory.DepotBus, POICategory.DepotTaxi, POICategory.DepotFerry, POICategory.DepotGeneric,
 
             //  Group A6: Heavy Transportation Stops（A6 組：重型運輸站點）
             POICategory.StopPassengerAirplane, POICategory.StopCargoAirplane, POICategory.StopPassengerShip, POICategory.StopCargoShip,
@@ -222,7 +222,7 @@ namespace Carto.IO
             POICategory.StopBus, POICategory.StopTaxi,
 
             //  Group A9: Uncommon Transportation Stops（A9 組：非常見運輸站點）
-            POICategory.StopHelicopter,
+            POICategory.StopFerry, POICategory.StopHelicopter,
 
             //  Group A10: Transportation Fallback Value（A10 組：運輸相關後備值）
             POICategory.TransportationGeneric,
@@ -486,8 +486,8 @@ namespace Carto.IO
             if (errorMessages.Count > 0)
             {
                 string message = string.Join("\n", errorMessages);
-                ErrorDialog dialog = new() { severity = ErrorDialog.Severity.Warning, localizedTitle = "Common.WARNING", localizedMessage = "Carto.Common.ERROR[Input]", errorDetails = message, actions = ErrorDialog.Actions.None };
-                ErrorDialogManager.ShowErrorDialog(dialog);
+                ErrorDialog dialog = new() { severity = ErrorDialog.Severity.Warning, localizedTitle = "Common.WARNING", localizedMessage = "Carto.Common.ERROR[Input]", errorDetails = message, actions = ErrorDialog.ActionBits.Continue };
+                Instance.UI.appBindings.ShowErrorDialog(dialog);
                 return;
             }
 
@@ -496,8 +496,8 @@ namespace Carto.IO
             if (lockedFiles.Count > 0)
             {
                 string message = string.Join("\n", lockedFiles);
-                ErrorDialog dialog = new() { severity = ErrorDialog.Severity.Warning, localizedTitle = "Common.WARNING", localizedMessage = "Carto.Common.ERROR[ShareViolation]", errorDetails = message, actions = ErrorDialog.Actions.None };
-                ErrorDialogManager.ShowErrorDialog(dialog);
+                ErrorDialog dialog = new() { severity = ErrorDialog.Severity.Warning, localizedTitle = "Common.WARNING", localizedMessage = "Carto.Common.ERROR[ShareViolation]", errorDetails = message, actions = ErrorDialog.ActionBits.Continue };
+                Instance.UI.appBindings.ShowErrorDialog(dialog);
                 return;
             }
 

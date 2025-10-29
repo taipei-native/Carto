@@ -347,6 +347,7 @@ namespace Carto.Domain
         BuildingCargoAirplane,
         BuildingCargoShip,
         BuildingCargoTrain,
+        BuildingFerry,
         BuildingHelicopter,
         BuildingPassengerAirplane,
         BuildingPassengerShip,
@@ -355,6 +356,7 @@ namespace Carto.Domain
         BuildingTaxi,
         BuildingTram,
         DepotBus,
+        DepotFerry,
         DepotGeneric,
         DepotSubway,
         DepotTaxi,
@@ -364,6 +366,7 @@ namespace Carto.Domain
         StopCargoAirplane,
         StopCargoShip,
         StopCargoTrain,
+        StopFerry,
         StopHelicopter,
         StopPassengerAirplane,
         StopPassengerShip,
@@ -530,12 +533,13 @@ namespace Carto.Domain
         None = 0,
         Airplane = 1 << 0,
         Bus = 1 << 1,
-        Helicopter = 1 << 2,
-        Ship = 1 << 3,
-        Subway = 1 << 4,
-        Taxi = 1 << 5,
-        Train = 1 << 6,
-        Tram = 1 << 7
+        Ferry = 1 << 2,
+        Helicopter = 1 << 3,
+        Ship = 1 << 4,
+        Subway = 1 << 5,
+        Taxi = 1 << 6,
+        Train = 1 << 7,
+        Tram = 1 << 8
     }
 
     /// <summary>
