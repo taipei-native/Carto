@@ -218,79 +218,84 @@ namespace Carto.Domain
         Car = Small | Medium | Large,
 
         /// <summary>
+        /// The road with bike lane.（有自行車專用道的道路。）
+        /// </summary>
+        Bicycle = 1 << 4,
+
+        /// <summary>
         /// The road with bus lane.（有公車專用道的道路。）
         /// </summary>
-        Bus = 1 << 4,
+        Bus = 1 << 5,
 
         /// <summary>
         /// The tram tracks.（電車軌道。）
         /// </summary>
-        Tram = 1 << 5,
+        Tram = 1 << 6,
 
         /// <summary>
         /// The subway tracks.（捷運軌道。）
         /// </summary>
-        Subway = 1 << 6,
+        Subway = 1 << 7,
 
         /// <summary>
         /// The train tracks.（火車軌道。）
         /// </summary>
-        Train = 1 << 7,
+        Train = 1 << 8,
 
         /// <summary>
         /// The passage reserved for pedestrians.（路徑，保留給行人通行的通道。）
         /// </summary>
-        Pathway = 1 << 8,
+        Pathway = 1 << 9,
 
         /// <summary>
         /// The road that connects aprons, hangers and terminals to the runway.（滑行道。）
         /// </summary>
-        Taxiway = 1 << 9,
+        Taxiway = 1 << 10,
 
         /// <summary>
         /// The road reserved for aircrafts' taking off & landing purposes.（跑道。）
         /// </summary>
-        Runway = 1 << 10,
+        Runway = 1 << 11,
 
         /// <summary>
         /// The path ships travel along to.（航道。）
         /// </summary>
-        Waterway = 1 << 11,
+        Waterway = 1 << 12,
 
         /// <summary>
         /// The wires that carries low voltage electricity.（低壓電纜線。）
         /// </summary>
-        LowCable = 1 << 12,
+        LowCable = 1 << 13,
 
         /// <summary>
         /// The wires that carries low voltage electricity.（高壓電纜線。）
         /// </summary>
-        HighCable = 1 << 13,
+        HighCable = 1 << 14,
 
         /// <summary>
         /// The tube that carries fresh water.（自來水道。）
         /// </summary>
-        WaterPipe = 1 << 14,
+        WaterPipe = 1 << 15,
 
         /// <summary>
         /// The tube that carries sewage water.（汙水下水道。）
         /// </summary>
-        SewagePipe = 1 << 15,
+        SewagePipe = 1 << 16,
 
         /// <summary>
         /// The tube that carries storm water.（雨水下水道。）
         /// </summary>
-        StormPipe = 1 << 16,
+        StormPipe = 1 << 17,
 
         /// <summary>
         /// The man-made barriers.（圍籬。）
         /// </summary>
-        Fence = 1 << 17,
+        Fence = 1 << 18,
 
         /// <summary>
         /// The networks made by Road Builder.（由 Road Builder 製作的網路。）
         /// </summary>
-        RoadBuilder = 1 << 18,
+        RoadBuilder = 1 << 19,
     }
 
     /// <summary>
@@ -343,6 +348,8 @@ namespace Carto.Domain
         Parking,
         SpaceCenter,
         TrafficLight,
+        BicycleStand,
+        BuildingBicycle,
         BuildingBus,
         BuildingCargoAirplane,
         BuildingCargoShip,

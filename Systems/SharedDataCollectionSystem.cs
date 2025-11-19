@@ -673,7 +673,7 @@ namespace Carto.Systems
         /// <returns>The building category.（建築分類。）</returns>
         public static BuildingCategory GetBuildingCategory(Entity target,
                                                            ref ComponentLookup<Abandoned> abandonedLookup, ref ComponentLookup<AdminBuilding> adminBuildingLookup,
-                                                           ref ComponentLookup<Game.Buildings.Battery> batteryLookup, ref ComponentLookup<CommercialProperty> commercialPropertyLookup,
+                                                           ref ComponentLookup<Game.Buildings.Battery> batteryLookup, ref ComponentLookup<BicycleParkingFacility> bicycleParkingFacilityLookup, ref ComponentLookup<CommercialProperty> commercialPropertyLookup,
                                                            ref ComponentLookup<Condemned> condemnedLookup, ref ComponentLookup<Game.Buildings.DeathcareFacility> deathcareFacilityLookup,
                                                            ref ComponentLookup<Destroyed> destroyedLookup, ref ComponentLookup<Game.Buildings.DisasterFacility> disasterFacilityLookup,
                                                            ref ComponentLookup<Game.Buildings.EarlyDisasterWarningSystem> earlyDisasterWarningSystemLookup, ref ComponentLookup<ElectricityProducer> electricityProducerLookup,
@@ -688,8 +688,9 @@ namespace Carto.Systems
                                                            ref ComponentLookup<Game.Buildings.School> schoolLookup, ref ComponentLookup<Game.Buildings.ServiceUpgrade> serviceUpgradeLookup,
                                                            ref ComponentLookup<Game.Buildings.SewageOutlet> sewageOutletLookup, ref ComponentLookup<Game.Buildings.TelecomFacility> telecomFacilityLookup,
                                                            ref ComponentLookup<Game.Buildings.Transformer> transformerLookup, ref ComponentLookup<Game.Buildings.TransportDepot> transportDepotLookup,
-                                                           ref ComponentLookup<Game.Buildings.TransportStation> transportStationLookup, ref ComponentLookup<UnderConstruction> underConstructionLookup,
-                                                           ref ComponentLookup<Game.Buildings.WaterPumpingStation> waterPumpingStationLookup, ref ComponentLookup<Game.Buildings.WelfareOffice> welfareOfficeLookup)
+                                                           ref ComponentLookup<Game.Buildings.TransportStation> transportStationLookup, ref ComponentLookup<Game.Routes.TransportStop> transportStopLookup,
+                                                           ref ComponentLookup<UnderConstruction> underConstructionLookup, ref ComponentLookup<Game.Buildings.WaterPumpingStation> waterPumpingStationLookup,
+                                                           ref ComponentLookup<Game.Buildings.WelfareOffice> welfareOfficeLookup)
         {
             bool hasPublicFacility = false;
             BuildingCategory category = BuildingCategory.None;
@@ -805,8 +806,10 @@ namespace Carto.Systems
                 hasPublicFacility = true;
             }
 
-            if (transportDepotLookup.HasComponent(target) ||
-                transportStationLookup.HasComponent(target))
+            if (bicycleParkingFacilityLookup.HasComponent(target) ||
+                transportDepotLookup.HasComponent(target) ||
+                transportStationLookup.HasComponent(target) ||
+                transportStopLookup.HasComponent(target))
             {
                 category |= BuildingCategory.Transportation;
                 hasPublicFacility = true;
@@ -969,6 +972,7 @@ namespace Carto.Systems
                     adminBuildingLookup = GetComponentLookup<AdminBuilding>(true),
                     aggregatedLookup = GetComponentLookup<Aggregated>(true),
                     batteryLookup = GetComponentLookup<Game.Buildings.Battery>(true),
+                    bicycleParkingFacilityLookup = GetComponentLookup<BicycleParkingFacility>(true),
                     buildingDataLookup = GetComponentLookup<BuildingData>(true),
                     citizenLookup = GetComponentLookup<Citizen>(true),
                     commercialPropertyLookup = GetComponentLookup<CommercialProperty>(true),
@@ -1017,6 +1021,7 @@ namespace Carto.Systems
                     transformerLookup = GetComponentLookup<Game.Buildings.Transformer>(true),
                     transportDepotLookup = GetComponentLookup<Game.Buildings.TransportDepot>(true),
                     transportStationLookup = GetComponentLookup<Game.Buildings.TransportStation>(true),
+                    transportStopLookup = GetComponentLookup<Game.Routes.TransportStop>(true),
                     underConstructionLookup = GetComponentLookup<UnderConstruction>(true),
                     waterPumpingStationLookup = GetComponentLookup<Game.Buildings.WaterPumpingStation>(true),
                     welfareOfficeLookup = GetComponentLookup<Game.Buildings.WelfareOffice>(true),
@@ -1357,6 +1362,9 @@ namespace Carto.Systems
             public ComponentLookup<Game.Buildings.Battery> batteryLookup;
 
             [ReadOnly]
+            public ComponentLookup<BicycleParkingFacility> bicycleParkingFacilityLookup;
+
+            [ReadOnly]
             public ComponentLookup<BuildingData> buildingDataLookup;
 
             [ReadOnly]
@@ -1501,6 +1509,9 @@ namespace Carto.Systems
             public ComponentLookup<Game.Buildings.TransportStation> transportStationLookup;
 
             [ReadOnly]
+            public ComponentLookup<Game.Routes.TransportStop> transportStopLookup;
+
+            [ReadOnly]
             public ComponentLookup<UnderConstruction> underConstructionLookup;
 
             [ReadOnly]
@@ -1552,7 +1563,7 @@ namespace Carto.Systems
                     brand = -1,
                     category = GetBuildingCategory(building,
                                                    ref abandonedLookup, ref adminBuildingLookup,
-                                                   ref batteryLookup, ref commercialPropertyLookup,
+                                                   ref batteryLookup, ref bicycleParkingFacilityLookup, ref commercialPropertyLookup,
                                                    ref condemnedLookup, ref deathcareFacilityLookup,
                                                    ref destroyedLookup, ref disasterFacilityLookup,
                                                    ref earlyDisasterWarningSystemLookup, ref electricityProducerLookup,
@@ -1567,8 +1578,9 @@ namespace Carto.Systems
                                                    ref schoolLookup, ref serviceUpgradeLookup,
                                                    ref sewageOutletLookup, ref telecomFacilityLookup,
                                                    ref transformerLookup, ref transportDepotLookup,
-                                                   ref transportStationLookup, ref underConstructionLookup,
-                                                   ref waterPumpingStationLookup, ref welfareOfficeLookup),
+                                                   ref transportStationLookup, ref transportStopLookup,
+                                                   ref underConstructionLookup, ref waterPumpingStationLookup,
+                                                   ref welfareOfficeLookup),
                     company = 0,
                     employee = 0,
                     household = 0,

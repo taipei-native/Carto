@@ -403,6 +403,28 @@ namespace Carto.Systems
             _networkNames = null;
         }
 
+        // TODO: Unfinished.（未完成。）
+        /// <summary>
+        /// Get the bicycle volume from the sublane buffer.
+        /// （由 sublane 緩衝區獲得自行車的流量。）
+        /// </summary>
+        /// <param name="subLanes">The buffer of sub lanes.（子車道的緩衝區。）</param>
+        /// <param name="secondaryFlowLookup">The lookup for <see cref="SecondaryFlow"/>.（搜尋 <see cref="SecondaryFlow"/> 的查詢。）</param>
+        /// <returns>The number of bikes using the road.（使用道路的自行車數量。）</returns>
+        private static float GetBikeVolume(DynamicBuffer<Game.Net.SubLane> subLanes, ref ComponentLookup<SecondaryFlow> secondaryFlowLookup)
+        {
+            for (int i = 0; i < subLanes.Length; i++)
+            {
+                Game.Net.SubLane subLane = subLanes[i];
+                if (((subLane.m_PathMethods & Game.Pathfind.PathMethod.Bicycle) != 0) && secondaryFlowLookup.TryGetComponent(subLane.m_SubLane, out SecondaryFlow secondaryFlow))
+                {
+                    // How to correctly calculate the volume?（如何正確計算流量？）
+                }
+            }
+
+            return 0f;
+        }
+
         /// <summary>
         /// Retrieve the boundary of the networks.
         /// （獲得網路的邊界。）
@@ -1861,6 +1883,7 @@ namespace Carto.Systems
                 int taxiwayCount = 0;
                 int trackCount = 0;
                 int waterwayCount = 0;
+                NetworkCategory pathwayCategory = NetworkCategory.Bicycle | NetworkCategory.Pathway;
                 NetworkCategory roadCategory = NetworkCategory.Car | NetworkCategory.Highway;
                 NetworkCategory taxiwayCategory = NetworkCategory.Runway | NetworkCategory.Taxiway;
                 NetworkCategory trackCategory = NetworkCategory.Train | NetworkCategory.Subway | NetworkCategory.Tram;
@@ -1873,11 +1896,11 @@ namespace Carto.Systems
                         if (!edgeStat.HasNode(node)) continue;              // Handle the situation of pathway local connection.（處理路徑的當地連結情形。）
 
                         NetworkCategory edgeCategory = edgeStat.category;
-                        if ((edgeCategory & NetworkCategory.Pathway) != 0)
+                        if ((edgeCategory & pathwayCategory) != 0)
                         {
                             pathwayCount++;
                         }
-                        else if ((edgeCategory & roadCategory) != 0)
+                        if ((edgeCategory & roadCategory) != 0)
                         {
                             roadCount++;
                         }
@@ -1896,9 +1919,10 @@ namespace Carto.Systems
                     }
                 }
 
-                if ((stat.category & NetworkCategory.Pathway) != 0)
+                if ((stat.category & pathwayCategory) != 0)
                 {
                     if ((pathwayCount <= 2) || !hasLocalConnect) isTerminus = true;
+                    if ((stat.category & roadCategory) != 0) isTerminus = false;            // Force the road with bicycle lanes to the next check.（強迫含有自行車專用道的道路進入下一個檢查。）
                 }
 
                 if ((stat.category & roadCategory) != 0)
@@ -2130,6 +2154,7 @@ namespace Carto.Systems
                     {
                         RoadTypes roadTypes = carLaneData.m_RoadTypes;
 
+                        if (roadTypes == RoadTypes.Bicycle) laneStruct.category |= NetworkCategory.Bicycle;
                         if ((roadTypes & RoadTypes.Car) != 0) laneStruct.category |= NetworkCategory.Car;
                         if ((roadTypes & RoadTypes.Watercraft) != 0) laneStruct.category |= NetworkCategory.Waterway;
                     }
@@ -2248,6 +2273,7 @@ namespace Carto.Systems
                 {
                     entity = network,
                     aggregation = Entity.Null,
+                    bike = 0f,
                     capacity = 0f,
                     category = NetworkCategory.None,
                     direction = Direction.None,
@@ -2364,6 +2390,9 @@ namespace Carto.Systems
                             // The network form.（網路形式。）
                             if (!overrideForm) stat.form = GetForm(netCompositionData);
 
+                            // The network category.（網路分類。）
+                            if ((state & CompositionState.HasPedestrianLanes) == 0) stat.category &= ~NetworkCategory.Pathway;
+
                             stat.width = netCompositionData.m_Width;
                         }
                     }
@@ -2372,6 +2401,11 @@ namespace Carto.Systems
                     if (roadLookup.TryGetComponent(network, out Road roadComponent))
                     {
                         stat.volume = GetVolume(roadComponent);
+                    }
+
+                    if ((stat.category & NetworkCategory.Bicycle) != 0)
+                    {
+                        //stat.bike = ;
                     }
 
                     if (rbNetworks.Contains(network))

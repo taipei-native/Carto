@@ -29,6 +29,12 @@ namespace Carto.Domain
         public Entity aggregation;
 
         /// <summary>
+        /// The bike traffic volume of the network.
+        /// （網路的自行車流量。）
+        /// </summary>
+        public float bike;
+
+        /// <summary>
         /// The maximum amount of subtance that the utility pipes can hold.
         /// （容量，管線所能乘載的物質數量上限。）
         /// </summary>
@@ -153,7 +159,7 @@ namespace Carto.Domain
                 Feature networkType = Feature.None;
                 if ((category & (NetworkCategory.LowCable | NetworkCategory.HighCable)) != 0) networkType |= Feature.Cable;
                 if ((category & NetworkCategory.Fence) != 0) networkType |= Feature.Fence;
-                if ((category & NetworkCategory.Pathway) != 0) networkType |= Feature.Pathway;
+                if ((category & (NetworkCategory.Bicycle | NetworkCategory.Pathway)) != 0) networkType |= Feature.Pathway;
                 if ((category & (NetworkCategory.SewagePipe | NetworkCategory.StormPipe | NetworkCategory.WaterPipe)) != 0) networkType |= Feature.Pipe;
                 if ((category & NetworkCategory.Car) != 0) networkType |= Feature.Road;
                 if ((category & NetworkCategory.Highway) != 0) networkType |= Feature.Road;
@@ -200,7 +206,7 @@ namespace Carto.Domain
 
         public override readonly string ToString()
         {
-            return $"Network({entity.Index}:{entity.Version}) - Aggregation [{aggregation}], Category [{category}], Capacity [{capacity}], Direction [{direction}], Discharge [{discharge}], Elevation [{elevation}], End [{end.Index}:{end.Version}], Form [{form}], Lane [{lane}], Length [{length}], Limit [{limit}], Load [{load}], Prefab [{prefab}], Range [{range.x}, {range.y}], Roundabout [{roundabout.x}, {roundabout.y}], Start [{start.Index}:{start.Version}], UI Group [{uiGroup}], Volume [{volume}], Width [{width}]";
+            return $"Network({entity.Index}:{entity.Version}) - Aggregation [{aggregation}], Bike [{bike}], Category [{category}], Capacity [{capacity}], Direction [{direction}], Discharge [{discharge}], Elevation [{elevation}], End [{end.Index}:{end.Version}], Form [{form}], Lane [{lane}], Length [{length}], Limit [{limit}], Load [{load}], Prefab [{prefab}], Range [{range.x}, {range.y}], Roundabout [{roundabout.x}, {roundabout.y}], Start [{start.Index}:{start.Version}], UI Group [{uiGroup}], Volume [{volume}], Width [{width}]";
         }
     }
 }

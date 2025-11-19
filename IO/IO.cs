@@ -175,7 +175,7 @@ namespace Carto.IO
         {
             // Group A: Road networks（A 組：道路網路）
             NetworkCategory.Highway, NetworkCategory.Large, NetworkCategory.Medium, NetworkCategory.Small, NetworkCategory.Bus,
-            NetworkCategory.Runway, NetworkCategory.Taxiway,
+            NetworkCategory.Bicycle, NetworkCategory.Runway, NetworkCategory.Taxiway,
 
             // Group B: Track networks（B 組：軌道網路）
             NetworkCategory.Train, NetworkCategory.Subway, NetworkCategory.Tram,
@@ -204,7 +204,7 @@ namespace Carto.IO
             POICategory.BuildingPassengerTrain, POICategory.BuildingCargoTrain, POICategory.BuildingSubway, POICategory.BuildingTram,
 
             //  Group A3: Road Transportation Buildings（A3 組：道路運輸建築）
-            POICategory.BuildingBus, POICategory.BuildingTaxi,
+            POICategory.BuildingBus, POICategory.BuildingTaxi, POICategory.BuildingBicycle,
 
             //  Group A4: Uncommon Transportation Buildings（A4 組：非常見運輸建築）
             POICategory.BuildingFerry, POICategory.BuildingHelicopter, POICategory.SpaceCenter,
@@ -219,7 +219,7 @@ namespace Carto.IO
             POICategory.StopPassengerTrain, POICategory.StopCargoTrain, POICategory.StopSubway, POICategory.StopTram,
 
             //  Group A8: Road Transportation Stops（A8 組：道路運輸站點）
-            POICategory.StopBus, POICategory.StopTaxi,
+            POICategory.StopBus, POICategory.StopTaxi, POICategory.BicycleStand,
 
             //  Group A9: Uncommon Transportation Stops（A9 組：非常見運輸站點）
             POICategory.StopFerry, POICategory.StopHelicopter,
@@ -301,12 +301,12 @@ namespace Carto.IO
                 {
                     POICategory.BuildingPassengerAirplane, POICategory.BuildingCargoAirplane, POICategory.BuildingPassengerShip, POICategory.BuildingCargoShip,
                     POICategory.BuildingPassengerTrain, POICategory.BuildingCargoTrain, POICategory.BuildingSubway, POICategory.BuildingTram,
-                    POICategory.BuildingBus, POICategory.BuildingTaxi,
+                    POICategory.BuildingBus, POICategory.BuildingTaxi, POICategory.BuildingBicycle,
                     POICategory.BuildingHelicopter, POICategory.SpaceCenter,
                     POICategory.DepotTrain, POICategory.DepotSubway, POICategory.DepotTram, POICategory.DepotBus, POICategory.DepotTaxi, POICategory.DepotGeneric,
                     POICategory.StopPassengerAirplane, POICategory.StopCargoAirplane, POICategory.StopPassengerShip, POICategory.StopCargoShip,
                     POICategory.StopPassengerTrain, POICategory.StopCargoTrain, POICategory.StopSubway, POICategory.StopTram,
-                    POICategory.StopBus, POICategory.StopTaxi,
+                    POICategory.StopBus, POICategory.StopTaxi, POICategory.BicycleStand,
                     POICategory.StopHelicopter,
                     POICategory.TrafficLight, POICategory.LevelCrossing, POICategory.PostBox, POICategory.Helipad,
                     POICategory.TransportationGeneric

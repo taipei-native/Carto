@@ -306,6 +306,7 @@ namespace Carto.Systems
                 abandonedLookup = GetComponentLookup<Abandoned>(true),
                 adminBuildingLookup = GetComponentLookup<AdminBuilding>(true),
                 batteryLookup = GetComponentLookup<Battery>(true),
+                bicycleParkingFacilityLookup = GetComponentLookup<BicycleParkingFacility>(true),
                 commercialPropertyLookup = GetComponentLookup<CommercialProperty>(true),
                 condemnedLookup = GetComponentLookup<Condemned>(true),
                 customNameLookup = GetComponentLookup<CustomName>(true),
@@ -345,6 +346,7 @@ namespace Carto.Systems
                 transportDepotLookup = GetComponentLookup<TransportDepot>(true),
                 transportDepotDataLookup = GetComponentLookup<Game.Prefabs.TransportDepotData>(true),
                 transportStationLookup = GetComponentLookup<TransportStation>(true),
+                transportStopLookup = GetComponentLookup<Game.Routes.TransportStop>(true),
                 transportStopDataLookup = GetComponentLookup<Game.Prefabs.TransportStopData>(true),
                 underConstructionLookup = GetComponentLookup<UnderConstruction>(true),
                 waterPoweredDataLookup = GetComponentLookup<Game.Prefabs.WaterPoweredData>(true),
@@ -646,7 +648,7 @@ namespace Carto.Systems
             }
             if ((buildingCategory & BuildingCategory.Parking) != 0)
             {
-                maxCount += 1;
+                maxCount += 2;
             }
             if ((buildingCategory & BuildingCategory.Police) != 0)
             {
@@ -670,7 +672,7 @@ namespace Carto.Systems
             }
             if ((buildingCategory & BuildingCategory.Transportation) != 0)
             {
-                maxCount += 21;
+                maxCount += 23;
             }
             if ((buildingCategory & BuildingCategory.Waste) != 0)
             {
@@ -698,13 +700,13 @@ namespace Carto.Systems
         /// <param name="isSubBuilding">Whether the target entity is a sub building/service upgrade or not.（目標實體是否為一個子建築／服務升級？）</param>
         public static void GetPOICategoryFromBuilding(Entity entity, Entity prefab, BuildingCategory buildingCategory, Resource product, int brand, int zoningTypeIndex, bool hasPrefabRef, bool isSubBuilding,
                                                       ref BufferLookup<SubObject> subObjectBufferLookup,
-                                                      ref ComponentLookup<Battery> batteryLookup, ref ComponentLookup<Game.Prefabs.DeathcareFacilityData> deathcareFacilityDataLookup,
+                                                      ref ComponentLookup<Battery> batteryLookup, ref ComponentLookup<BicycleParkingFacility> bicycleParkingFacilityLookup, ref ComponentLookup<Game.Prefabs.DeathcareFacilityData> deathcareFacilityDataLookup,
                                                       ref ComponentLookup<ElectricityProducer> electricityProducerLookup, ref ComponentLookup<FirewatchTower> firewatchTowerLookup,
                                                       ref ComponentLookup<Game.Prefabs.PrefabRef> prefabRefLookup, ref ComponentLookup<Prison> prisonLookup, ref ComponentLookup<Game.Prefabs.ServiceData> serviceDataLookup,
                                                       ref ComponentLookup<Game.Prefabs.SchoolData> schoolDataLookup, ref ComponentLookup<StorageProperty> storagePropertyLookup,
                                                       ref ComponentLookup<Transformer> transformerLookup, ref ComponentLookup<TransportDepot> transportDepotLookup,
                                                       ref ComponentLookup<Game.Prefabs.TransportDepotData> transportDepotDataLookup, ref ComponentLookup<TransportStation> transportStationLookup,
-                                                      ref ComponentLookup<Game.Prefabs.TransportStopData> transportStopDataLookup, ref ComponentLookup<Game.Prefabs.WaterPoweredData> waterPoweredDataLookup,
+                                                      ref ComponentLookup<Game.Routes.TransportStop> transportStopLookup, ref ComponentLookup<Game.Prefabs.TransportStopData> transportStopDataLookup, ref ComponentLookup<Game.Prefabs.WaterPoweredData> waterPoweredDataLookup,
                                                       ref ComponentLookup<Game.Prefabs.WindPoweredData> windPoweredDataLookup, ref NativeList<ZoningType> zoningTypes,
                                                       ref NativeParallelHashSet<Entity> attractions, ref NativeParallelHashSet<EnumWrapper<POICategory>> categories, out Feature objectType)
         {
@@ -992,8 +994,16 @@ namespace Carto.Systems
             }
             if ((buildingCategory & BuildingCategory.Parking) != 0)
             {
-                poiPublic = true;
-                categories.Add(new(POICategory.Parking));
+                if (bicycleParkingFacilityLookup.HasComponent(entity))
+                {
+                    poiTransport = true;
+                    categories.Add(new(POICategory.BuildingBicycle));
+                }
+                else
+                {
+                    poiPublic = true;
+                    categories.Add(new(POICategory.Parking));
+                }
             }
             if ((buildingCategory & BuildingCategory.Police) != 0)
             {
@@ -1089,6 +1099,9 @@ namespace Carto.Systems
                                 categories.Add(new(POICategory.DepotTram));
                                 break;
 
+                            case Game.Prefabs.TransportType.None:
+                                break;
+
                             default:
                                 categories.Add(new(POICategory.DepotGeneric));
                                 break;
@@ -1107,72 +1120,21 @@ namespace Carto.Systems
                     for (int i = 0; i < subObjects.Length; i++)
                     {
                         if (prefabRefLookup.TryGetComponent(subObjects[i].m_SubObject, out Game.Prefabs.PrefabRef subObjectPrefab) &&
-                            transportStopDataLookup.TryGetComponent(subObjectPrefab, out Game.Prefabs.TransportStopData transportStop))
+                            transportStopDataLookup.TryGetComponent(subObjectPrefab, out Game.Prefabs.TransportStopData transportStopData))
                         {
                             poiTransport = true;
-                            Game.Prefabs.TransportType transportType = transportStop.m_TransportType;
-                            bool isCargo = transportStop.m_CargoTransport;
-                            bool isPassenger = transportStop.m_PassengerTransport;
-
-                            switch (transportType)
-                            {
-                                case Game.Prefabs.TransportType.Airplane:
-                                    if (isCargo) categories.Add(new(POICategory.BuildingCargoAirplane));
-                                    if (isPassenger) categories.Add(new(POICategory.BuildingPassengerAirplane));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Bus:
-                                    categories.Add(new(POICategory.BuildingBus));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Ferry:
-                                    categories.Add(new(POICategory.BuildingFerry));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Helicopter:
-                                    categories.Add(new(POICategory.BuildingHelicopter));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Rocket:
-                                    categories.Add(new(POICategory.SpaceCenter));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Ship:
-                                    if (isCargo) categories.Add(new(POICategory.BuildingCargoShip));
-                                    if (isPassenger) categories.Add(new(POICategory.BuildingPassengerShip));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Subway:
-                                    categories.Add(new(POICategory.BuildingSubway));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Taxi:
-                                    categories.Add(new(POICategory.BuildingTaxi));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Train:
-                                    if (isCargo) categories.Add(new(POICategory.BuildingCargoTrain));
-                                    if (isPassenger) categories.Add(new(POICategory.BuildingPassengerTrain));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-
-                                case Game.Prefabs.TransportType.Tram:
-                                    categories.Add(new(POICategory.BuildingTram));
-                                    hasAnyTransportationSubCategory = true;
-                                    break;
-                            }
+                            hasAnyTransportationSubCategory = hasAnyTransportationSubCategory | GetPOICategoryFromTransportStopData(transportStopData, ref categories);
                         }
                     }
                 }
-                if (!hasAnyTransportationSubCategory && hasPrefabRef && !isSubBuilding)
+                if (transportStopLookup.HasComponent(entity) &&
+                    prefabRefLookup.TryGetComponent(entity, out Game.Prefabs.PrefabRef stopPrefab) &&
+                    transportStopDataLookup.TryGetComponent(stopPrefab, out Game.Prefabs.TransportStopData stopData))
+                {
+                    poiTransport = true;
+                    hasAnyTransportationSubCategory = hasAnyTransportationSubCategory | GetPOICategoryFromTransportStopData(stopData, ref categories);
+                }
+                if (!hasAnyTransportationSubCategory && hasPrefabRef && !isSubBuilding && !bicycleParkingFacilityLookup.HasComponent(entity))
                 {
                     poiTransport = true;
                     if (serviceDataLookup.TryGetComponent(prefab, out Game.Prefabs.ServiceData service))
@@ -1200,6 +1162,72 @@ namespace Carto.Systems
             if (poiPublic) objectType |= Feature.POIPublic;
             if (poiTransport) objectType |= Feature.POITransport;
             if (poiUtility) objectType |= Feature.POIUtility;
+        }
+
+        /// <summary>
+        /// Retrieve the POI's category from <see cref="Game.Prefabs.TransportStopData"/>.
+        /// （由 <see cref="Game.Prefabs.TransportStopData"/> 獲得興趣點的分類。）
+        /// </summary>
+        /// <param name="transportStopData">The input prefab stop data.（輸入的預製件站點資料。）</param>
+        /// <param name="categories">The set of categories.（分類的集合。）</param>
+        /// <returns>Whether the prefab contains any valid stops.（預製件內是否包含有效的站點。）</returns>
+        private static bool GetPOICategoryFromTransportStopData(Game.Prefabs.TransportStopData transportStopData, ref NativeParallelHashSet<EnumWrapper<POICategory>> categories)
+        {
+            Game.Prefabs.TransportType transportType = transportStopData.m_TransportType;
+            bool isCargo = transportStopData.m_CargoTransport;
+            bool isPassenger = transportStopData.m_PassengerTransport;
+
+            switch (transportType)
+            {
+                case Game.Prefabs.TransportType.Airplane:
+                    if (isCargo) categories.Add(new(POICategory.BuildingCargoAirplane));
+                    if (isPassenger) categories.Add(new(POICategory.BuildingPassengerAirplane));
+                    return true;
+
+                case Game.Prefabs.TransportType.Bicycle:
+                    categories.Add(new(POICategory.BuildingBicycle));
+                    return true;
+
+                case Game.Prefabs.TransportType.Bus:
+                    categories.Add(new(POICategory.BuildingBus));
+                    return true;
+
+                case Game.Prefabs.TransportType.Ferry:
+                    categories.Add(new(POICategory.BuildingFerry));
+                    return true;
+
+                case Game.Prefabs.TransportType.Helicopter:
+                    categories.Add(new(POICategory.BuildingHelicopter));
+                    return true;
+
+                case Game.Prefabs.TransportType.Rocket:
+                    categories.Add(new(POICategory.SpaceCenter));
+                    return true;
+
+                case Game.Prefabs.TransportType.Ship:
+                    if (isCargo) categories.Add(new(POICategory.BuildingCargoShip));
+                    if (isPassenger) categories.Add(new(POICategory.BuildingPassengerShip));
+                    return true;
+
+                case Game.Prefabs.TransportType.Subway:
+                    categories.Add(new(POICategory.BuildingSubway));
+                    return true;
+
+                case Game.Prefabs.TransportType.Taxi:
+                    categories.Add(new(POICategory.BuildingTaxi));
+                    return true;
+
+                case Game.Prefabs.TransportType.Train:
+                    if (isCargo) categories.Add(new(POICategory.BuildingCargoTrain));
+                    if (isPassenger) categories.Add(new(POICategory.BuildingPassengerTrain));
+                    return true;
+
+                case Game.Prefabs.TransportType.Tram:
+                    categories.Add(new(POICategory.BuildingTram));
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1275,7 +1303,8 @@ namespace Carto.Systems
         /// <returns>If true, the input set has transport stop POI categories.（若為真，則該集合包含運輸場站興趣點分類。）</returns>
         private static bool HasTransportStopPOI(ref NativeParallelHashSet<EnumWrapper<POICategory>> categories)
         {
-            return categories.Contains(POICategory.StopBus) ||
+            return categories.Contains(POICategory.BicycleStand) ||
+                   categories.Contains(POICategory.StopBus) ||
                    categories.Contains(POICategory.StopCargoAirplane) ||
                    categories.Contains(POICategory.StopCargoShip) ||
                    categories.Contains(POICategory.StopCargoTrain) ||
@@ -2257,6 +2286,10 @@ namespace Carto.Systems
                             if (passenger) passengerStopCategory = POICategory.StopPassengerAirplane;
                             break;
 
+                        case Game.Prefabs.TransportType.Bicycle:
+                            passengerStopCategory = POICategory.BicycleStand;
+                            break;
+
                         case Game.Prefabs.TransportType.Bus:
                             passengerStopCategory = POICategory.StopBus;
                             break;
@@ -2354,6 +2387,9 @@ namespace Carto.Systems
 
             [ReadOnly]
             public ComponentLookup<Battery> batteryLookup;
+
+            [ReadOnly]
+            public ComponentLookup<BicycleParkingFacility> bicycleParkingFacilityLookup;
 
             [ReadOnly]
             public ComponentLookup<CommercialProperty> commercialPropertyLookup;
@@ -2473,6 +2509,9 @@ namespace Carto.Systems
             public ComponentLookup<TransportStation> transportStationLookup;
 
             [ReadOnly]
+            public ComponentLookup<Game.Routes.TransportStop> transportStopLookup;
+
+            [ReadOnly]
             public ComponentLookup<Game.Prefabs.TransportStopData> transportStopDataLookup;
 
             [ReadOnly]
@@ -2538,10 +2577,10 @@ namespace Carto.Systems
                 NativeParallelHashSet<EnumWrapper<POICategory>> categories = new(GetMaximumCategoryCount(buildingCategory), Allocator.Persistent);
 
                 GetPOICategoryFromBuilding(entity, prefab, buildingCategory, building.product, building.brand, building.zoning, hasPrefabRef, false,
-                                           ref subObjectBufferLookup, ref batteryLookup, ref deathcareFacilityDataLookup, ref electricityProducerLookup,
+                                           ref subObjectBufferLookup, ref batteryLookup, ref bicycleParkingFacilityLookup, ref deathcareFacilityDataLookup, ref electricityProducerLookup,
                                            ref firewatchTowerLookup, ref prefabRefLookup, ref prisonLookup, ref serviceDataLookup,
                                            ref schoolDataLookup, ref storagePropertyLookup, ref transformerLookup, ref transportDepotLookup,
-                                           ref transportDepotDataLookup, ref transportStationLookup, ref transportStopDataLookup, ref waterPoweredDataLookup,
+                                           ref transportDepotDataLookup, ref transportStationLookup, ref transportStopLookup, ref transportStopDataLookup, ref waterPoweredDataLookup,
                                            ref windPoweredDataLookup, ref zoningTypes, ref attractions, ref categories, out Feature objectType);
 
                 if (!separateServiceUpgrade && installedUpgradeBufferLookup.TryGetBuffer(entity, out DynamicBuffer<InstalledUpgrade> installedUpgrades))
@@ -2549,8 +2588,8 @@ namespace Carto.Systems
                     for (int i = 0; i < installedUpgrades.Length; i++)
                     {
                         Entity serviceUpgrade = installedUpgrades[i].m_Upgrade;
-                        BuildingCategory subBuildingCategory = SharedDataCollectionSystem.GetBuildingCategory(serviceUpgrade, ref abandonedLookup, ref adminBuildingLookup,
-                                                                                                              ref batteryLookup, ref commercialPropertyLookup, ref condemnedLookup,
+                        BuildingCategory subBuildingCategory = SharedDataCollectionSystem.GetBuildingCategory(serviceUpgrade, ref abandonedLookup, ref adminBuildingLookup, ref batteryLookup,
+                                                                                                              ref bicycleParkingFacilityLookup, ref commercialPropertyLookup, ref condemnedLookup,
                                                                                                               ref deathcareFacilityLookup, ref destroyedLookup, ref disasterFacilityLookup,
                                                                                                               ref earlyDisasterWarningSystemLookup, ref electricityProducerLookup, ref emergencyShelterLookup,
                                                                                                               ref extractorFacilityLookup, ref fireStationLookup, ref firewatchTowerLookup,
@@ -2560,15 +2599,15 @@ namespace Carto.Systems
                                                                                                               ref prisonLookup, ref researchFacilityLookup, ref residentialPropertyLookup,
                                                                                                               ref schoolLookup, ref serviceUpgradeLookup, ref sewageOutletLookup,
                                                                                                               ref telecomFacilityLookup, ref transformerLookup, ref transportDepotLookup,
-                                                                                                              ref transportStationLookup, ref underConstructionLookup, ref waterPumpingStationLookup,
-                                                                                                              ref welfareOfficeLookup);
+                                                                                                              ref transportStationLookup, ref transportStopLookup, ref underConstructionLookup,
+                                                                                                              ref waterPumpingStationLookup, ref welfareOfficeLookup);
                         categories.Capacity += GetMaximumCategoryCount(subBuildingCategory);
                         bool hasSubPrefabRef = prefabRefLookup.TryGetComponent(serviceUpgrade, out Game.Prefabs.PrefabRef subPrefabRef);
                         GetPOICategoryFromBuilding(serviceUpgrade, subPrefabRef.m_Prefab, subBuildingCategory, Resource.NoResource, -1, -1, hasSubPrefabRef, true,
-                                                   ref subObjectBufferLookup, ref batteryLookup, ref deathcareFacilityDataLookup, ref electricityProducerLookup,
+                                                   ref subObjectBufferLookup, ref batteryLookup, ref bicycleParkingFacilityLookup, ref deathcareFacilityDataLookup, ref electricityProducerLookup,
                                                    ref firewatchTowerLookup, ref prefabRefLookup, ref prisonLookup, ref serviceDataLookup,
                                                    ref schoolDataLookup, ref storagePropertyLookup, ref transformerLookup, ref transportDepotLookup,
-                                                   ref transportDepotDataLookup, ref transportStationLookup, ref transportStopDataLookup, ref waterPoweredDataLookup,
+                                                   ref transportDepotDataLookup, ref transportStationLookup, ref transportStopLookup, ref transportStopDataLookup, ref waterPoweredDataLookup,
                                                    ref windPoweredDataLookup, ref zoningTypes, ref attractions, ref categories, out Feature extraObjectType);
 
                         objectType |= extraObjectType;

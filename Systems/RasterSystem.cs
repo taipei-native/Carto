@@ -109,7 +109,7 @@ namespace Carto.Systems
         public void WriteDepth(BinaryWriter writer, ref GeoTiff.Parameter param)
         {
             // Prepare metadata.（準備元資料。）
-            WaterSurfaceData data = _water.GetSurfaceData(out _);
+            WaterSurfaceData<SurfaceWater> data = _water.GetSurfaceData(out _);
             param.imageHeight = data.resolution.z;
             param.imageWidth = data.resolution.x;
             param.scaleX = Math.Abs(Math.Round(1d / data.scale.x, 4));
