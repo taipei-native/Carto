@@ -106,7 +106,8 @@ namespace Carto.Domain
         /// Try to retrieve the acronym name of the route defined in the Extended Transport Manager mod.
         /// （嘗試獲得在 Extended Transport Manager 模組中定義的路線縮寫。）
         /// </summary>
-        /// <param name="xtmRouteExtraDataComponent">The input component.（輸入的組件。）</param>
+        /// <param name="entityManager">The entity manager.（實體管理器。）</param>
+        /// <param name="entity">The route entity.（路線實體。）</param>
         /// <param name="acronym">The route acronym.（路線縮寫。）</param>
         /// <returns>Whether the retrieval is successful.（是否成功獲得縮寫？）</returns>
         public bool TryGetRouteAcronym(EntityManager entityManager, Entity entity, out string acronym)

@@ -88,6 +88,12 @@ namespace Carto.Systems
         static readonly RoadBuilder _rb = Instance.Rb;
 
         /// <summary>
+        /// The assembly of Road Speed Adjuster mod.（Road Speed Adjuster 模組組件。）<br/>
+        /// See <see cref="Instance.Rsa"/> for more information.
+        /// </summary>
+        static readonly RoadSpeedAdjuster _rsa = Instance.Rsa;
+
+        /// <summary>
         /// The query to collect all lane prefabs.
         /// （收集所有車道網路預製模板的查詢。）
         /// </summary>
@@ -453,10 +459,12 @@ namespace Carto.Systems
             CollectBoundariesJob collectBoundariesJob = new()
             {
                 connectedEdgeBufferLookup = GetBufferLookup<ConnectedEdge>(true),
+                compositionLookup = GetComponentLookup<Composition>(true),
                 edgeGeometryLookup = GetComponentLookup<EdgeGeometry>(true),
                 endNodeGeometryLookup = GetComponentLookup<EndNodeGeometry>(true),
                 localConnectLookup = GetComponentLookup<LocalConnect>(true),
                 nodeLookup = GetComponentLookup<Node>(true),
+                roadCompositionLookup = GetComponentLookup<RoadComposition>(true),
                 startNodeGeometryLookup = GetComponentLookup<StartNodeGeometry>(true),
                 center = options.GetTMCoord(),
                 sourceCRS = options.GetTMProjection(),
@@ -678,6 +686,7 @@ namespace Carto.Systems
             int networkCount = _networkQuery.CalculateEntityCount();
             if (hasCenterline) networkCount += roundaboutCount;
             NativeParallelHashMap<Entity, Domain.Lane> laneEntityMap = new(_lanePrefabQuery.CalculateEntityCount(), Allocator.Persistent);
+            NativeParallelHashMap<Entity, float> rsaNetworkSpeedMap = default; // Handle by GetRsaNetworkMap()
             NativeParallelHashSet<Entity> rbNetworks = default; // Handle by GetRbNetworks()
 
             // Reset output containers.（重置輸出容器。）
@@ -689,6 +698,10 @@ namespace Carto.Systems
                 // Retrieve the set of Road Builder networks.
                 // （獲得 Road Builder 製作的網路集合。）
                 GetRbNetworks(ref rbNetworks);
+
+                // Retrieve the custom speeds defined in Road Speed Adjuster.
+                // （獲得在 Road Speed Adjuster 中自定的速度。）
+                GetRsaNetworkMap(ref rsaNetworkSpeedMap);
 
                 // Retrieve lane prefabs.
                 // （獲得車道預製模板。）
@@ -731,6 +744,7 @@ namespace Carto.Systems
                     laneEntityMap = laneEntityMap,
                     roundaboutEntityMap = roundaboutEntityMap,
                     rbNetworks = rbNetworks,
+                    rsaNetworkSpeedMap = rsaNetworkSpeedMap,
                     list = stats.AsParallelWriter()
                 };
                 JobHandle collectNetworksHandle = collectNetworksJob.ScheduleParallel(_networkQuery, default);
@@ -782,6 +796,39 @@ namespace Carto.Systems
             else
             {
                 Utils.CommonUtils.Reset(ref rbNetworks, 1, Allocator.Persistent);
+            }
+        }
+
+        /// <summary>
+        /// Retrieve the map between the network entities with the custom speed component and their speed defined in Road Speed Adjuster mod.
+        /// （獲得有自訂速度組件的網路實體與其在 Road Speed Adjuster 模組中定義的速度映射表。）
+        /// </summary>
+        /// <param name="rsaCustomSpeedMap">The map.（映射表。）</param>
+        private void GetRsaNetworkMap(ref NativeParallelHashMap<Entity, float> rsaCustomSpeedMap)
+        {
+            if (_rsa.TryGet(false) && _rsa.TryGetRsaCustomSpeed())
+            {
+                List<ComponentType> rsaNetworkCustomSpeedQueryComponents = new();
+                rsaNetworkCustomSpeedQueryComponents.AddRange(_networkEntityQueryDesc.All);
+                rsaNetworkCustomSpeedQueryComponents.Add(_rsa.CustomSpeedComponent);
+                EntityQuery rsaNetworkCustomSpeedQuery = GetEntityQuery(new EntityQueryDesc()
+                {
+                    All = rsaNetworkCustomSpeedQueryComponents.ToArray(),
+                    None = _networkEntityQueryDesc.None
+                });
+
+                NativeArray<Entity> rsaCustomSpeedNetworks = rsaNetworkCustomSpeedQuery.ToEntityArray(Allocator.Temp);
+                Utils.CommonUtils.Reset(ref rsaCustomSpeedMap, capacity: rsaCustomSpeedNetworks.Length);
+
+                for (int i = 0; i < rsaCustomSpeedNetworks.Length; i++)
+                {
+                    Entity network = rsaCustomSpeedNetworks[i];
+                    if (_rsa.TryGetNetworkCustomSpeed(EntityManager, network, out float speed)) rsaCustomSpeedMap.TryAdd(network, speed);
+                }
+            }
+            else
+            {
+                Utils.CommonUtils.Reset(ref rsaCustomSpeedMap, 1, Allocator.Persistent);
             }
         }
 
@@ -1644,6 +1691,9 @@ namespace Carto.Systems
             public BufferLookup<ConnectedEdge> connectedEdgeBufferLookup;
 
             [ReadOnly]
+            public ComponentLookup<Composition> compositionLookup;
+
+            [ReadOnly]
             public ComponentLookup<EdgeGeometry> edgeGeometryLookup;
 
             [ReadOnly]
@@ -1654,6 +1704,9 @@ namespace Carto.Systems
 
             [ReadOnly]
             public ComponentLookup<Node> nodeLookup;
+
+            [ReadOnly]
+            public ComponentLookup<RoadComposition> roadCompositionLookup;
 
             [ReadOnly]
             public ComponentLookup<StartNodeGeometry> startNodeGeometryLookup;
@@ -1706,8 +1759,8 @@ namespace Carto.Systems
                 if (connectedEdgeBufferLookup.TryGetBuffer(endNodeEntity, out DynamicBuffer<ConnectedEdge> endConnectedEdges) &&
                     connectedEdgeBufferLookup.TryGetBuffer(startNodeEntity, out DynamicBuffer<ConnectedEdge> startConnectedEdges))
                 {
-                    endNodeIsTerminus = IsTerminusNode(networkStat, endNodeEntity, endConnectedEdges, ref statsEntityMap, ref networkStats, localConnectLookup.HasComponent(endNodeEntity), endNodeIsRoundabout);
-                    startNodeIsTerminus = IsTerminusNode(networkStat, startNodeEntity, startConnectedEdges, ref statsEntityMap, ref networkStats, localConnectLookup.HasComponent(startNodeEntity), startNodeIsRoundabout);
+                    endNodeIsTerminus = IsTerminusNode(networkStat, endNodeEntity, endConnectedEdges, ref statsEntityMap, ref networkStats, ref compositionLookup, ref roadCompositionLookup, localConnectLookup.HasComponent(endNodeEntity), endNodeIsRoundabout);
+                    startNodeIsTerminus = IsTerminusNode(networkStat, startNodeEntity, startConnectedEdges, ref statsEntityMap, ref networkStats, ref compositionLookup, ref roadCompositionLookup, localConnectLookup.HasComponent(startNodeEntity), startNodeIsRoundabout);
                 }
                 else
                 {
@@ -1875,10 +1928,12 @@ namespace Carto.Systems
             /// <param name="hasLocalConnect">Whether the node has <see cref="LocalConnect"/> component.（節點是否有 <see cref="LocalConnect"/> 組件？）</param>
             /// <param name="isRoundabout">Whether the node is a roundabout.（節點是否為圓環？）</param>
             /// <returns>If true, the node is a terminus node.（若為真，節點為「死路」節點。）</returns>
-            private static bool IsTerminusNode(NetworkStat stat, Entity node, DynamicBuffer<ConnectedEdge> edges, ref NativeParallelHashMap<Entity, int> statsIndexMap, ref NativeList<NetworkStat> networkStats, bool hasLocalConnect, bool isRoundabout)
+            private static bool IsTerminusNode(NetworkStat stat, Entity node, DynamicBuffer<ConnectedEdge> edges, ref NativeParallelHashMap<Entity, int> statsIndexMap, ref NativeList<NetworkStat> networkStats, ref ComponentLookup<Composition> compositionLookup, ref ComponentLookup<RoadComposition> roadCompositionLookup, bool hasLocalConnect, bool isRoundabout)
             {
                 bool isTerminus = false;
+                bool hasRoadComposition = compositionLookup.TryGetComponent(stat.entity, out Composition networkComposition) && roadCompositionLookup.HasComponent(networkComposition.m_Edge);
                 int pathwayCount = 0;
+                int pathRoadCount = 0;
                 int roadCount = 0;
                 int taxiwayCount = 0;
                 int trackCount = 0;
@@ -1890,7 +1945,8 @@ namespace Carto.Systems
 
                 for (int i = 0; i < edges.Length; i++)
                 {
-                    if (statsIndexMap.TryGetValue(edges[i].m_Edge, out int listIndex) && (listIndex >= 0) && (listIndex < networkStats.Length))
+                    Entity edge = edges[i].m_Edge;
+                    if (statsIndexMap.TryGetValue(edge, out int listIndex) && (listIndex >= 0) && (listIndex < networkStats.Length))
                     {
                         NetworkStat edgeStat = networkStats[listIndex];
                         if (!edgeStat.HasNode(node)) continue;              // Handle the situation of pathway local connection.（處理路徑的當地連結情形。）
@@ -1898,7 +1954,14 @@ namespace Carto.Systems
                         NetworkCategory edgeCategory = edgeStat.category;
                         if ((edgeCategory & pathwayCategory) != 0)
                         {
-                            pathwayCount++;
+                            if (compositionLookup.TryGetComponent(edge, out Composition edgeComposition) && roadCompositionLookup.HasComponent(edgeComposition.m_Edge))
+                            {
+                                pathRoadCount++;
+                            }
+                            else
+                            {
+                                pathwayCount++;
+                            }  
                         }
                         if ((edgeCategory & roadCategory) != 0)
                         {
@@ -1919,16 +1982,19 @@ namespace Carto.Systems
                     }
                 }
 
-                if ((stat.category & pathwayCategory) != 0)
+                if (((stat.category & pathwayCategory) != 0) && !hasRoadComposition)
                 {
+                    // Version 1.0.7: To solve the roads created by Road Builder being recognized as pathways, Carto now checks whether the network is a road.
+                    // （1.0.7 版本：為了解決 Road Builder 創造的網路被視為人行道的問題，Carto 現在會檢查網路是否為一條路。）
+
                     if ((pathwayCount <= 2) || !hasLocalConnect) isTerminus = true;
-                    if ((stat.category & roadCategory) != 0) isTerminus = false;            // Force the road with bicycle lanes to the next check.（強迫含有自行車專用道的道路進入下一個檢查。）
+                    if ((stat.category & roadCategory) != 0) isTerminus = false;                    // Force the road with bicycle lanes to the next check.（強迫含有自行車專用道的道路進入下一個檢查。）
                 }
 
-                if ((stat.category & roadCategory) != 0)
+                if (((stat.category & roadCategory) != 0) || hasRoadComposition)
                 {
-                    if ((roadCount <= 2) && (trackCount == 0)) isTerminus = true;           // Handle the situation that a node has only two connected segments.（處理只有兩個連接路段的節點。）
-                    if (isTerminus && isRoundabout && (roadCount > 1)) isTerminus = false;  // Force to include the inner ring for roundabouts with two connected segments.（強迫納入只有兩個連接路段圓環的內環。）
+                    if ((roadCount + pathRoadCount <= 2) && (trackCount == 0)) isTerminus = true;   // Handle the situation that a node has only two connected segments.（處理只有兩個連接路段的節點。）
+                    if (isTerminus && isRoundabout && (roadCount > 1)) isTerminus = false;          // Force to include the inner ring for roundabouts with two connected segments.（強迫納入只有兩個連接路段圓環的內環。）
                 }
 
                 if ((stat.category & taxiwayCategory) != 0)
@@ -2262,6 +2328,9 @@ namespace Carto.Systems
             public NativeParallelHashMap<Entity, Domain.Roundabout> roundaboutEntityMap;
 
             [ReadOnly]
+            public NativeParallelHashMap<Entity, float> rsaNetworkSpeedMap;
+
+            [ReadOnly]
             public NativeParallelHashSet<Entity> rbNetworks;
 
             [WriteOnly]
@@ -2411,6 +2480,11 @@ namespace Carto.Systems
                     if (rbNetworks.Contains(network))
                     {
                         stat.category |= NetworkCategory.RoadBuilder;
+                    }
+
+                    if (rsaNetworkSpeedMap.TryGetValue(network, out float speed))
+                    {
+                        stat.limit = (float)Math.Round(speed, 2);
                     }
 
                     if ((stat.Object & feature) != 0) list.AddNoResize(stat);

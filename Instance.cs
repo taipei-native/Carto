@@ -169,6 +169,12 @@ namespace Carto
         public static RouteSystem Route => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<RouteSystem>();
 
         /// <summary>
+        /// The wrapper of the assembly of Road Speed Adjuster mod developed by DanielVNZ.<br/>
+        /// （由 DanielVNZ 開發的 Road Speed Adjuster 模組組件的包裝器。）
+        /// </summary>
+        public static RoadSpeedAdjuster Rsa { get; } = new();
+
+        /// <summary>
         /// The options to change mod behaviors.
         /// （改變模組執行方式的設定。）
         /// </summary>
