@@ -755,6 +755,7 @@ namespace Carto.Systems
                 _log.Error(ex.ToString());
                 Utils.CommonUtils.Dispose(ref laneEntityMap);
                 Utils.CommonUtils.Dispose(ref rbNetworks);
+                Utils.CommonUtils.Dispose(ref rsaNetworkSpeedMap);
                 IO.IO.DisposeAll();
             }
             finally
@@ -763,6 +764,7 @@ namespace Carto.Systems
                 // （不要拋棄 `_localNetworkStats` 和 `_roundaboutEntityMap`，它們仍會被 `Write__DBF()` 或 `Write__Features()` 呼叫。）
                 Utils.CommonUtils.Dispose(ref laneEntityMap);
                 Utils.CommonUtils.Dispose(ref rbNetworks);
+                Utils.CommonUtils.Dispose(ref rsaNetworkSpeedMap);
             }
         } 
 

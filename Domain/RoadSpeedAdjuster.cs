@@ -60,6 +60,10 @@ namespace Carto.Domain
         {
             _accessible = false;
             _assembly = null;
+            _rsaCustomSpeedComponent = default;
+            _rsaCustomSpeedComponentGetter = null;
+            _rsaCustomSpeedType = null;
+            _speedGetter = null;
             _version = string.Empty;
         }
 

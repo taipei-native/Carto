@@ -78,16 +78,14 @@ For bug reports or in-depth discussions, please consider using [GitHub Issues](h
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="1.0.7" />
+	<ModVersion Value="1.0.7.1" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.4.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Added support for exporting network speed-limit settings from the Road Speed Adjuster mod by DanielVNZ.
-* Improved handling of missing asset-pack data in customized zones. [Reported by @Excellent Guy and @atlas_north]
-* Fixed void geometry appearing at intersections when using bike-only roads created with Road Builder.
+* Fixed the native container not being disposed of correctly.
 	</ChangeLog>
 	<!--External link. supported types are discord, github, youtube, twitch, x, paypal, patreon, buymeacoffee, kofi, crowdin, gitlab-->
 	<ExternalLink Type="discord" Url="https://discord.gg/HTav7ARPs2" />

@@ -1289,7 +1289,7 @@ namespace Carto.Systems
                     if (zonePrefabData.Has<AssetPackItem>())
                     {
                         AssetPackPrefab[] assetPackPrefabs = zonePrefabData.GetComponent<AssetPackItem>().m_Packs;
-                        if ((assetPackPrefabs != null) && _themesPrefabMap.TryGetValue(assetPackPrefabs[0], out int themeIndex))
+                        if ((assetPackPrefabs != null) && (assetPackPrefabs.Length >= 1) && _themesPrefabMap.TryGetValue(assetPackPrefabs[0], out int themeIndex))
                         {
                             zoningType.theme = themeIndex;
                         }
