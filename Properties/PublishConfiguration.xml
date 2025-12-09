@@ -78,14 +78,14 @@ For bug reports or in-depth discussions, please consider using [GitHub Issues](h
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="1.0.8" />
+	<ModVersion Value="1.0.9" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Rebuilt the mod for game version 1.5.2f1.
+* Fixed QGIS style presets were not being extracted. Since the game’s built-in unzip utility stopped working after version 1.5.2f1, Carto now handles the extraction process internally. [Reported by @suzur and @FindRainNYs]
 	</ChangeLog>
 	<!--External link. supported types are discord, github, youtube, twitch, x, paypal, patreon, buymeacoffee, kofi, crowdin, gitlab-->
 	<ExternalLink Type="discord" Url="https://discord.gg/HTav7ARPs2" />

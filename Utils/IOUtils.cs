@@ -2,6 +2,7 @@ using Carto.IO;
 using Colossal.IO;
 using Colossal.Logging;
 using Colossal.PSI.Environment;
+using ICSharpCode.SharpZipLib.Zip;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -115,7 +116,7 @@ namespace Carto.Utils
 
                     try
                     {
-                        ZipUtilities.Unzip(zipPath, dir);
+                        Unzip(zipPath, dir);
                     }
                     catch (Exception ex)
                     {
@@ -674,6 +675,41 @@ namespace Carto.Utils
             if ((_zone < 1) || (_zone > 60)) return Error.UTMZone;
             zone = _zone;
             return Error.None;
+        }
+
+        /// <summary>
+        /// The local version of <see cref="ZipUtilities.Unzip"/>.
+        /// （<see cref="ZipUtilities.Unzip"/> 的本地版本。）
+        /// </summary>
+        /// <param name="file">The path to the zip file.（壓縮檔案路徑。）</param>
+        /// <param name="outputPath">The path to the output directory.（輸出目錄的路徑。）</param>
+        public static void Unzip(string file, string outputPath)
+        {
+            outputPath = Path.GetFullPath(outputPath).Replace('\\', '/').TrimEnd('/');
+            Colossal.IO.IOUtils.EnsureDirectory(outputPath);
+
+            using ZipInputStream stream = new(File.OpenRead(file));
+            ZipEntry nextEntry;
+
+            while ((nextEntry = stream.GetNextEntry()) != null)
+            {
+                string fullPath = Path.GetFullPath(Path.Combine(outputPath, nextEntry.Name)).Replace('\\', '/');
+
+                if (!fullPath.StartsWith(outputPath + '/', StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (nextEntry.IsDirectory)
+                {
+                    LongDirectory.CreateDirectory(fullPath);
+                    continue;
+                }
+
+                string dir = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(dir)) LongDirectory.CreateDirectory(dir);
+
+                using (FileStream dest = File.Create(fullPath))
+                    Colossal.IO.IOUtils.CopyStream(stream, dest);
+            }
         }
 
         /// <summary>
