@@ -43,6 +43,10 @@ Special thanks also to beta testers like **Allegretic**, **Excellent Guy**, **je
 
 Carto also includes C# adaptations of parts of [PROJ](https://github.com/OSGeo/PROJ) and [PROJ4JS](https://github.com/proj4js/proj4js), optimized for Unity’s Burst compiler. License details are available in the `Licenses` directory.
 
+Finally, sincere thanks to everyone who contributed translations on [Crowdin](https://crowdin.com/project/carto):
+
+* French: **Morgan · Toverux** and **Wateir**
+
 ## Contact
 
 You can reach out via:

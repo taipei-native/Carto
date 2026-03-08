@@ -288,7 +288,7 @@ namespace Carto
         public const string PropertyRoute = "Carto.Carto.Mod.Settings.PropertyRoute";
         public const string PropertySexRatio = "Carto.Carto.Mod.Settings.PropertySexRatio";
         public const string PropertyStop = "Carto.Carto.Mod.Settings.PropertyStop";
-        public const string PropertyStory = "Carto.Carto.Mod.Settings.PropertyStory";
+        public const string PropertyStorey = "Carto.Carto.Mod.Settings.PropertyStorey";
         public const string PropertyTheme = "Carto.Carto.Mod.Settings.PropertyTheme";
         public const string PropertyTransport = "Carto.Carto.Mod.Settings.PropertyTransport";
         public const string PropertyUnlocked = "Carto.Carto.Mod.Settings.PropertyUnlocked";

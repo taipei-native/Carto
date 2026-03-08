@@ -57,7 +57,7 @@ namespace Carto.Domain
 
         public string Name => _assemblyName;
 
-        public string VerifiedVersion => "0.1.4.12";
+        public string VerifiedVersion => "0.1.5.1";
 
         public string Version => _version;
 

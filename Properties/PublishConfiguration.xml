@@ -37,6 +37,7 @@ See the [Tutorials](https://github.com/taipei-native/Carto/wiki/Tutorial) for ma
 
 Carto currently supports the following languages:
 * **English** (en-US)
+* **Français** / French (fr-FR)
 * **日本語** / Japanese (ja-JP)
 * **简体中文** / Simplified Chinese (zh-HANS)
 * **正體中文** / Traditional Chinese (zh-HANT)
@@ -55,6 +56,10 @@ Since April 2024, when I started to develop Carto, I’ve learned from and been 
 Special thanks also to beta testers like **Allegretic**, **Excellent Guy**, **jefferyharrell**, **LightLight**, and members of the *Cities: Skylines Modding* and *Cities: Skylines Taiwan Assets* Discord servers for their feedback and support.
 
 Carto also includes C# adaptations of parts of [PROJ](https://github.com/OSGeo/PROJ) and [PROJ4JS](https://github.com/proj4js/proj4js), optimized for Unity’s Burst compiler. License details are available in the `Licenses` directory of the Github Repo.
+
+Finally, sincere thanks to everyone who contributed translations on [Crowdin](https://crowdin.com/project/carto):
+
+* French: **Morgan · Toverux** and **Wateir**
 
 ## Contact
 
@@ -78,16 +83,17 @@ For bug reports or in-depth discussions, please consider using [GitHub Issues](h
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/carto.1699089/" />
 	<!--Version of the mod-->
-	<ModVersion Value="1.0.9" />
+	<ModVersion Value="1.0.10" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.5.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-* Fixed QGIS style presets were not being extracted. Since the game’s built-in unzip utility stopped working after version 1.5.2f1, Carto now handles the extraction process internally. [Reported by @suzur and @FindRainNYs]
+* Added French translations. [Credit: **Morgan · Toverux** and **Wateir**]
 	</ChangeLog>
 	<!--External link. supported types are discord, github, youtube, twitch, x, paypal, patreon, buymeacoffee, kofi, crowdin, gitlab-->
 	<ExternalLink Type="discord" Url="https://discord.gg/HTav7ARPs2" />
 	<ExternalLink Type="github" Url="https://github.com/taipei-native/Carto" />
+	<ExternalLink Type="crowdin" Url="https://crowdin.com/project/carto" />
 </Publish>

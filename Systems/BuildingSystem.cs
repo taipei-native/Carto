@@ -190,7 +190,7 @@ namespace Carto.Systems
             bool hasProfit = options.Contains(Property.Profit, IO.System.Building) && validatedFields.Contains(Property.Profit);
             bool hasResident = options.Contains(Property.Resident, IO.System.Building) && validatedFields.Contains(Property.Resident);
             bool hasSexRatio = options.Contains(Property.SexRatio, IO.System.Building) && validatedFields.Contains(Property.SexRatio);
-            bool hasStory = options.Contains(Property.Story, IO.System.Building) && validatedFields.Contains(Property.Story);
+            bool hasStorey = options.Contains(Property.Storey, IO.System.Building) && validatedFields.Contains(Property.Storey);
             bool hasTheme = options.Contains(Property.Theme, IO.System.Building) && validatedFields.Contains(Property.Theme);
             bool hasValue = options.Contains(Property.Value, IO.System.Building) && validatedFields.Contains(Property.Value);
             bool hasWage = options.Contains(Property.Wage, IO.System.Building) && validatedFields.Contains(Property.Wage);
@@ -323,7 +323,7 @@ namespace Carto.Systems
                     {
                         sexRatioField += new FieldInfo(stat.GetSexRatio());
                     }
-                    //if (hasStory) // TODO: Not available in 1.0.0 release.
+                    //if (hasStorey) // TODO: Not available in 1.0.0 release.
                     if (hasTheme)
                     {
                         string themeName = (zoningType.theme >= 0) && (zoningType.theme < themes.Count) ? themes[zoningType.theme].name : string.Empty;
@@ -536,7 +536,7 @@ namespace Carto.Systems
                         {
                             Shapefile.WriteRecord(writer, sexRatioField, stat.GetSexRatio());
                         }
-                        //if (hasStory)
+                        //if (hasStorey)
                         //{
                             // TODO: Not available in 1.0.0 release.
                         //}
@@ -626,7 +626,7 @@ namespace Carto.Systems
             bool hasProfit = options.Contains(Property.Profit, IO.System.Building);
             bool hasResident = options.Contains(Property.Resident, IO.System.Building);
             bool hasSexRatio = options.Contains(Property.SexRatio, IO.System.Building);
-            bool hasStory = options.Contains(Property.Story, IO.System.Building);
+            bool hasStorey = options.Contains(Property.Storey, IO.System.Building);
             bool hasTheme = options.Contains(Property.Theme, IO.System.Building);
             bool hasValue = options.Contains(Property.Value, IO.System.Building);
             bool hasWage = options.Contains(Property.Wage, IO.System.Building);
@@ -866,7 +866,7 @@ namespace Carto.Systems
                         {
                             GeoJson.WriteProperty(writer, Property.SexRatio, buildingStat.GetSexRatio());
                         }
-                        //if (hasStory)
+                        //if (hasStorey)
                         //{
                             // TODO: Not available in 1.0.0 release.
                         //}

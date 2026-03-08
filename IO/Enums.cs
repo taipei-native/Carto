@@ -675,7 +675,7 @@ namespace Carto.IO
         /// <summary>
         /// The number of above-ground levels of the building.（樓層，建築的地上樓層數量。）
         /// </summary>
-        Story,
+        Storey,
 
         /// <summary>
         /// The style of the assets.（主題，資產的主題風格。）

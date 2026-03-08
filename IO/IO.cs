@@ -32,7 +32,7 @@ namespace Carto.IO
         {
             { System.Unknown, new() { } },
             { System.Area, new() { Property.Name, Property.Object, Property.Age, Property.Area, Property.Company, Property.Employee, Property.Household, Property.Labor, Property.Profit, Property.Resident, Property.SexRatio, Property.Unlocked, Property.Wage} },
-            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Story, Property.Theme, Property.Value, Property.Wage, Property.Zone, Property.Zoning } },
+            { System.Building, new() { Property.Name, Property.Object, Property.Address, Property.Age, Property.Asset, Property.Brand, Property.Category, Property.Elevation, Property.Employee, Property.Height, Property.Household, Property.Labor, Property.Level, Property.Product, Property.Profit, Property.Resident, Property.SexRatio, Property.Storey, Property.Theme, Property.Value, Property.Wage, Property.Zone, Property.Zoning } },
             { System.Network, new() { Property.Name, Property.Object, Property.Asset, Property.Capacity, Property.Category, Property.Direction, Property.Discharge, Property.Elevation, Property.Form, Property.Lane, Property.Length, Property.Limit, Property.Load, Property.Volume, Property.Width } },
             { System.POI, new() { Property.Name, Property.Object, Property.Address, Property.Category} },
             { System.Route, new() { Property.Name, Property.Object, Property.Color, Property.Length, Property.Model, Property.Passenger, Property.Route, Property.Stop, Property.Transport, Property.Usage, Property.Vehicle, Property.Weight} },
@@ -368,7 +368,7 @@ namespace Carto.IO
             { Property.Route, typeof(string) },
             { Property.SexRatio, typeof(float) },
             { Property.Stop, typeof(int) },
-            { Property.Story, typeof(int) },
+            { Property.Storey, typeof(int) },
             { Property.Theme, typeof(string) },
             { Property.Transport, typeof(string) },
             { Property.Unlocked, typeof(bool) },
