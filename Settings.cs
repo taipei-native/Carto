@@ -45,6 +45,7 @@ namespace Carto
         /// </summary>
         public override void SetDefaults()
         {
+            CustomDirectory = Instance.CartoDataPath;
             CustomNamingFormat = "{City}_{Now}_{Feature}";
             ExportNamingFormat = IO.NamingFormat.Feature;
             ExportVectorFormat = 2;
@@ -303,6 +304,15 @@ namespace Carto
         public const string PropertyZoning = "Carto.Carto.Mod.Settings.PropertyZoning";
 
         /// <summary>
+        /// The path to the exported files' directory.
+        /// （輸出檔案所在的目錄路徑。）
+        /// </summary>
+        [SettingsUISection(GeneralTab, GeneralGeneralGroup)]
+        [SettingsUIAdvanced]
+        [SettingsUIDirectoryPicker]
+        public string CustomDirectory { get; set; } = Instance.CartoDataPath;
+
+        /// <summary>
         /// The file naming format.
         /// （檔案命名格式。）
         /// </summary>
@@ -365,7 +375,7 @@ namespace Carto
         [SettingsUIButtonGroup(GeneralGeneralGroupButtons)]
         public bool OpenButton
         {
-            set { Utils.IOUtils.RevealInFileExplorer(Instance.CartoDataPath); }
+            set { Utils.IOUtils.RevealInFileExplorer(CustomDirectory); }
         }
 
         /// <summary>
@@ -2011,6 +2021,7 @@ namespace Carto
                 Created = DateTime.Now,
                 CompletionDialog = ShowCompletionDialog,
                 CompletionSound = PlayCompletionSound,
+                CustomDirectory = CustomDirectory,
                 Display = new Dictionary<(IO.Property, IO.System), bool>
                 {
                     { (IO.Property.Category, IO.System.Building), Utils.IOUtils.DisplayModeToBoolean(PropertyCategoryBuildingDisplayMode) },

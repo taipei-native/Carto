@@ -2,6 +2,8 @@
   "Options.Section.Carto": "Carto",
   "Options.Tab.GeneralTab": "General",
   "Options.Group.GeneralGeneralGroup": "General",
+  "Options.Option.CustomDirectory": "Export Directory",
+  "Options.Description.CustomDirectory": "The path to the exported files' directory.",
   "Options.Option.ExportNamingFormat": "Naming Format",
   "Options.Description.ExportNamingFormat": "The naming convention for the exported files.",
   "Options.Option.CustomNamingFormat": "Custom Name",

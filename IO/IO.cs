@@ -918,6 +918,8 @@ namespace Carto.IO
 
             // Start printing logs.
             // （開始記錄。）
+            string directory = GetIndentedText(GetAlignedText("DIRECTORY", options.CustomDirectory == Instance.CartoDataPath ? "Default" : "Custom", 36), 2);
+            if (options.CustomDirectory != Instance.CartoDataPath) directory = $"{directory} {options.CustomDirectory}";
             string namingFormat = GetIndentedText(GetAlignedText("NAMING_FORMAT", options.FileNameFormat.ToString("G"), 36), 2);
             if (options.FileNameFormat == NamingFormat.Custom) namingFormat = $"{namingFormat} {options.FileName}";
             string transformText = GetTransformText(options.TargetProjectionDefinition.transform);
@@ -987,6 +989,7 @@ namespace Carto.IO
             PrintEmptyLine();
 
             PrintH1("GENERAL");
+            _log.Info(directory);
             _log.Info(namingFormat);
             _log.Info(GetIndentedText(GetAlignedText("VECTOR_FORMAT", options.VectorFormat.ToString("G"), 36), 2));
             _log.Info(GetIndentedText(GetAlignedText("TIFF_FORMAT", options.GeoTiffFormat.ToString("G"), 36), 2));

@@ -2,6 +2,8 @@
   "Options.Section.Carto": "Carto",
   "Options.Tab.GeneralTab": "一般",
   "Options.Group.GeneralGeneralGroup": "一般",
+  "Options.Option.CustomDirectory": "导出位置",
+  "Options.Description.CustomDirectory": "导出文件的位置。",
   "Options.Option.ExportNamingFormat": "命名格式",
   "Options.Description.ExportNamingFormat": "导出文件的命名规范。",
   "Options.Option.CustomNamingFormat": "自定义名称",

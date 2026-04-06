@@ -17,6 +17,24 @@ namespace Carto.Utils
     public static class LocaleUtils
     {
         /// <summary>
+        /// The lookup table of registered Unity Engine system language ids.
+        /// （Unity 引擎已登記的系統語言對照表。）
+        /// </summary>
+        public static readonly Dictionary<string, UnityEngine.SystemLanguage> ExternalLocalizationLanguage = new()
+        {
+            { "nl-NL", UnityEngine.SystemLanguage.Dutch }
+        };
+
+        /// <summary>
+        /// The lookup table of the localized name for known external localizations.
+        /// （已知外部語系檔案的翻譯後名稱對照表。）
+        /// </summary>
+        public static readonly Dictionary<string, string> ExternalLocalizationNames = new()
+        {
+            { "nl-NL", "Nederlands" }
+        };
+        
+        /// <summary>
         /// The class that stores the locale entries.
         /// （儲存語系檔案條目的類別。）
         /// </summary>
@@ -167,6 +185,33 @@ namespace Carto.Utils
                     _ = TryLoadLocaleFromResource(languageID, resourceName);
                 }
             }
+
+            // Force updating the vanilla settings to include unofficial localization in the dropdown menu.
+            // （強制更新原版遊戲的設定。）
+            //Instance.SharedSettings.RegisterInOptionsUI();
+        }
+
+        /// <summary>
+        /// Test whether the given <paramref name="localeID"/> is supported.
+        /// （測試給定 <paramref name="localeID"/> 是否受支援。）
+        /// </summary>
+        /// <param name="localeID">The unique identifier of the locale entry.（語系檔案條目的唯一識別碼。）</param>
+        /// <param name="createMissingLocale">Whether to create locale assets for non-native languages.（是否為非原生語言創造語系檔案資產？）</param>
+        /// <returns>Whether the locale is supported.（語系檔案是否受支援。）</returns>
+        public static bool SupportsLocale(string localeID, bool createMissingLocale)
+        {
+            if (Instance.Localization.SupportsLocale(localeID)) return true;
+            if (createMissingLocale)
+            {
+                // Handle non-official localizations.（支援非官方翻譯。）
+                if (ExternalLocalizationLanguage.TryGetValue(localeID, out UnityEngine.SystemLanguage localeLanguage) && ExternalLocalizationNames.TryGetValue(localeID, out string localeName))
+                {
+                    Instance.Localization.AddLocale(localeID, localeLanguage, localeName);
+                    return Instance.Localization.SupportsLocale(localeID);
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -190,7 +235,7 @@ namespace Carto.Utils
         /// <returns>Whether the attempt successes or not.（嘗試是否成功。）</returns>
         private static bool TryLoadLocaleFromResource(string languageID, string resourceName)
         {
-            if (!Instance.Localization.SupportsLocale(languageID)) return false;
+            if (!SupportsLocale(languageID, createMissingLocale: true)) return false;
             Instance.Localization.AddSource(languageID, new Locale(IOUtils.GetJsonResource(resourceName, new LocaleConverter("Carto.Carto.Mod"))));
             Instance.Log.Debug($"Successfully add the {languageID} locale. 成功添加 {languageID} 語系檔案。");
             return true;

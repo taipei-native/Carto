@@ -2,6 +2,8 @@
   "Options.Section.Carto": "Carto",
   "Options.Tab.GeneralTab": "一般",
   "Options.Group.GeneralGeneralGroup": "一般",
+  "Options.Option.CustomDirectory": "エクスポートフォルダ",
+  "Options.Description.CustomDirectory": "エクスポートフォルダのパス。",
   "Options.Option.ExportNamingFormat": "命名規則",
   "Options.Description.ExportNamingFormat": "ファイルの命名規則。",
   "Options.Option.CustomNamingFormat": "カスタム名",

@@ -9,6 +9,7 @@ using Game.City;
 using Game.Modding;
 using Game.Prefabs;
 using Game.SceneFlow;
+using Game.Settings;
 using Game.Simulation;
 using Game.UI;
 using System.Reflection;
@@ -64,6 +65,12 @@ namespace Carto
         /// （管理預製模板資料的系統。）
         /// </summary>
         public static PrefabSystem Prefab => World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<PrefabSystem>();
+
+        /// <summary>
+        /// The vanilla settings.
+        /// （原版遊戲的設定。）
+        /// </summary>
+        public static SharedSettings SharedSettings => GameManager.instance.settings;
 
         /// <summary>
         /// The system managing the game simulation.

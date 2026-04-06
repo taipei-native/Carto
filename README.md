@@ -45,6 +45,7 @@ Carto also includes C# adaptations of parts of [PROJ](https://github.com/OSGeo/P
 
 Finally, sincere thanks to everyone who contributed translations on [Crowdin](https://crowdin.com/project/carto):
 
+* Dutch: **GeraspteGatenKaas**
 * French: **Morgan · Toverux** and **Wateir**
 
 ## Contact

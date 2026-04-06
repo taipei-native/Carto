@@ -46,7 +46,7 @@ namespace Carto.IO
         /// The path to the target directory.
         /// （目標目錄的路徑。）
         /// </summary>
-        public string Directory { get; set; } = Instance.CartoDataPath;
+        public string CustomDirectory { get; set; } = Instance.CartoDataPath;
 
         /// <summary>
         /// Whether to export all applicable categories for the specific property or not.<br/>
@@ -419,7 +419,7 @@ namespace Carto.IO
         /// <returns>The file's directory.（檔案的目錄。）</returns>
         private string GetFileDirectory(FileFormat format)
         {
-            return IOUtils.CombinePath(Directory, Enum.GetName(typeof(FileFormat), format));
+            return IOUtils.CombinePath(CustomDirectory, Enum.GetName(typeof(FileFormat), format));
         }
 
         /// <summary>
@@ -442,8 +442,10 @@ namespace Carto.IO
         /// <returns>The file path.（檔案路徑。）</returns>
         public string GetFilePath(System systemName, VectorKind vectorKind)
         {
+            string vectorDirectory = GetFileDirectory(VectorFormat);
+            if (!Directory.Exists(vectorDirectory)) Directory.CreateDirectory(vectorDirectory);
             string file = IOUtils.RemoveInvalidChars(_fileBaseName.Replace("{Feature}", $"{systemName}_{vectorKind}"));
-            return Path.ChangeExtension(IOUtils.CombinePath(GetFileDirectory(VectorFormat), file), GetFileExtension(VectorFormat));
+            return Path.ChangeExtension(IOUtils.CombinePath(vectorDirectory, file), GetFileExtension(VectorFormat));
         }
 
         /// <summary>
@@ -454,8 +456,10 @@ namespace Carto.IO
         /// <returns>The file path.（檔案路徑。）</returns>
         public string GetFilePath(RasterKind rasterKind)
         {
+            string rasterDirectory = GetFileDirectory(RasterFormat);
+            if (!Directory.Exists(rasterDirectory)) Directory.CreateDirectory(rasterDirectory);
             string file = IOUtils.RemoveInvalidChars(_fileBaseName.Replace("{Feature}", $"{rasterKind}"));
-            return Path.ChangeExtension(IOUtils.CombinePath(GetFileDirectory(RasterFormat), file), GetFileExtension(RasterFormat));
+            return Path.ChangeExtension(IOUtils.CombinePath(rasterDirectory, file), GetFileExtension(RasterFormat));
         }
 
         /// <summary>
