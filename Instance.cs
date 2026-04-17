@@ -206,8 +206,8 @@ namespace Carto
         public static string Version => Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version;
 
         /// <summary>
-        /// The wrapper of the assembly of Extended Transport Manager mod developed by klyte45.<br/>
-        /// （由 klyte45 開發的 Extended Transport Manager 模組組件的包裝器。）
+        /// The wrapper of the assembly of Xtended Transport Manager (formerly known as Extended Transport Manager) mod developed by klyte45.<br/>
+        /// （由 klyte45 開發的 Xtended Transport Manager （過去被稱為 Extended Transport Manager）模組組件的包裝器。）
         /// </summary>
         public static ExtendedTransportManager Xtm { get; } = new(); 
 

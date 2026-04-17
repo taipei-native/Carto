@@ -1693,8 +1693,8 @@ namespace Carto
         public bool PropertyResidentSeparateBySex { get; set; } = false;
 
         /// <summary>
-        /// Whether to use Extended Transport Manager's route acronym, instead of vanilla's route number.
-        /// （是否使用 Extended Transport Manager 的路線縮寫，而非遊戲原版的路線編號。）
+        /// Whether to use Xtended Transport Manager's route acronym, instead of vanilla's route number.
+        /// （是否使用 Xtended Transport Manager 的路線縮寫，而非遊戲原版的路線編號。）
         /// </summary>
         [SettingsUISection(MiscellaneousTab, MiscellaneousPropertyGroup)]
         [SettingsUIHideByCondition(typeof(Settings), nameof(IsXtmEnabled), invert: true)]

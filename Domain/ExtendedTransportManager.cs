@@ -7,8 +7,10 @@ using Unity.Entities;
 namespace Carto.Domain
 {
     /// <summary>
-    /// The wrapper of the assembly of <see href="https://github.com/klyte45/CS2-ExtendedTransportManager">Extended Transport Manager</see> mod developed by klyte45.<br/>
-    /// （由 klyte45 開發的 <see href="https://github.com/klyte45/CS2-ExtendedTransportManager">Extended Transport Manager</see> 模組組件的包裝器。）
+    /// The wrapper of the assembly of <see href="https://github.com/klyte45/CS2-ExtendedTransportManager">Xtended Transport Manager</see> mod developed by klyte45.<br/>
+    /// （由 klyte45 開發的 <see href="https://github.com/klyte45/CS2-ExtendedTransportManager">Xtended Transport Manager</see> 模組組件的包裝器。）<br/>
+    /// This mod was also known as "Extended Transport Manager".<br/>
+    /// （該模組過去也被稱為「Extended Transport Manager」。）
     /// </summary>
     public class ExtendedTransportManager : IAssembly
     {
@@ -57,7 +59,7 @@ namespace Carto.Domain
 
         public string Name => _assemblyName;
 
-        public string VerifiedVersion => "0.1.5.1";
+        public string VerifiedVersion => "1.0.0.1";
 
         public string Version => _version;
 
@@ -93,18 +95,18 @@ namespace Carto.Domain
                     _accessible = true;
                     _version = _assembly.GetName().Version.ToString();
 
-                    if (verbose) Instance.Log.Debug($"Successfully retrieve the assembly of Extended Transport Manager [{_version}]. 成功獲取 Extended Transport Manager [{_version}] 模組組件。");
+                    if (verbose) Instance.Log.Debug($"Successfully retrieve the assembly of Xtended Transport Manager [{_version}]. 成功獲取 Xtended Transport Manager [{_version}] 模組組件。");
                     return true;
                 }
             }
 
-            if (verbose) Instance.Log.Debug("Failed to retrieve the assembly of Extended Transport Manager. 無法獲取 Extended Transport Manager 模組組件。");
+            if (verbose) Instance.Log.Debug("Failed to retrieve the assembly of Xtended Transport Manager. 無法獲取 Xtended Transport Manager 模組組件。");
             return false;
         }
 
         /// <summary>
-        /// Try to retrieve the acronym name of the route defined in the Extended Transport Manager mod.
-        /// （嘗試獲得在 Extended Transport Manager 模組中定義的路線縮寫。）
+        /// Try to retrieve the acronym name of the route defined in the Xtended Transport Manager mod.
+        /// （嘗試獲得在 Xtended Transport Manager 模組中定義的路線縮寫。）
         /// </summary>
         /// <param name="entityManager">The entity manager.（實體管理器。）</param>
         /// <param name="entity">The route entity.（路線實體。）</param>
@@ -157,7 +159,7 @@ namespace Carto.Domain
         public override string ToString()
         {
             string status = _accessible ? _version : "Not accessible";
-            return $"Extended Transport Manager({status})";
+            return $"Xtended Transport Manager({status})";
         }
     }
 }

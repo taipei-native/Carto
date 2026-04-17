@@ -243,8 +243,8 @@ namespace Carto.IO
         public Dictionary<System, VectorKind> VectorKinds { get; set; }
 
         /// <summary>
-        /// Whether to use the route acronyms from the Extended Transport Manager mod.
-        /// （是否要使用 Extended Transport Manager 模組的路線縮寫？）
+        /// Whether to use the route acronyms from the Xtended Transport Manager mod.
+        /// （是否要使用 Xtended Transport Manager 模組的路線縮寫？）
         /// </summary>
         public bool XtmAcronym { get; set; } = true;
 

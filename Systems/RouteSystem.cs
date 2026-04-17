@@ -46,7 +46,7 @@ namespace Carto.Systems
         static readonly NameManager _name = Instance.Name;
 
         /// <summary>
-        /// The assembly of Extended Transport Manager mod.（Extended Transport Manager 模組組件。）<br/>
+        /// The assembly of Xtended Transport Manager mod.（Xtended Transport Manager 模組組件。）<br/>
         /// See <see cref="Instance.Xtm"/> for more information.
         /// </summary>
         static readonly ExtendedTransportManager _xtm = Instance.Xtm;
@@ -201,8 +201,8 @@ namespace Carto.Systems
         }
 
         /// <summary>
-        /// Retrieve the acronym of routes from the Extended Transport Mnager mod.
-        /// （由 Extended Transport Mnager 模組獲得路線的縮寫。）
+        /// Retrieve the acronym of routes from the Xtended Transport Mnager mod.
+        /// （由 Xtended Transport Mnager 模組獲得路線的縮寫。）
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <returns>The map between route entities and their acronyms.（路線實體與縮寫的映射表。）</returns>

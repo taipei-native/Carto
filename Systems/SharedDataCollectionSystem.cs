@@ -1739,6 +1739,8 @@ namespace Carto.Systems
 
                 if (useAddress)
                 {
+                    Entity currentDistrict = currentDistrictLookup.TryGetComponent(building, out CurrentDistrict districtComponent) ? districtComponent.m_District : Entity.Null;
+
                     if (GetAddress(building, buildingComponent.m_RoadEdge, buildingComponent.m_CurvePosition, out Entity aggregation, out int houseNumber,
                                    ref aggregateElementBufferLookup,
                                    ref aggregatedLookup, ref buildingDataLookup,
@@ -1747,8 +1749,11 @@ namespace Carto.Systems
                                    ref prefabRefLookup, ref roundaboutLookup,
                                    ref transformLookup))
                     {
-                        stat.address = new(currentDistrictLookup.TryGetComponent(building, out CurrentDistrict districtComponent) ? districtComponent.m_District : Entity.Null,
-                                           aggregation, houseNumber);
+                        stat.address = new(currentDistrict, aggregation, houseNumber);
+                    }
+                    else
+                    {
+                        stat.address.district = currentDistrict;
                     }
                 }
 
