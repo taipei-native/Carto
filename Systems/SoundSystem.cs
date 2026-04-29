@@ -18,7 +18,7 @@ namespace Carto.Systems
         /// See <see cref="Instance.Audio"/> for more information.
         /// </summary>
         static readonly AudioManager _audio = Instance.Audio;
-        
+
         /// <summary>
         /// Mod's logger.（模組的記錄器。）<br/>
         /// See <see cref="Instance.Log"/> for more information.

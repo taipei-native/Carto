@@ -1,5 +1,4 @@
 using Carto.Utils;
-using Game.UI;
 using Unity.Entities;
 
 namespace Carto.Domain
