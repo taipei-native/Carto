@@ -882,6 +882,7 @@ namespace Carto.Systems
                 Utils.CommonUtils.Reset(ref zoningsEntityMap, 1);
                 Utils.CommonUtils.Reset(ref zoningsNames, 1);
             }
+
             zonings.Add(new()
             {
                 entity = Entity.Null,
@@ -1263,13 +1264,16 @@ namespace Carto.Systems
                 }
 
                 // Add the data that can only be retrieved in the main thread.（添加只能在主執行緒取得的資料。）
-                for (int index = 0; index < zoningTypeCount; index++)
+                for (int index = 0; index < types.Length; index++)
                 {
+                    // Version 1.0.14: Additional safety checks for zoning type integrity.
+                    // （1.0.14 版本：額外確認分區類型的完整性。）
+
                     ref ZoningType zoningType = ref types.ElementAt(index);
 
                     // Ensure safety when the zonings are not correctly loaded (e.g. a region pack is missing).
                     // （確保分區未正確載入時的安全性（例如缺少地區包）。）
-                    if (!_prefab.TryGetPrefab(zoningType.prefabData, out ZonePrefab zonePrefabData))
+                    if (!_prefab.TryGetPrefab(zoningType.prefabData, out ZonePrefab zonePrefabData) || (zonePrefabData == null))
                     {
                         names.Add(new("Placeholder", Allocator.Persistent));
                         continue;
@@ -1289,7 +1293,7 @@ namespace Carto.Systems
                     if (zonePrefabData.Has<AssetPackItem>())
                     {
                         AssetPackPrefab[] assetPackPrefabs = zonePrefabData.GetComponent<AssetPackItem>().m_Packs;
-                        if ((assetPackPrefabs != null) && (assetPackPrefabs.Length >= 1) && _themesPrefabMap.TryGetValue(assetPackPrefabs[0], out int themeIndex))
+                        if ((assetPackPrefabs != null) && (assetPackPrefabs.Length >= 1) && (assetPackPrefabs[0] != null) && _themesPrefabMap.TryGetValue(assetPackPrefabs[0], out int themeIndex))
                         {
                             zoningType.theme = themeIndex;
                         }
@@ -1297,7 +1301,8 @@ namespace Carto.Systems
 
                     if (zonePrefabData.Has<ThemeObject>())
                     {
-                        if (_themesPrefabMap.TryGetValue(zonePrefabData.GetComponent<ThemeObject>().m_Theme, out int themeIndex))
+                        ThemePrefab themePrefab = zonePrefabData.GetComponent<ThemeObject>().m_Theme;
+                        if ((themePrefab != null) && _themesPrefabMap.TryGetValue(themePrefab, out int themeIndex))
                         {
                             zoningType.theme = themeIndex;
                         }
@@ -1305,7 +1310,7 @@ namespace Carto.Systems
 
                     entityMap.TryAdd(zoningType.entity, index);
                     idMap.TryAdd(zoningType.id, index);
-                    names.Add(new NativeText(Utils.LocaleUtils.TryTranslate($"Assets.NAME[{zoningTypeName}]", out string zoningTypeUiName) ? zoningTypeUiName : zoningTypeName, Allocator.Persistent));
+                    names.Add(new(Utils.LocaleUtils.TryTranslate($"Assets.NAME[{zoningTypeName}]", out string zoningTypeUiName) ? zoningTypeUiName : zoningTypeName, Allocator.Persistent));
                 }
             }
             catch (Exception ex)
@@ -1856,7 +1861,7 @@ namespace Carto.Systems
                 {
                     // Check whether the prefab is already recorded.（確認預製模板是否已被記錄過。）
                     Entity zoningPrefab = spawnableData.m_ZonePrefab;
-                    if (!zoningTypePool.Add(zoningPrefab))
+                    if ((zoningPrefab == Entity.Null) || !zoningTypePool.Add(zoningPrefab))
                     {
                         return;
                     }
@@ -1896,6 +1901,16 @@ namespace Carto.Systems
                         prefabData = prefabDataLookup[zoningPrefab],
                         theme = 0
                     };
+
+                    // Version 1.0.14: Ensure unzoned type has correct category and density.
+                    // （1.0.14 版本：確保無分區類型有正確的分類與密度。）
+
+                    if (id == 0)
+                    {
+                        data.category = ZoningCategory.None;
+                        data.density = ZoningDensity.Generic;
+                    }
+
                     list.AddNoResize(data);
                 }
                 finally

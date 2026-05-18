@@ -931,7 +931,7 @@ namespace Carto.Systems
         {
             // According to `Game.UI.InGame.RoadSection`, the volume data is calculated every 6 hours.
             // The x, y, z, and w property represent the distance / duration at 00:00, 06:00, 12:00 and 18:00.
-            // Carto use the traffic volume at noon to show the traffic in peak hour.
+            // Carto uses the traffic volume at noon to show the traffic in peak hour.
             // （根據 `Game.UI.InGame.RoadSection`，流量每 6 小時計算一次，其中 x、y、z、w 屬性分別代表 00:00、06:00、12:00、18:00 的距離／持續時間。）
             // （為展示尖峰時間的車流量，Carto 使用中午的數據。）
             return (float)Math.Round((road.m_TrafficFlowDistance0.z + road.m_TrafficFlowDistance1.z) * 8f / 3f, 2);
