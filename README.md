@@ -35,6 +35,53 @@ Carto is available exclusively via [Paradox Mods](https://mods.paradoxplaza.com/
 
 See the [Tutorials](https://github.com/taipei-native/Carto/wiki/Tutorial) for making maps with QGIS, and the [User Manual](https://github.com/taipei-native/Carto/wiki) for detailed documentation.
 
+## Peer-mod integration
+
+Carto exposes a public API at `Carto.IO.IO.Export(Carto.IO.Options)` so other mods can drive exports on their own cadence — for example, a storytelling mod that snapshots the city every few minutes. The peer-API path does not read the player's saved settings, validates inputs without showing `ErrorDialog`s, and reports outcome through `ExportResult` (`Success`, `FilesWritten`, `ErrorMessage`). Completion sound and dialog are honored from the caller's own `Options.CompletionSound` / `Options.CompletionDialog` flags (default `true` on a fresh `Options` — peer mods that want silent runs should explicitly set them `false`).
+
+The caller is responsible for building a valid `Options`. In particular, the **full projection chain** must be wired so output lands in meters rather than degrees:
+
+```csharp
+var options = new Carto.IO.Options
+{
+    CustomDirectory = @"C:\path\to\output",
+    VectorFormat    = Carto.IO.FileFormat.GeoJSON,
+    Systems         = Carto.IO.System.Area | Carto.IO.System.Building | Carto.IO.System.Network,
+    Features        = Carto.IO.Feature.District | Carto.IO.Feature.Building | Carto.IO.Feature.Road,
+    Properties      = /* per-system property sets */,
+    VectorKinds     = /* per-system VectorKind selections */,
+    Display         = /* per-property display flags */,
+    CompletionSound = false,
+    CompletionDialog = false,
+
+    // Projection chain — required for meter-scale output.
+    SourceProjection           = Carto.Geodata.CRS.UTM,
+    TargetProjection           = Carto.Geodata.CRS.UTM,
+    TargetEllipsoid            = Carto.IO.Ellipsoid.WGS84,
+    SourceCoordinates          = new Carto.Geodata.Coord(0, 0, Carto.Geodata.Hemisphere.North, 31),
+    SourceProjectionDefinition = new Carto.Geodata.ProjectionDefinition(
+        Carto.IO.IO.EllipsoidTable[Carto.IO.Ellipsoid.WGS84],
+        0d, 0d, 5E5d, 0d, 0.9996d,
+        new Carto.Geodata.HelmertTransform(new double[0])),
+    TargetProjectionDefinition = /* same shape */,
+};
+
+Carto.IO.ExportResult result = Carto.IO.IO.Export(options);
+```
+
+Because Carto is rebuilt against each Cities: Skylines II patch, downstream mods should reflect on Carto's assembly at runtime (see `Carto.Domain.RoadBuilder` and `Carto.Domain.ExtendedTransportManager` for the established pattern) rather than taking a hard reference.
+
+```csharp
+public class ExportResult
+{
+    public bool Success { get; set; }
+    public string[] FilesWritten { get; set; }
+    public string ErrorMessage { get; set; }     // populated on failure
+}
+
+public static ExportResult Export(Options options);
+```
+
 ## Credits
 
 Since April 2024, when I started to develop Carto, I’ve learned from and been inspired by the open-source work of amazing Cities: Skylines II modders including **algernon**, **Guo**, **krzychu124**, **TDW**, and **yenyang** — a big shout-out to them!
