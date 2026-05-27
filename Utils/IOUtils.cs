@@ -28,6 +28,34 @@ namespace Carto.Utils
         static readonly ILog _log = Instance.Log;
 
         /// <summary>
+        /// Dynamically build a mapper of projection validation parameters' titles.
+        /// （動態建構一個驗證用的投影法參數名稱映射表。）
+        /// </summary>
+        /// <param name="prefix">The prefix of the titles.（名稱的前綴。）</param>
+        /// <returns>The mapper with provided prefix attached.（附加前綴的映射表。）</returns>
+        public static Dictionary<string, string> BuildProjectionParameterTitleMapper(string prefix)
+        {
+            prefix = $"options.{prefix}";
+            return new()
+            {
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRS)), $"{prefix}Projection" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceXCoord)), $"{prefix}Coordinates.x" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceYCoord)), $"{prefix}Coordinates.y" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceUTMZone)), $"{prefix}Coordinates.UTMZone" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceHemisphere)), $"{prefix}Coordinates.Hemisphere" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoidSemiMajorAxis)), $"{prefix}ProjectionDefinition.ellipsoid.a" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoidInverseFlattening)), $"{prefix}ProjectionDefinition.ellipsoid.rf" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLongitude)), $"{prefix}ProjectionDefinition.origin.x" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLatitude)), $"{prefix}ProjectionDefinition.origin.y" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseEasting)), $"{prefix}ProjectionDefinition.shift.x" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseNorthing)), $"{prefix}ProjectionDefinition.shift.y" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSScaleFactor)), $"{prefix}ProjectionDefinition.scaleFactor" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSTransform)), $"{prefix}ProjectionDefinition.transform" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoid)), $"Ellipsoid" }
+            };
+        }
+
+        /// <summary>
         /// Combine input directories into one path.
         /// （將輸入的目錄結合成一個路徑。）
         /// </summary>
@@ -563,118 +591,199 @@ namespace Carto.Utils
         /// Try to retrieve the latitude value from the user input.
         /// （嘗試從使用者輸入值中獲得緯度。）
         /// </summary>
-        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="value">The input value. Only <see cref="double"/> and <see cref="string"/> are evaluated, and other types will result in an NaN <see cref="Error"/>.<br/>
+        /// （輸入值。僅檢驗 <see cref="double"/> 和 <see cref="string"/>，其餘型別將導致非數字 <see cref="Error"/>。）</param>
         /// <param name="latitude">The converted latitude.（轉換的緯度。）</param>
         /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
-        public static Error TryGetLatitude(string text, out double latitude)
+        public static Error TryGetLatitude(object value, out double latitude)
         {
+            static Error Evaluate(double input, ref double output)
+            {
+                double absLatitude = Math.Abs(input);
+                if (absLatitude > 90) return Error.Latitude;
+                output = input;
+                return Error.None;
+            }
+            
             latitude = 0;
-            if (!double.TryParse(TrimNumericInput(text), out double _latitude)) return Error.Nan;
-            double absLatitude = Math.Abs(_latitude);
-            if (absLatitude > 90) return Error.Latitude;
-            latitude = _latitude;
-            return Error.None;
+            if (value is double numberDouble) return Evaluate(numberDouble, ref latitude);
+            if (value is string text)
+            {
+                if (!double.TryParse(TrimNumericInput(text), out double _latitude)) return Error.Nan;
+                return Evaluate(_latitude, ref latitude);
+            }
+            
+            return Error.Nan;
         }
 
         /// <summary>
         /// Try to retrieve the length value from the user input.
         /// （嘗試從使用者輸入值中獲得長度。）
         /// </summary>
-        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="value">The input value. Only <see cref="double"/> and <see cref="string"/> are evaluated, and other types will result in an NaN <see cref="Error"/>.<br/>
+        /// （輸入值。僅檢驗 <see cref="double"/> 和 <see cref="string"/>，其餘型別將導致非數字 <see cref="Error"/>。）</param>
         /// <param name="length">The converted length.（轉換的長度。）</param>
         /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
-        public static Error TryGetLength(string text, out double length)
+        public static Error TryGetLength(object value, out double length)
         {
+            static Error Evaluate(double input, ref double output)
+            {
+                if (input <= 0) return Error.Negative;
+                output = input;
+                return Error.None;
+            }
+            
             length = 0;
-            if (!double.TryParse(TrimNumericInput(text), out double _length)) return Error.Nan;
-            if (length <= 0) return Error.Negative;
-            length = _length;
-            return Error.None;
+            if (value is double numberDouble) return Evaluate(numberDouble, ref length);
+            if (value is string text)
+            {
+                if (!double.TryParse(TrimNumericInput(text), out double _length)) return Error.Nan;
+                return Evaluate(_length, ref length);
+            }
+
+            return Error.Nan;
         }
 
         /// <summary>
         /// Try to retrieve the longitude value from the user input.
         /// （嘗試從使用者輸入值中獲得經度。）
         /// </summary>
-        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="value">The input value. Only <see cref="double"/> and <see cref="string"/> are evaluated, and other types will result in an NaN <see cref="Error"/>.<br/>
+        /// （輸入值。僅檢驗 <see cref="double"/> 和 <see cref="string"/>，其餘型別將導致非數字 <see cref="Error"/>。）</param>
         /// <param name="longitude">The converted longitude.（轉換的經度。）</param>
         /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
-        public static Error TryGetLongitude(string text, out double longitude)
+        public static Error TryGetLongitude(object value, out double longitude)
         {
+            static Error Evaluate(double input, ref double output)
+            {
+                double absLongitude = Math.Abs(input);
+                if (absLongitude > 180) return Error.Longitude;
+                output = input;
+                return Error.None;
+            }
+            
             longitude = 0;
-            if (!double.TryParse(TrimNumericInput(text), out double _longitude)) return Error.Nan;
-            double absLatitude = Math.Abs(_longitude);
-            if (absLatitude > 180) return Error.Longitude;
-            longitude = _longitude;
-            return Error.None;
+            if (value is double numberDouble) return Evaluate(numberDouble, ref longitude);
+            if (value is string text)
+            {
+                if (!double.TryParse(TrimNumericInput(text), out double _longitude)) return Error.Nan;
+                return Evaluate(_longitude, ref longitude);
+            }
+
+            return Error.Nan;
         }
 
         /// <summary>
         /// Try to retrieve the numerical value from the user input.
         /// （嘗試從使用者輸入值中獲得數值。）
         /// </summary>
-        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="value">The input value. Only <see cref="double"/> and <see cref="string"/> are evaluated, and other types will result in an NaN <see cref="Error"/>.<br/>
+        /// （輸入值。僅檢驗 <see cref="double"/> 和 <see cref="string"/>，其餘型別將導致非數字 <see cref="Error"/>。）</param>
         /// <param name="number">The converted number.（轉換的數值。）</param>
         /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
-        public static Error TryGetNumber(string text, out double number)
+        public static Error TryGetNumber(object value, out double number)
         {
             number = 0;
-            if (!double.TryParse(TrimNumericInput(text), out double _number)) return Error.Nan;
-            number = _number;
-            return Error.None;
+            if (value is double numberDouble)
+            {
+                number = numberDouble;
+                return Error.None;
+            }
+            if (value is string text)
+            {
+                if (!double.TryParse(TrimNumericInput(text), out double _number)) return Error.Nan;
+                number = _number;
+                return Error.None;
+            }
+
+            return Error.Nan;
         }
 
         /// <summary>
         /// Try to retrieve the Helmert Transform parameters from the user input.
         /// （嘗試從使用者輸入值中獲得赫爾默特轉換參數。）
         /// </summary>
-        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="value">The input value. Only <see cref="Geodata.HelmertTransform"/>, <see cref="double"/>[] and <see cref="string"/> are evaluated, and other types will result in a Transform <see cref="Error"/>.<br/>
+        /// （輸入值。僅檢驗 <see cref="Geodata.HelmertTransform"/>、<see cref="double"/>[] 和 <see cref="string"/>，其餘型別將導致轉換 <see cref="Error"/>。）</param>
         /// <param name="transform">The Helmert Transform parameters.（赫爾默特轉換參數。）</param>
         /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
-        public static Error TryGetTransform(string text, out double[] transform)
+        public static Error TryGetTransform(object value, out double[] transform)
         {
-            text = text.Trim();
-            if (string.IsNullOrWhiteSpace(text) || text == string.Empty)
+            transform = new double[0] { };
+            if (value is Geodata.HelmertTransform helmertTransorm)
             {
-                transform = new double[0] { };
+                transform = helmertTransorm.ToArray();
+                return Error.None;
+            }
+            if (value is double[] doubleArray)
+            {
+                if ((doubleArray.Length == 0) || (doubleArray.Length == 3) || (doubleArray.Length == 7))
+                {
+                    transform = doubleArray;
+                    return Error.None;
+                }
+
+                return Error.TransformLength;
+            }
+            if (value is string text)
+            {
+                text = text.Trim();
+                if (string.IsNullOrWhiteSpace(text) || text == string.Empty)
+                {
+                    transform = new double[0] { };
+                    return Error.None;
+                }
+
+                string[] parts = text.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length != 3 && parts.Length != 7)
+                {
+                    transform = new double[0] { };
+                    return Error.TransformLength;
+                }
+
+                transform = new double[parts.Length];
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    if (!double.TryParse(parts[i], out double param))
+                    {
+                        return Error.Transform;
+                    }
+
+                    transform[i] = param;
+                }
+
                 return Error.None;
             }
 
-            string[] parts = text.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 3 && parts.Length != 7)
-            {
-                transform = new double[0] { };
-                return Error.TransformLength;
-            }
-
-            transform = new double[parts.Length];
-            for (int i = 0; i < parts.Length; i++)
-            {
-                if (!double.TryParse(parts[i], out double param))
-                {
-                    return Error.Transform;
-                }
-
-                transform[i] = param;
-            }
-
-            return Error.None;
+            return Error.Transform;
         }
 
         /// <summary>
         /// Try to retrieve the UTM zone number from the user input.
         /// （嘗試從使用者輸入值中獲得 UTM 分區代號。）
         /// </summary>
-        /// <param name="text">Input string.（輸入的字串。）</param>
+        /// <param name="value">The input value. Only <see cref="int"/> and <see cref="string"/> are evaluated, and other types will result in a UTM Zone <see cref="Error"/>.<br/>
+        /// （輸入值。僅檢驗 <see cref="int"/> 和 <see cref="string"/>，其餘型別將導致 UTM 分區 <see cref="Error"/>。）</param>
         /// <param name="zone">The UTM zone number.（UTM 分區代號。）</param>
         /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
-        public static Error TryGetUTMZone(string text, out int zone)
+        public static Error TryGetUTMZone(object value, out int zone)
         {
+            static Error Evaluate(int input, ref int output)
+            {
+                if ((input < 1) || (input > 60)) return Error.UTMZone;
+                output = input;
+                return Error.None;
+            }
+            
             zone = 0;
-            if (!int.TryParse(TrimNumericInput(text), out int _zone)) return Error.Nan;
-            if ((_zone < 1) || (_zone > 60)) return Error.UTMZone;
-            zone = _zone;
-            return Error.None;
+            if (value is int numberInt) return Evaluate(numberInt, ref zone);
+            if (value is string text)
+            {
+                if (!int.TryParse(TrimNumericInput(text), out int _zone)) return Error.Nan;
+                return Evaluate(_zone, ref zone);
+            }
+
+            return Error.UTMZone;
         }
 
         /// <summary>
@@ -710,6 +819,143 @@ namespace Carto.Utils
                 using (FileStream dest = File.Create(fullPath))
                     Colossal.IO.IOUtils.CopyStream(stream, dest);
             }
+        }
+
+        /// <summary>
+        /// Validate the integrity of the prepared <paramref name="options"/>.
+        /// （驗證 <paramref name="options"/> 投影法的完整性。）
+        /// </summary>
+        /// <param name="options">The export options.（輸出設定。）</param>
+        /// <param name="errors">The dictionary of errors encountered during validation.（驗證期間遭遇的錯誤字典。）</param>
+        /// <returns>If true, <paramref name="options"/> has a valid projection.（返回真值時表示 <paramref name="options"/> 的投影法無誤。）</returns>
+        public static bool ValidateProjections(Options options, out Dictionary<string, Error> errors)
+        {
+            errors = new();
+            if (options == null)
+            {
+                errors.Add("options", Error.NullOptions);
+                return false;
+            }
+
+            // Masks to prevent NotSupportedException raised by Geodata.Coord.
+            // （用於制止 Geodata.Coord 的 NotSupportedException 的遮罩。）
+            int utmZoneMask = 31;
+            Geodata.Hemisphere hemisphereMask = Geodata.Hemisphere.North;
+
+            if (options.SourceCoordinates.crs == Geodata.CRS.UTM)
+            {
+                utmZoneMask = options.SourceCoordinates.UTMZone;
+                hemisphereMask = options.SourceCoordinates.Hemisphere;
+            }
+
+            bool isSourceProjectionValid = IO.IO.CRSTable.TryGetValue(options.SourceProjection, out CRS sourceProjection);
+            if (!isSourceProjectionValid) errors.Add("options.SourceProjection", Error.General);
+
+            bool isTargetProjectionValid = IO.IO.CRSTable.TryGetValue(options.TargetProjection, out CRS targetProjection);
+            if (!isTargetProjectionValid) errors.Add("options.TargetProjection", Error.General);
+
+            bool isSourceValid = ValidateProjections(options.SourceCoordinates.x, options.SourceCoordinates.y, sourceProjection, errors, BuildProjectionParameterTitleMapper("Source"), out _,
+                                                     Ellipsoid.Custom, utmZone: utmZoneMask, northHemisphere: hemisphereMask == Geodata.Hemisphere.North,
+                                                     ellipsoidSemiMajorAxis: options.SourceProjectionDefinition.ellipsoid.a, ellipsoidInverseFlattening: options.SourceProjectionDefinition.ellipsoid.rf,
+                                                     crsOriginLongitude: options.SourceProjectionDefinition.origin.x, crsOriginLatitude: options.SourceProjectionDefinition.origin.y,
+                                                     crsFalseEasting: options.SourceProjectionDefinition.shift.x, crsFalseNorthing: options.SourceProjectionDefinition.shift.y,
+                                                     crsScaleFactor: options.SourceProjectionDefinition.scaleFactor, crsTransform: options.SourceProjectionDefinition.transform);
+
+            bool isTargetValid = ValidateProjections(0d, 0d, targetProjection, errors, BuildProjectionParameterTitleMapper("Target"), out _,
+                                                     Ellipsoid.Custom, utmZone: 31, northHemisphere: true,
+                                                     ellipsoidSemiMajorAxis: options.TargetProjectionDefinition.ellipsoid.a, ellipsoidInverseFlattening: options.TargetProjectionDefinition.ellipsoid.rf,
+                                                     crsOriginLongitude: options.TargetProjectionDefinition.origin.x, crsOriginLatitude: options.TargetProjectionDefinition.origin.y,
+                                                     crsFalseEasting: options.TargetProjectionDefinition.shift.x, crsFalseNorthing: options.TargetProjectionDefinition.shift.y,
+                                                     crsScaleFactor: options.TargetProjectionDefinition.scaleFactor, crsTransform: options.TargetProjectionDefinition.transform);
+
+            return isSourceValid && isTargetValid;
+        }
+
+        /// <summary>
+        /// Validate the integrity of the input projection parameters.
+        /// （驗證輸入投影法參數的完整性。）
+        /// </summary>
+        /// <param name="errors">The dictionary of errors encountered during validation.（驗證期間遭遇的錯誤字典。）</param>
+        /// <param name="titleMapper">The mapper of the examined parameters' titles.（受檢驗之參數名稱的映射表。）</param>
+        /// <param name="parsedResult">The parsed result of the input parameters.（輸入參數的解析結果。）</param>
+        /// <returns>If true, the input parameters are valid.（返回真值時表示輸入參數無誤。）</returns>
+        public static bool ValidateProjections(object x, object y, CRS crs, Dictionary<string, Error> errors, Dictionary<string, string> titleMapper, out Geodata.ParsedParams parsedResult,
+                                               Ellipsoid ellipsoid, bool northHemisphere = true, object utmZone = null,
+                                               object ellipsoidSemiMajorAxis = null, object ellipsoidInverseFlattening = null,
+                                               object crsOriginLongitude = null, object crsOriginLatitude = null,
+                                               object crsFalseEasting = null, object crsFalseNorthing = null,
+                                               object crsScaleFactor = null, object crsTransform = null)
+        {
+            bool isMapperNull = titleMapper == null;
+            errors ??= new();
+            parsedResult = new();
+
+            Geodata.Coord center;
+            Geodata.CRS geodataCRS;
+            Geodata.ProjectionDefinition projectionDefinition = default;
+            projectionDefinition.transform = new(new double[0]);
+
+            void AddToErrors(string title, Error error)
+            {
+                if (error != Error.None) errors.Add(isMapperNull ? title : (titleMapper.TryGetValue(title, out string mappedTitle) ? mappedTitle : title), error);
+            }
+
+            AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceXCoord)), TryGetNumber(x, out double doubleX));
+            AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceYCoord)), TryGetNumber(y, out double doubleY));
+
+            switch (crs)
+            {
+                case CRS.TransverseMercator:
+                    geodataCRS = Geodata.CRS.TransverseMercator;
+                    Geodata.EllipsoidDefinition ellipsoidDefinition;
+
+                    if (ellipsoid != Ellipsoid.Custom)
+                    {
+                        if (!IO.IO.EllipsoidTable.TryGetValue(ellipsoid, out ellipsoidDefinition))
+                        {
+                            Instance.Log.Warn($"The ellipsoid `{ellipsoid}` is not defined. 橢球體 `{ellipsoid}` 並未被定義。");
+                            errors.Add(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoid)), Error.General);
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoidSemiMajorAxis)), TryGetLength(ellipsoidSemiMajorAxis, out double doubleSemiMajorAxis));
+                        AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoidInverseFlattening)), TryGetNumber(ellipsoidInverseFlattening, out double doubleInverseFlattening));
+                        ellipsoidDefinition = new(doubleSemiMajorAxis, doubleInverseFlattening);
+                    }
+                    
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLongitude)), TryGetLongitude(crsOriginLongitude, out double doubleOriginLongitude));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLatitude)), TryGetLatitude(crsOriginLatitude, out double doubleOriginLatitude));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseEasting)), TryGetNumber(crsFalseEasting, out double doubleFalseEasting));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseNorthing)), TryGetNumber(crsFalseNorthing, out double doubleFalseNorthing));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSScaleFactor)), TryGetNumber(crsScaleFactor, out double doubleScaleFactor));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSTransform)), TryGetTransform(crsTransform, out double[] doubleArray));
+                    projectionDefinition = new(ellipsoidDefinition, doubleOriginLongitude, doubleOriginLatitude, doubleFalseEasting, doubleFalseNorthing, doubleScaleFactor, new(doubleArray));
+                    center = new(doubleX, doubleY, geodataCRS);
+                    break;
+
+                case CRS.UTM:
+                    geodataCRS = Geodata.CRS.UTM;
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceUTMZone)), TryGetUTMZone(utmZone, out int intZone));
+                    center = new(doubleX, doubleY, northHemisphere ? Geodata.Hemisphere.North : Geodata.Hemisphere.South, intZone);
+                    break;
+
+                case CRS.WGS84:
+                    geodataCRS = Geodata.CRS.WGS84;
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceXCoord)), TryGetLongitude(doubleX, out double doubleLongitude));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceYCoord)), TryGetLatitude(doubleY, out double doubleLatitude));
+                    center = new(doubleLongitude, doubleLatitude, Geodata.CRS.WGS84);
+                    break;
+
+                default:
+                    string invalidCRSKey = Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRS));
+                    errors.Add(isMapperNull ? invalidCRSKey : (titleMapper.TryGetValue(invalidCRSKey, out string mappedTitle) ? mappedTitle : invalidCRSKey), Error.General);
+                    return false;
+            }
+
+            parsedResult = new(center, geodataCRS, projectionDefinition);
+            return true;
         }
 
         /// <summary>

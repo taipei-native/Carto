@@ -425,7 +425,8 @@ namespace Carto.IO
         /// <param name="writeSHPMethod">The WriteSHP() method implemented in each system.（各系統實作的 WriteSHP() 方法。）</param>
         /// <param name="writeDBFMethod">The WriteDBF() method implemented in each system.（各系統實作的 WriteDBF() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public static void Write<T>(Options options, System systemName, VectorKind vectorKind, WriteSHPMethod<T> writeSHPMethod, WriteDBFMethod<T> writeDBFMethod, Action<string, int> onReportMethod)
+        /// <param name="writtenFileList">The list of path to the written files.（已寫出檔案路徑的列表。）</param>
+        public static void Write<T>(Options options, System systemName, VectorKind vectorKind, WriteSHPMethod<T> writeSHPMethod, WriteDBFMethod<T> writeDBFMethod, Action<string, int> onReportMethod, List<string> writtenFileList)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (options == null) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
@@ -459,12 +460,14 @@ namespace Carto.IO
                 {
                     UpdateSHPHeader(fs, writer, bounds, 50, options.Elevation); // The empty header.（空白標頭。）
                 }
+                writtenFileList?.Add(filePath);
             }
 
             using (FileStream fs = new(shxPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
             {
                 using BinaryWriter writer = new(fs);
                 WriteSHX(writer, shape, bounds, indexPairs);
+                writtenFileList?.Add(shxPath);
             }
 
             using (FileStream fs = new(dbfPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
@@ -473,18 +476,21 @@ namespace Carto.IO
                 WriteDBFHeader(fs, writer, options, systemName, indexPairs.Count, out HashSet<Property> validatedFields);
                 writeDBFMethod.Invoke(writer, options, validatedFields, syncList, out Dictionary<Property, FieldInfo> fieldMap);
                 UpdateDBFHeader(fs, writer, options, validatedFields, fieldMap);
+                writtenFileList?.Add(dbfPath);
             }
 
             using (FileStream fs = new(cpgPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
             {
                 using BinaryWriter writer = new(fs);
                 WriteCPG(writer);
+                writtenFileList?.Add(cpgPath);
             }
 
             using (FileStream fs = new(prjPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
             {
                 using StreamWriter writer = new(fs, new UTF8Encoding(false));
                 WritePRJ(writer, options);
+                writtenFileList?.Add(prjPath);
             }
 
             stopwatch.Stop();

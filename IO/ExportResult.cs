@@ -4,7 +4,7 @@ namespace Carto.IO
     /// The result returned by <see cref="IO.Export(Options)"/>.
     /// （<see cref="IO.Export(Options)"/> 的回傳結果。）<br/>
     /// Errors are reported via <see cref="ErrorMessage"/> rather than modal dialogs
-    /// (unless the caller's <see cref="Options.CompletionDialog"/> opts back in).
+    /// (unless the caller's <see cref="Options.CompletionDialog"/> opts back in). <br/>
     /// （錯誤透過 <see cref="ErrorMessage"/> 回報，除非呼叫端的
     /// <see cref="Options.CompletionDialog"/> 主動啟用，否則不會彈出對話框。）
     /// </summary>
@@ -26,8 +26,10 @@ namespace Carto.IO
 
         /// <summary>
         /// Diagnostic message on failure. Null when <see cref="Success"/> is true.
-        /// （失敗時的診斷訊息。<see cref="Success"/> 為真值時為 null。）
+        /// （失敗時的診斷訊息。<see cref="Success"/> 為真值時，此屬性為 null。）
         /// </summary>
         public string ErrorMessage { get; set; }
+
+        public Error ErrorType { get; set; }
     }
 }

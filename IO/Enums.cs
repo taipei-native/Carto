@@ -142,6 +142,12 @@ namespace Carto.IO
         None,
 
         /// <summary>
+        /// General error flag. Can be caused by any reason.
+        /// （可能由任何原因引起的通用錯誤旗標。）
+        /// </summary>
+        General,
+
+        /// <summary>
         /// The latitude value is invalid.
         /// （無效的緯度值。）
         /// </summary>
@@ -170,6 +176,18 @@ namespace Carto.IO
         /// （輸入值是負數。）
         /// </summary>
         Negative,
+
+        /// <summary>
+        /// The options is null.
+        /// （設定為空值。）
+        /// </summary>
+        NullOptions,
+
+        /// <summary>
+        /// The file path is invalid or missing.
+        /// （無效或缺少檔案路徑。）
+        /// </summary>
+        Path,
 
         /// <summary>
         /// Share violation on the exporting files.

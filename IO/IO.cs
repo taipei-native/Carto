@@ -104,6 +104,17 @@ namespace Carto.IO
         };
 
         /// <summary>
+        /// The table between two types of <c>CRS</c> enums.
+        /// （兩種 <c>CRS</c> 枚舉之間的映射表。）
+        /// </summary>
+        public static readonly Dictionary<Geodata.CRS, CRS> CRSTable = new()
+        {
+            { Geodata.CRS.TransverseMercator, CRS.TransverseMercator },
+            { Geodata.CRS.UTM, CRS.UTM },
+            { Geodata.CRS.WGS84, CRS.WGS84 }
+        };
+
+        /// <summary>
         /// The array sorted by each <see cref="Feature"/>'s display order.
         /// （根據每個 <see cref="Feature"/> 顯示順序排序的陣列。）
         /// </summary>
@@ -436,7 +447,9 @@ namespace Carto.IO
 
         /// <summary>
         /// Export in-game objects into geospatial files.
-        /// （將遊戲內物體輸出為地理空間格式檔案。）
+        /// （將遊戲內物體輸出為地理空間格式檔案。）<br/>
+        /// To pass custom-build options, use <see cref="Export(Options)"/> instead.
+        /// （若要傳入客製化設定，請改用 <see cref="Export(Options)"/> 。）
         /// </summary>
         public static void Export()
         {
@@ -513,7 +526,7 @@ namespace Carto.IO
 
             try
             {
-                RunExportPipeline(options, ignores, ref filesCount);
+                RunExportPipeline(options, ignores, ref filesCount, new());
             }
             catch (Exception ex)
             {
@@ -522,7 +535,7 @@ namespace Carto.IO
             }
             finally
             {
-                PlayCompletionEffects(options, filesCount, ignores);
+                FireCompletionEffects(options, filesCount, ignores);
 
                 // In case of any missing native container disposal during the execution, try to dispose them after all execution are completed.
                 // （為避免執行中遺漏任何拋棄原生容器的程序，當所有程式執行完成後，嘗試拋棄這些容器。）.
@@ -531,28 +544,20 @@ namespace Carto.IO
         }
 
         /// <summary>
-        /// Peer-mod entry point: export driven by a caller-constructed <see cref="Options"/>.
-        /// （對等模組入口點：依據呼叫端建立的 <see cref="Options"/> 執行輸出。）<br/>
-        /// Does not read <see cref="Instance.Settings"/>. Errors are returned via
-        /// <see cref="ExportResult.ErrorMessage"/> rather than <c>ErrorDialog</c>;
-        /// completion sound and dialog still honor the caller's
-        /// <see cref="Options.CompletionSound"/> / <see cref="Options.CompletionDialog"/>.
-        /// Synchronous: when this returns, all files have been written and all
-        /// native containers disposed.
-        /// （不讀取 <see cref="Instance.Settings"/>。錯誤透過
-        /// <see cref="ExportResult.ErrorMessage"/> 回報而非 <c>ErrorDialog</c>；
-        /// 完成音效與對話框仍依呼叫端的 <see cref="Options.CompletionSound"/>
-        /// 與 <see cref="Options.CompletionDialog"/> 設定執行。
-        /// 同步執行：方法回傳時所有檔案皆已寫入、所有原生容器皆已拋棄。）
+        /// The entry point for external assemblies. The top-level wrapper method that handles native container disposal and file creation for the caller.<br/>
+        /// （外部組件的入口。這是一個為呼叫者拋棄原生容器、寫出檔案的頂層包裝方法。）<br/><br/>
+        /// See <see href="https://github.com/taipei-native/Carto/wiki/Api"/> for detailed documentations.<br/>
+        /// （詳見 <see href="https://github.com/taipei-native/Carto/wiki/Api"/>。）
         /// </summary>
-        /// <param name="options">A fully-configured <see cref="Options"/> instance — the caller is responsible for the projection chain (<see cref="Options.SourceCoordinates"/>, <see cref="Options.SourceProjection"/>, <see cref="Options.SourceProjectionDefinition"/>, <see cref="Options.TargetEllipsoid"/>, <see cref="Options.TargetProjection"/>, <see cref="Options.TargetProjectionDefinition"/>) and content selection (<see cref="Options.Systems"/>, <see cref="Options.Features"/>, <see cref="Options.Properties"/>, <see cref="Options.VectorKinds"/>, <see cref="Options.RasterKinds"/>, <see cref="Options.Display"/>).（完整設定的 <see cref="Options"/>，呼叫端須自行配置投影鏈與內容選擇。）</param>
+        /// <param name="options">The export options. The caller is responsible for passing a valid instance.（輸出設定。呼叫者需傳入有效的實例。）</param>
         /// <returns>An <see cref="ExportResult"/> describing outcome.（描述輸出結果的 <see cref="ExportResult"/>。）</returns>
         public static ExportResult Export(Options options)
         {
             if (options == null)
-                return new ExportResult { Success = false, ErrorMessage = "options is null" };
+                return new ExportResult { Success = false, ErrorMessage = "options is null", ErrorType = Error.NullOptions };
+
             if (string.IsNullOrWhiteSpace(options.CustomDirectory))
-                return new ExportResult { Success = false, ErrorMessage = "options.CustomDirectory is required" };
+                return new ExportResult { Success = false, ErrorMessage = "options.CustomDirectory is required", ErrorType = Error.Path };
 
             try
             {
@@ -561,72 +566,56 @@ namespace Carto.IO
             }
             catch (Exception ex)
             {
-                return new ExportResult { Success = false, ErrorMessage = ex.Message };
+                return new ExportResult { Success = false, ErrorMessage = ex.Message, ErrorType = Error.General };
             }
 
-            // Locked-file check. Same logic as the button path, but reported via
-            // ErrorMessage instead of ErrorDialog.
-            // （存取問題檢查。與按鈕路徑相同的邏輯，但透過 ErrorMessage 回報而非 ErrorDialog。）
+            // Locked-file check. Reported via ErrorMessage instead of ErrorDialog.
+            // （存取問題檢查。透過 ErrorMessage 回報而非 ErrorDialog。）
             List<string> lockedFiles = Utils.IOUtils.GetLockedFiles(options);
             if (lockedFiles.Count > 0)
-                return new ExportResult { Success = false, ErrorMessage = $"Locked files: {string.Join(", ", lockedFiles)}" };
-
-            // Snapshot before so the result reports exactly what this call wrote.
-            // （事前快照，以便結果能精準回報此呼叫寫入的檔案。）
-            string[] before = SnapshotFiles(options.CustomDirectory);
+                return new ExportResult { Success = false, ErrorMessage = $"Locked files: {string.Join(", ", lockedFiles)}", ErrorType = Error.ShareViolation };
 
             int filesCount = 0;
             Dictionary<string, Error> ignores = new();
             string errorMessage = null;
+            Error errorType = Error.None;
+            List<string> writtenFileList = new();
 
             try
             {
-                RunExportPipeline(options, ignores, ref filesCount);
+                RunExportPipeline(options, ignores, ref filesCount, writtenFileList);
             }
             catch (Exception ex)
             {
                 _log.Error(ex.ToString());
                 DisposeAll();
                 errorMessage = ex.Message;
+                errorType = Error.General;
             }
             finally
             {
                 // Honor caller's CompletionSound / CompletionDialog flags.
                 // （遵守呼叫端的 CompletionSound 與 CompletionDialog 設定。）
-                PlayCompletionEffects(options, filesCount, ignores);
+                FireCompletionEffects(options, filesCount, ignores);
                 DisposeAll();
             }
 
-            string[] after = SnapshotFiles(options.CustomDirectory);
-            HashSet<string> beforeSet = new(before);
-            string[] written = after.Where(f => !beforeSet.Contains(f)).ToArray();
+            HashSet<string> writtenFileSet = new(writtenFileList);
 
             return new ExportResult
             {
                 Success = errorMessage == null,
-                FilesWritten = written,
-                ErrorMessage = errorMessage
+                FilesWritten = writtenFileSet.ToArray(),
+                ErrorMessage = errorMessage,
+                ErrorType = errorType
             };
         }
 
         /// <summary>
-        /// Recursive file snapshot for diffing what the pipeline wrote.
-        /// （遞迴掃描檔案以比對流程寫入的差異。）
+        /// Fire any caller-opted-in completion side effects (sound, dialog) based on the input <paramref name="options"/>.<br/>
+        /// （根據呼叫者輸入的 <paramref name="options"/>，觸發完成時音效與對話框。 ）
         /// </summary>
-        private static string[] SnapshotFiles(string dir) =>
-            Directory.Exists(dir)
-                ? Directory.GetFiles(dir, "*", SearchOption.AllDirectories)
-                : new string[0];
-
-        /// <summary>
-        /// Fire any caller-opted-in completion side effects (sound, dialog).
-        /// （依呼叫端設定觸發完成副作用（音效、對話框）。）<br/>
-        /// Shared by both <see cref="Export()"/> and <see cref="Export(Options)"/>;
-        /// each flag is evaluated independently against <paramref name="options"/>.
-        /// （由 <see cref="Export()"/> 與 <see cref="Export(Options)"/> 共用；
-        /// 各旗標獨立依 <paramref name="options"/> 評估。）
-        /// </summary>
-        private static void PlayCompletionEffects(Options options, int filesCount, Dictionary<string, Error> ignores)
+        private static void FireCompletionEffects(Options options, int filesCount, Dictionary<string, Error> ignores)
         {
             if (options.CompletionSound) Instance.Sound.Play(Sound.Completion);
 
@@ -643,239 +632,6 @@ namespace Carto.IO
                 }
                 MessageDialog dialog = new("Options.SECTION[Carto.Carto.Mod]", message, "Common.OK");
                 Instance.UI.appBindings.ShowMessageDialog(dialog, null);
-            }
-        }
-
-        /// <summary>
-        /// Run the export pipeline against a prepared <see cref="Options"/> instance.
-        /// （依據已準備好的 <see cref="Options"/> 執行輸出流程。）<br/>
-        /// Shared by both <see cref="Export()"/> and <see cref="Export(Options)"/> —
-        /// no UI side effects, no settings access. Caller is responsible for the
-        /// surrounding try/catch/finally (dispose, sound, dialog).
-        /// （由 <see cref="Export()"/> 與 <see cref="Export(Options)"/> 共用 —
-        /// 無 UI 副作用、不存取設定。呼叫端負責外層的 try/catch/finally
-        /// （拋棄、音效、對話框）。）
-        /// </summary>
-        /// <param name="options">The prepared export options.（已準備好的輸出設定。）</param>
-        /// <param name="ignores">Sink for raster ignores keyed by label, valued by reason.（收集網格略過項目的字典：鍵為標籤，值為原因。）</param>
-        /// <param name="filesCount">Running count of files written; incremented in place so partial progress survives an exception.（累計寫入的檔案數，以參考方式遞增，例外時保留部分進度。）</param>
-        private static void RunExportPipeline(Options options, Dictionary<string, Error> ignores, ref int filesCount)
-        {
-            // Shorthanded variables to determine whther to run any system.（縮寫變數，用於決定是否執行任何系統。）
-            bool useArea = options.Systems.HasFlag(System.Area);
-            bool useBuilding = options.Systems.HasFlag(System.Building);
-            bool useNetwork = options.Systems.HasFlag(System.Network);
-            bool usePOI = options.Systems.HasFlag (System.POI);
-            bool useRaster = options.Systems.HasFlag(System.Raster);
-            bool useRoute = options.Systems.HasFlag(System.Route);
-            bool useZoning = options.Systems.HasFlag(System.Zoning);
-            bool useVector = useArea || useBuilding || useNetwork || usePOI || useRoute || useZoning;
-
-            if (useVector)
-            {
-                /*
-                 *  The dependency graph:（依賴性關係圖：）
-                 *
-                 *  SharedDataCollectionSystem Exposed Property           Systems
-                 *  ....................................................................
-                 *  Themes ──── ZoningTypes  ┬─────────── ZoningSystem
-                 *                               └┐                  ┌ AreaSystem
-                 *  Brands ────────────┴─ BuildingStats  ┼ BuildingSystem
-                 *                                                     └ POISystem
-                 *                                                        NetworkSystem
-                 *                                                        RouteSystem
-                 *
-                 *  The actual requirements and execution order:（實際需求與執行順序：)
-                 *
-                 *  1. ZoningSystem   - Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
-                 *  2. POISystem      - Brands, BuildingStats, ZoningTypes
-                 *  3. BuildingSystem - Brands, BuildingStats, Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
-                 *  4. AreaSystem     - BuildingStats
-                 *  5. NetworkSystem  - (No dependency)
-                 *  6. RouteSystem    - (No dependency)
-                 */
-
-                // Collect vector shared data.（收集向量共享資料。）
-                if (useArea || useBuilding || usePOI)
-                {
-                    // Retrieve building statistics.（獲取建築的統計資料。）
-                    Instance.Shared.GetBuildingStats(options);
-                }
-                else
-                {
-                    if (useZoning)
-                    {
-                        // Retrieve zoning types information.（獲取分區類別的資訊。）
-                        Instance.Shared.GetZoningTypes(options);
-                    }
-                }
-
-                bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
-                bool buildingHasBoundary = options.Has(System.Building, VectorKind.Boundary);
-                bool networkHasBoundary = options.Has(System.Network, VectorKind.Boundary);
-                bool networkHasCenterline = options.Has(System.Network, VectorKind.Centerline);
-                bool poiHasLocation = options.Has(System.POI, VectorKind.Location);
-                bool routeHasCenterline = options.Has(System.Route, VectorKind.Centerline);
-                bool zoningHasBoundary = options.Has(System.Zoning, VectorKind.Boundary);
-
-                // Write vector data.（寫入向量資料。）
-                switch (options.VectorFormat)
-                {
-                    case FileFormat.GeoJSON:
-                        if (useZoning)
-                        {
-                            if (zoningHasBoundary)
-                            {
-                                GeoJson.Write(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundaryFeatures, OnReport);
-                                filesCount++;
-                            }
-                        }
-                        if (usePOI)
-                        {
-                            if (poiHasLocation)
-                            {
-                                GeoJson.Write(options, System.POI, VectorKind.Location, Instance.POI.WriteLocationFeatures, OnReport);
-                                filesCount++;
-                            }
-                        }
-                        if (useBuilding)
-                        {
-                            if (buildingHasBoundary)
-                            {
-                                GeoJson.Write(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundaryFeatures, OnReport);
-                                filesCount++;
-                            }
-                        }
-                        if (useArea)
-                        {
-                            if (areaHasBoundary)
-                            {
-                                GeoJson.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundaryFeatures, OnReport);
-                                filesCount++;
-                            }
-                        }
-                        if (useNetwork)
-                        {
-                            if (networkHasBoundary || networkHasCenterline)
-                            {
-                                Instance.Network.WriteFeatures(options, OnReport, out int networkFilesCount);
-                                filesCount += networkFilesCount;
-                            }
-                        }
-                        if (useRoute)
-                        {
-                            if (routeHasCenterline)
-                            {
-                                GeoJson.Write(options, System.Route, VectorKind.Centerline, Instance.Route.WriteCenterlineFeatures, OnReport);
-                                filesCount++;
-                            }
-                        }
-                        break;
-
-                    case FileFormat.Shapefile:
-                        if (useZoning)
-                        {
-                            if (zoningHasBoundary)
-                            {
-                                Shapefile.Write<ZoningCell>(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundarySHP, Instance.Zoning.WriteBoundaryDBF, OnReport);
-                                filesCount += 5;
-                            }
-                        }
-                        if (usePOI)
-                        {
-                            if (poiHasLocation)
-                            {
-                                Shapefile.Write<Entity>(options, System.POI, VectorKind.Location, Instance.POI.WriteLocationSHP, Instance.POI.WriteLocationDBF, OnReport);
-                                filesCount += 5;
-                            }
-                        }
-                        if (useBuilding)
-                        {
-                            if (buildingHasBoundary)
-                            {
-                                Shapefile.Write<Entity>(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundarySHP, Instance.Building.WriteBoundaryDBF, OnReport);
-                                filesCount += 5;
-                            }
-                        }
-                        if (useArea)
-                        {
-                            if (areaHasBoundary)
-                            {
-                                Shapefile.Write<Entity>(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, Instance.Area.WriteBoundaryDBF, OnReport);
-                                filesCount += 5;
-                            }
-                        }
-                        if (useNetwork)
-                        {
-                            if (networkHasBoundary || networkHasCenterline)
-                            {
-                                Instance.Network.WriteShapefiles(options, OnReport, out int networkFilesCount);
-                                filesCount += networkFilesCount;
-                            }
-                        }
-                        if (useRoute)
-                        {
-                            if (routeHasCenterline)
-                            {
-                                Shapefile.Write<Entity>(options, System.Route, VectorKind.Centerline, Instance.Route.WriteCenterlineSHP, Instance.Route.WriteCenterlineDBF, OnReport);
-                                filesCount += 5;
-                            }
-                        }
-                        break;
-                }
-            }
-
-            if (useRaster)
-            {
-                bool hasWorldDepth = options.RasterKinds.HasFlag(RasterKind.WorldDepth);
-                bool hasWorldElevation = options.RasterKinds.HasFlag(RasterKind.WorldElevation);
-                bool hasWorldTerrain = hasWorldDepth || hasWorldElevation;
-
-                // Write raster data.（寫入網格資料。）
-                switch (options.RasterFormat)
-                {
-                    case FileFormat.GeoTIFF:
-                        // Handle the grids using shared data first.（首先處理使用共享資料的網格。）
-                        if (hasWorldTerrain)
-                        {
-                            Instance.Shared.GetWorldElevation(options, out Error worldHeightmapError);
-                            bool worldHeightmapIntegrity = worldHeightmapError == Error.None;
-
-                            if (worldHeightmapIntegrity)
-                            {
-                                if (hasWorldDepth)
-                                {
-                                    GeoTiff.Write(options, RasterKind.WorldDepth, Instance.Raster.WriteWorldDepth, OnReport);
-                                    filesCount++;
-                                }
-                                if (hasWorldElevation)
-                                {
-                                    GeoTiff.Write(options, RasterKind.WorldElevation, Instance.Raster.WriteWorldElevation, OnReport);
-                                    filesCount++;
-                                }
-                            }
-                            else
-                            {
-                                if (hasWorldDepth) ignores.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldDepth), worldHeightmapError);
-                                if (hasWorldElevation) ignores.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldElevation), worldHeightmapError);
-                            }
-
-                            Instance.Shared.Dispose(DisposePhase.AfterTerrainRelated);
-                        }
-
-                        // ... then handle the grids using data independent from others later.（接著處理獨立的網格。）
-                        if (options.RasterKinds.HasFlag(RasterKind.Depth))
-                        {
-                            GeoTiff.Write(options, RasterKind.Depth, Instance.Raster.WriteDepth, OnReport);
-                            filesCount++;
-                        }
-                        if (options.RasterKinds.HasFlag(RasterKind.Elevation))
-                        {
-                            GeoTiff.Write(options, RasterKind.Elevation, Instance.Raster.WriteElevation, OnReport);
-                            filesCount++;
-                        }
-                        break;
-                }
             }
         }
 
@@ -1081,6 +837,10 @@ namespace Carto.IO
                 {
                     assemblyItem = $"{GetVersionIndicator(CompareVersion(version, Instance.Rb.VerifiedVersion))}{assemblyBaseTitle}";
                 }
+                else if (name.StartsWith(Instance.Rsa.Name))
+                {
+                    assemblyItem = $"{GetVersionIndicator(CompareVersion(version, Instance.Rsa.VerifiedVersion))}{assemblyBaseTitle}";
+                }
                 else if (name.StartsWith(Instance.Xtm.Name))
                 {
                     assemblyItem = $"{GetVersionIndicator(CompareVersion(version, Instance.Xtm.VerifiedVersion))}{assemblyBaseTitle}";
@@ -1244,6 +1004,234 @@ namespace Carto.IO
             _log.Info(GetIndentedText(GetAlignedText("ZONING_DISPLAY", $"{zoningDisplay}", 34), 4));
 
             PrintDoubleLine();
+        }
+
+        /// <summary>
+        /// Run the export pipeline with a prepared <see cref="Options"/> instance. The caller is responsible for handling exceptions and native container disposals.<br/>
+        /// （透過 <see cref="Options"/> 實例執行輸出。呼叫端需自行實作錯誤處理與拋棄原生容器。）
+        /// </summary>
+        /// <param name="options">The prepared export options.（輸出設定。）</param>
+        /// <param name="ignores">Sink for raster ignores keyed by label, valued by reason.（收集網格略過項目的字典：鍵為標籤，值為原因。）</param>
+        /// <param name="filesCount">Running count of files written; incremented in place so partial progress survives an exception.（累計寫入的檔案數，以參考方式遞增，例外時保留部分進度。）</param>
+        /// <param name="writtenFileList">The list of path to the written files.（已寫出檔案路徑的列表。）</param>
+        private static void RunExportPipeline(Options options, Dictionary<string, Error> ignores, ref int filesCount, List<string> writtenFileList)
+        {
+            // Shorthanded variables to determine whether to run any system.（縮寫變數，用於決定是否執行任何系統。）
+            bool useArea = options.Systems.HasFlag(System.Area);
+            bool useBuilding = options.Systems.HasFlag(System.Building);
+            bool useNetwork = options.Systems.HasFlag(System.Network);
+            bool usePOI = options.Systems.HasFlag(System.POI);
+            bool useRaster = options.Systems.HasFlag(System.Raster);
+            bool useRoute = options.Systems.HasFlag(System.Route);
+            bool useZoning = options.Systems.HasFlag(System.Zoning);
+            bool useVector = useArea || useBuilding || useNetwork || usePOI || useRoute || useZoning;
+
+            if (useVector)
+            {
+                /*
+                 *  The dependency graph:（依賴性關係圖：）
+                 *
+                 *  SharedDataCollectionSystem Exposed Property           Systems
+                 *  ....................................................................
+                 *  Themes ──── ZoningTypes  ┬─────────── ZoningSystem
+                 *                               └┐                  ┌ AreaSystem
+                 *  Brands ────────────┴─ BuildingStats  ┼ BuildingSystem
+                 *                                                     └ POISystem
+                 *                                                        NetworkSystem
+                 *                                                        RouteSystem
+                 *
+                 *  The actual requirements and execution order:（實際需求與執行順序：)
+                 *
+                 *  1. ZoningSystem   - Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
+                 *  2. POISystem      - Brands, BuildingStats, ZoningTypes
+                 *  3. BuildingSystem - Brands, BuildingStats, Themes, ZoningTypes, ZoningTypesEntityMap, ZoningTypesNames
+                 *  4. AreaSystem     - BuildingStats
+                 *  5. NetworkSystem  - (No dependency)
+                 *  6. RouteSystem    - (No dependency)
+                 */
+
+                // Collect vector shared data.（收集向量共享資料。）
+                if (useArea || useBuilding || usePOI)
+                {
+                    // Retrieve building statistics.（獲取建築的統計資料。）
+                    Instance.Shared.GetBuildingStats(options);
+                }
+                else
+                {
+                    if (useZoning)
+                    {
+                        // Retrieve zoning types information.（獲取分區類別的資訊。）
+                        Instance.Shared.GetZoningTypes(options);
+                    }
+                }
+
+                bool areaHasBoundary = options.Has(System.Area, VectorKind.Boundary);
+                bool buildingHasBoundary = options.Has(System.Building, VectorKind.Boundary);
+                bool networkHasBoundary = options.Has(System.Network, VectorKind.Boundary);
+                bool networkHasCenterline = options.Has(System.Network, VectorKind.Centerline);
+                bool poiHasLocation = options.Has(System.POI, VectorKind.Location);
+                bool routeHasCenterline = options.Has(System.Route, VectorKind.Centerline);
+                bool zoningHasBoundary = options.Has(System.Zoning, VectorKind.Boundary);
+
+                // Write vector data.（寫入向量資料。）
+                switch (options.VectorFormat)
+                {
+                    case FileFormat.GeoJSON:
+                        if (useZoning)
+                        {
+                            if (zoningHasBoundary)
+                            {
+                                GeoJson.Write(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundaryFeatures, OnReport, writtenFileList);
+                                filesCount++;
+                            }
+                        }
+                        if (usePOI)
+                        {
+                            if (poiHasLocation)
+                            {
+                                GeoJson.Write(options, System.POI, VectorKind.Location, Instance.POI.WriteLocationFeatures, OnReport, writtenFileList);
+                                filesCount++;
+                            }
+                        }
+                        if (useBuilding)
+                        {
+                            if (buildingHasBoundary)
+                            {
+                                GeoJson.Write(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundaryFeatures, OnReport, writtenFileList);
+                                filesCount++;
+                            }
+                        }
+                        if (useArea)
+                        {
+                            if (areaHasBoundary)
+                            {
+                                GeoJson.Write(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundaryFeatures, OnReport, writtenFileList);
+                                filesCount++;
+                            }
+                        }
+                        if (useNetwork)
+                        {
+                            if (networkHasBoundary || networkHasCenterline)
+                            {
+                                Instance.Network.WriteFeatures(options, OnReport, writtenFileList, out int networkFilesCount);
+                                filesCount += networkFilesCount;
+                            }
+                        }
+                        if (useRoute)
+                        {
+                            if (routeHasCenterline)
+                            {
+                                GeoJson.Write(options, System.Route, VectorKind.Centerline, Instance.Route.WriteCenterlineFeatures, OnReport, writtenFileList);
+                                filesCount++;
+                            }
+                        }
+                        break;
+
+                    case FileFormat.Shapefile:
+                        if (useZoning)
+                        {
+                            if (zoningHasBoundary)
+                            {
+                                Shapefile.Write<ZoningCell>(options, System.Zoning, VectorKind.Boundary, Instance.Zoning.WriteBoundarySHP, Instance.Zoning.WriteBoundaryDBF, OnReport, writtenFileList);
+                                filesCount += 5;
+                            }
+                        }
+                        if (usePOI)
+                        {
+                            if (poiHasLocation)
+                            {
+                                Shapefile.Write<Entity>(options, System.POI, VectorKind.Location, Instance.POI.WriteLocationSHP, Instance.POI.WriteLocationDBF, OnReport, writtenFileList);
+                                filesCount += 5;
+                            }
+                        }
+                        if (useBuilding)
+                        {
+                            if (buildingHasBoundary)
+                            {
+                                Shapefile.Write<Entity>(options, System.Building, VectorKind.Boundary, Instance.Building.WriteBoundarySHP, Instance.Building.WriteBoundaryDBF, OnReport, writtenFileList);
+                                filesCount += 5;
+                            }
+                        }
+                        if (useArea)
+                        {
+                            if (areaHasBoundary)
+                            {
+                                Shapefile.Write<Entity>(options, System.Area, VectorKind.Boundary, Instance.Area.WriteBoundarySHP, Instance.Area.WriteBoundaryDBF, OnReport, writtenFileList);
+                                filesCount += 5;
+                            }
+                        }
+                        if (useNetwork)
+                        {
+                            if (networkHasBoundary || networkHasCenterline)
+                            {
+                                Instance.Network.WriteShapefiles(options, OnReport, writtenFileList, out int networkFilesCount);
+                                filesCount += networkFilesCount;
+                            }
+                        }
+                        if (useRoute)
+                        {
+                            if (routeHasCenterline)
+                            {
+                                Shapefile.Write<Entity>(options, System.Route, VectorKind.Centerline, Instance.Route.WriteCenterlineSHP, Instance.Route.WriteCenterlineDBF, OnReport, writtenFileList);
+                                filesCount += 5;
+                            }
+                        }
+                        break;
+                }
+            }
+
+            if (useRaster)
+            {
+                bool hasWorldDepth = options.RasterKinds.HasFlag(RasterKind.WorldDepth);
+                bool hasWorldElevation = options.RasterKinds.HasFlag(RasterKind.WorldElevation);
+                bool hasWorldTerrain = hasWorldDepth || hasWorldElevation;
+
+                // Write raster data.（寫入網格資料。）
+                switch (options.RasterFormat)
+                {
+                    case FileFormat.GeoTIFF:
+                        // Handle the grids using shared data first.（首先處理使用共享資料的網格。）
+                        if (hasWorldTerrain)
+                        {
+                            Instance.Shared.GetWorldElevation(options, out Error worldHeightmapError);
+                            bool worldHeightmapIntegrity = worldHeightmapError == Error.None;
+
+                            if (worldHeightmapIntegrity)
+                            {
+                                if (hasWorldDepth)
+                                {
+                                    GeoTiff.Write(options, RasterKind.WorldDepth, Instance.Raster.WriteWorldDepth, OnReport, writtenFileList);
+                                    filesCount++;
+                                }
+                                if (hasWorldElevation)
+                                {
+                                    GeoTiff.Write(options, RasterKind.WorldElevation, Instance.Raster.WriteWorldElevation, OnReport, writtenFileList);
+                                    filesCount++;
+                                }
+                            }
+                            else
+                            {
+                                if (hasWorldDepth) ignores.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldDepth), worldHeightmapError);
+                                if (hasWorldElevation) ignores.Add(Instance.Settings.GetOptionLabelLocaleID(Settings.GeometryWorldElevation), worldHeightmapError);
+                            }
+
+                            Instance.Shared.Dispose(DisposePhase.AfterTerrainRelated);
+                        }
+
+                        // ... then handle the grids using data independent from others later.（接著處理獨立的網格。）
+                        if (options.RasterKinds.HasFlag(RasterKind.Depth))
+                        {
+                            GeoTiff.Write(options, RasterKind.Depth, Instance.Raster.WriteDepth, OnReport, writtenFileList);
+                            filesCount++;
+                        }
+                        if (options.RasterKinds.HasFlag(RasterKind.Elevation))
+                        {
+                            GeoTiff.Write(options, RasterKind.Elevation, Instance.Raster.WriteElevation, OnReport, writtenFileList);
+                            filesCount++;
+                        }
+                        break;
+                }
+            }
         }
     }
 }

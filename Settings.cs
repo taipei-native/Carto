@@ -38,6 +38,8 @@ namespace Carto
         // - GetOptions()
         // - SetDefaults()
         // - Carto.IO.IO.LogExportOptions()
+        // - Carto.Utils.IOUtils.BuildProjectionParameterTitleMapper()
+        // - Carto.Utils.IOUtils.ValidateProjections()
 
         /// <summary>
         /// Reset all mod default settings.
@@ -1786,21 +1788,12 @@ namespace Carto
         public IO.Options GetOptions()
         {
             // Check projection parameters integrity.（確認投影參數的完整性。）
-            Geodata.Coord sourceCoordinates = default;
-            Geodata.CRS sourceCRS = Geodata.CRS.Unknown;
-            Geodata.CRS targetCRS = Geodata.CRS.Unknown;
             IO.Ellipsoid ellipsoid = IO.Ellipsoid.WGS84;
             IO.Feature feature = IO.Feature.None;
             IO.FileFormat vectorFileFormat = IO.FileFormat.Shapefile;
             IO.RasterKind rasterKinds = IO.RasterKind.Unknown;
             IO.System system = IO.System.Unknown;
-            Geodata.ProjectionDefinition projectionDefinition = default;
-            projectionDefinition.transform = new(new double[0]);
-            Dictionary<string, IO.Error> errors = new()
-            {
-                { GetOptionLabelLocaleID(nameof(SourceXCoord)), Utils.IOUtils.TryGetNumber(SourceXCoord, out double sourceX) },
-                { GetOptionLabelLocaleID(nameof(SourceYCoord)), Utils.IOUtils.TryGetNumber(SourceYCoord, out double sourceY) }
-            };
+            Dictionary<string, IO.Error> errors = new();
             Dictionary<IO.System, HashSet<IO.Property>> properties = new();
             Dictionary<IO.System, IO.VectorKind> vectorKinds = new();
 
@@ -1967,53 +1960,17 @@ namespace Carto
                 if (GeometryWorldDepthWater) rasterKinds |= IO.RasterKind.WorldDepth;
             }
 
-            switch (SourceCRS)
-            {
-                case IO.CRS.TransverseMercator:
-                    sourceCRS = Geodata.CRS.TransverseMercator;
-                    targetCRS = sourceCRS;
-                    ellipsoid = SourceEllipsoid;
-                    Geodata.EllipsoidDefinition ellipsoidDefinition;
+            Utils.IOUtils.ValidateProjections(SourceXCoord, SourceYCoord, SourceCRS, errors, null, out Geodata.ParsedParams parsedResult,
+                                              SourceEllipsoid, SourceHemisphere == Geodata.Hemisphere.North, SourceUTMZone,
+                                              SourceEllipsoidSemiMajorAxis, SourceEllipsoidInverseFlattening,
+                                              SourceCRSOriginLongitude, SourceCRSOriginLatitude,
+                                              SourceCRSFalseEasting, SourceCRSFalseNorthing,
+                                              SourceCRSScaleFactor, SourceCRSTransform);
 
-                    if (SourceEllipsoid != IO.Ellipsoid.Custom)
-                    {
-                        if (!IO.IO.EllipsoidTable.TryGetValue(SourceEllipsoid, out ellipsoidDefinition))
-                        {
-                            Instance.Log.Warn($"The ellipsoid `{SourceEllipsoid}` is not defined. 橢球體 `{SourceEllipsoid}` 並未被定義。");
-                        }
-                    }
-                    else
-                    {
-                        errors.Add(GetOptionLabelLocaleID(nameof(SourceEllipsoidSemiMajorAxis)), Utils.IOUtils.TryGetLength(SourceEllipsoidSemiMajorAxis, out double ellipsoidSemiMajorAxis));
-                        errors.Add(GetOptionLabelLocaleID(nameof(SourceEllipsoidInverseFlattening)), Utils.IOUtils.TryGetNumber(SourceEllipsoidInverseFlattening, out double ellipsoidInverseFlattening));
-                        ellipsoidDefinition = new(ellipsoidSemiMajorAxis, ellipsoidInverseFlattening);
-                    }
-
-                    errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSOriginLongitude)), Utils.IOUtils.TryGetLongitude(SourceCRSOriginLongitude, out double sourceOriginLongitude));
-                    errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSOriginLatitude)), Utils.IOUtils.TryGetLatitude(SourceCRSOriginLatitude, out double sourceOriginLatitude));
-                    errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSFalseEasting)), Utils.IOUtils.TryGetNumber(SourceCRSFalseEasting, out double sourceFalseEasting));
-                    errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSFalseNorthing)), Utils.IOUtils.TryGetNumber(SourceCRSFalseNorthing, out double sourceFalseNorthing));
-                    errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSScaleFactor)), Utils.IOUtils.TryGetNumber(SourceCRSScaleFactor, out double sourceScaleFactor));
-                    errors.Add(GetOptionLabelLocaleID(nameof(SourceCRSTransform)), Utils.IOUtils.TryGetTransform(SourceCRSTransform, out double[] sourceTransform));
-                    projectionDefinition = new(ellipsoidDefinition, sourceOriginLongitude, sourceOriginLatitude, sourceFalseEasting, sourceFalseNorthing, sourceScaleFactor, new(sourceTransform));
-                    sourceCoordinates = new(sourceX, sourceY, sourceCRS);
-                    break;
-
-                case IO.CRS.UTM:
-                    sourceCRS = Geodata.CRS.UTM;
-                    targetCRS = sourceCRS;
-                    errors.Add(GetOptionLabelLocaleID(nameof(SourceUTMZone)), Utils.IOUtils.TryGetUTMZone(SourceUTMZone, out int sourceUTMZone));
-                    sourceCoordinates = new(sourceX, sourceY, SourceHemisphere, sourceUTMZone);
-                    break;
-
-                case IO.CRS.WGS84:
-                    sourceCRS = Geodata.CRS.WGS84;
-                    targetCRS = Geodata.CRS.UTM;
-                    errors[GetOptionLabelLocaleID(nameof(SourceXCoord))] = Utils.IOUtils.TryGetLongitude(SourceXCoord, out sourceX);
-                    errors[GetOptionLabelLocaleID(nameof(SourceYCoord))] = Utils.IOUtils.TryGetLatitude(SourceYCoord, out sourceY);
-                    sourceCoordinates = new(sourceX, sourceY, sourceCRS);
-                    break;
-            }
+            Geodata.Coord sourceCoordinates = parsedResult.center;
+            Geodata.CRS sourceCRS = parsedResult.projection;
+            Geodata.CRS targetCRS = sourceCRS == Geodata.CRS.WGS84 ? Geodata.CRS.UTM : sourceCRS;
+            Geodata.ProjectionDefinition projectionDefinition = parsedResult.projectionDefinition;
 
             return new()
             {

@@ -1468,8 +1468,9 @@ namespace Carto.Systems
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        /// <param name="writtenFileList">The list of path to the written files.（已寫出檔案路徑的列表。）</param>
         /// <param name="filesCount">The number of exported files.（輸出的檔案數量。）</param>
-        public void WriteFeatures(Options options, Action<string, int> onReportMethod, out int filesCount)
+        public void WriteFeatures(Options options, Action<string, int> onReportMethod, List<string> writtenFileList, out int filesCount)
         {
             filesCount = 0;
 
@@ -1479,12 +1480,12 @@ namespace Carto.Systems
 
                 if (options.Has(IO.System.Network, VectorKind.Boundary))
                 {
-                    GeoJson.Write(options, IO.System.Network, VectorKind.Boundary, WriteBoundaryFeatures, onReportMethod);
+                    GeoJson.Write(options, IO.System.Network, VectorKind.Boundary, WriteBoundaryFeatures, onReportMethod, writtenFileList);
                     filesCount++;
                 }
                 if (options.Has(IO.System.Network, VectorKind.Centerline))
                 {
-                    GeoJson.Write(options, IO.System.Network, VectorKind.Centerline, WriteCenterlineFeatures, onReportMethod);
+                    GeoJson.Write(options, IO.System.Network, VectorKind.Centerline, WriteCenterlineFeatures, onReportMethod, writtenFileList);
                     filesCount++;
                 }
             }
@@ -1600,8 +1601,9 @@ namespace Carto.Systems
         /// </summary>
         /// <param name="options">The export options.（輸出設定。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
+        /// <param name="writtenFileList">The list of path to the written files.（已寫出檔案路徑的列表。）</param>
         /// <param name="filesCount">The number of exported files.（輸出的檔案數量。）</param>
-        public void WriteShapefiles(Options options, Action<string, int> onReportMethod, out int filesCount)
+        public void WriteShapefiles(Options options, Action<string, int> onReportMethod, List<string> writtenFileList, out int filesCount)
         {
             filesCount = 0;
 
@@ -1611,12 +1613,12 @@ namespace Carto.Systems
 
                 if (options.Has(IO.System.Network, VectorKind.Boundary))
                 {
-                    Shapefile.Write<Entity>(options, IO.System.Network, VectorKind.Boundary, WriteBoundarySHP, WriteDBF, onReportMethod);
+                    Shapefile.Write<Entity>(options, IO.System.Network, VectorKind.Boundary, WriteBoundarySHP, WriteDBF, onReportMethod, writtenFileList);
                     filesCount += 5;
                 }
                 if (options.Has(IO.System.Network, VectorKind.Centerline))
                 {
-                    Shapefile.Write<Entity>(options, IO.System.Network, VectorKind.Centerline, WriteCenterlineSHP, WriteDBF, onReportMethod);
+                    Shapefile.Write<Entity>(options, IO.System.Network, VectorKind.Centerline, WriteCenterlineSHP, WriteDBF, onReportMethod, writtenFileList);
                     filesCount += 5;
                 }
             }

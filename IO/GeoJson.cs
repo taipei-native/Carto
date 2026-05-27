@@ -41,7 +41,8 @@ namespace Carto.IO
         /// <param name="vectorKind">The classification of exported vector objects.（對輸出向量物體的分類。）</param>
         /// <param name="writeFeaturesMethod">The WriteFeatures() method implemented in each system.（各系統實作的 WriteFeatures() 方法。）</param>
         /// <param name="onReportMethod">The event listener to handle the export status report.（處理回報輸出進度的事件監聽者。）</param>
-        public static void Write(Options options, System systemName, VectorKind vectorKind, WriteFeaturesMethod writeFeaturesMethod, Action<string, int> onReportMethod)
+        /// <param name="writtenFileList">The list of path to the written files.（已寫出檔案路徑的列表。）</param>
+        public static void Write(Options options, System systemName, VectorKind vectorKind, WriteFeaturesMethod writeFeaturesMethod, Action<string, int> onReportMethod, List<string> writtenFileList)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if ((options == null) || (writeFeaturesMethod == null)) throw new ArgumentNullException("The parameters cannot be null. 參數不可為空值。");
@@ -79,6 +80,7 @@ namespace Carto.IO
 
             writer.WriteEndObject();
             stopwatch.Stop();
+            writtenFileList?.Add(filePath);
             Instance.Log.Info($"Write '{Path.GetFileName(filePath)}' in {CommonUtils.FormatTimeSpan(stopwatch.Elapsed)}.");
         }
         
