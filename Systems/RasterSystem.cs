@@ -89,6 +89,26 @@ namespace Carto.Systems
         }
 
         /// <summary>
+        /// Retrieve the grid value at the designated coordinate. 
+        /// （獲得指定座標的網格數值。）<br/>
+        /// This function accepts the indices beyond the grid, and such case would return clamped value.
+        /// （該函數接受超出網格的索引，並會回傳剪裁後的數值。）
+        /// </summary>
+        /// <typeparam name="T">The type of the grid value.（網格數值的型別。）</typeparam>
+        /// <param name="grid">The flatten grid array.（扁平化的網格陣列。）</param>
+        /// <param name="i">The row index.（列索引值。）</param>
+        /// <param name="j">The column index.（行索引值。）</param>
+        /// <param name="m">The row count of the grid.（網格的列總數。）</param>
+        /// <param name="n">The column count of the grid.（網格的行總數。）</param>
+        /// <returns>The grid value.（網格數值。）</returns>
+        private T GetGridValue<T>(NativeArray<T> grid, int i, int j, int m, int n) where T : struct
+        {
+            int row = math.clamp(i, 0, m - 1);
+            int col = math.clamp(j, 0, n - 1);
+            return grid[row * n + col];
+        }
+
+        /// <summary>
         /// Normalize the value from the given interval.
         /// （由給定的區間將數值標準化。）
         /// </summary>
@@ -143,7 +163,7 @@ namespace Carto.Systems
                                 for (int j = 0; j < _param.imageWidth; j++)
                                 {
                                     short depthInPlace = (short)Math.Round(depth[i * _param.imageWidth + j].m_Depth, MidpointRounding.AwayFromZero);
-                                    writer.Write(BitConverter.GetBytes(depthInPlace <= 0 ? (short) _param.nodata : depthInPlace));
+                                    writer.Write(BitConverter.GetBytes(depthInPlace <= 0 ? (short)_param.nodata : depthInPlace));
                                 }
                             }
                             break;
@@ -162,6 +182,119 @@ namespace Carto.Systems
                     }
 
                     GeoTiff.WriteGridDataCommon(writer, _param.BytesPerStrip(), _param.imageHeight);
+                });
+                writerThread.Wait();
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex);
+            }
+        }
+
+        public void WriteDepthNew(BinaryWriter writer, ref GeoTiff.Parameter param)
+        {
+            WaterSurfaceData<SurfaceWater> data = _water.GetSurfaceData(out _);
+            param.imageHeight = data.resolution.z;
+            param.imageWidth = data.resolution.x;
+            param.scaleX = Math.Abs(Math.Round(1d / data.scale.x / param.rasterScale, 4));
+            param.scaleY = Math.Abs(Math.Round(1d / data.scale.z / param.rasterScale, 4));
+            GeoTiff.WriteHeaderNew(writer, ref param);
+            GeoTiff.Parameter _param = param;
+
+            try
+            {
+                Task writerThread = Task.Run(() =>
+                {
+                    NativeArray<SurfaceWater> depth = data.depths;
+                    GeoTiff.ValidateGrid(ref depth, _param);
+
+                    switch (_param.format)
+                    {
+                        case GeoTiffFormat.Float32:
+                            for (int i = _param.ScaledHeight() - 1; i > -1; i--)
+                            {
+                                float gridRow = (float)((i + 0.5) / _param.rasterScale - 0.5);
+                                int gridRowBottom = (int) math.floor(gridRow);
+                                int gridRowTop = gridRowBottom + 1;
+                                float deltaRow = gridRow - gridRowBottom;
+                                
+                                for (int j = 0; j < _param.ScaledWidth(); j++)
+                                {
+                                    float gridCol = (float)((j + 0.5) / _param.rasterScale - 0.5);
+                                    int gridColLeft = (int) math.floor(gridCol);
+                                    int gridColRight = gridColLeft + 1;
+                                    float deltaCol = gridCol - gridColLeft;
+
+                                    float a = GetGridValue(depth, gridRowBottom, gridColLeft, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float b = GetGridValue(depth, gridRowBottom, gridColRight, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float c = GetGridValue(depth, gridRowTop, gridColLeft, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float d = GetGridValue(depth, gridRowTop, gridColRight, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float bottomValue = a * (1 - deltaCol) + b * deltaCol;
+                                    float topValue = c * (1 - deltaCol) + d * deltaCol;
+                                    float depthValue = bottomValue * (1 - deltaRow) + topValue * deltaRow;
+                                    writer.Write(BitConverter.GetBytes(depthValue <= 0 ? _param.nodata : depthValue));
+                                }
+                            }
+                            break;
+
+                        case GeoTiffFormat.Int16:
+                            for (int i = _param.ScaledHeight() - 1; i > -1; i--)
+                            {
+                                float gridRow = (float)((i + 0.5) / _param.rasterScale - 0.5);
+                                int gridRowBottom = (int)math.floor(gridRow);
+                                int gridRowTop = gridRowBottom + 1;
+                                float deltaRow = gridRow - gridRowBottom;
+
+                                for (int j = 0; j < _param.ScaledWidth(); j++)
+                                {
+                                    float gridCol = (float)((j + 0.5) / _param.rasterScale - 0.5);
+                                    int gridColLeft = (int)math.floor(gridCol);
+                                    int gridColRight = gridColLeft + 1;
+                                    float deltaCol = gridCol - gridColLeft;
+
+                                    float a = GetGridValue(depth, gridRowBottom, gridColLeft, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float b = GetGridValue(depth, gridRowBottom, gridColRight, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float c = GetGridValue(depth, gridRowTop, gridColLeft, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float d = GetGridValue(depth, gridRowTop, gridColRight, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float bottomValue = a * (1 - deltaCol) + b * deltaCol;
+                                    float topValue = c * (1 - deltaCol) + d * deltaCol;
+                                    short depthValue = (short) Math.Round(bottomValue * (1 - deltaRow) + topValue * deltaRow, MidpointRounding.AwayFromZero);
+                                    writer.Write(BitConverter.GetBytes(depthValue <= 0 ? (short)_param.nodata : depthValue));
+                                }
+                            }
+                            break;
+
+                        case GeoTiffFormat.Norm16:
+                            Bounds3 bounds = new(-data.offset, (data.resolution - 1) / data.scale - data.offset);
+
+                            for (int i = _param.ScaledHeight() - 1; i > -1; i--)
+                            {
+                                float gridRow = (float)((i + 0.5) / _param.rasterScale - 0.5);
+                                int gridRowBottom = (int)math.floor(gridRow);
+                                int gridRowTop = gridRowBottom + 1;
+                                float deltaRow = gridRow - gridRowBottom;
+
+                                for (int j = 0; j < _param.ScaledWidth(); j++)
+                                {
+                                    float gridCol = (float)((j + 0.5) / _param.rasterScale - 0.5);
+                                    int gridColLeft = (int)math.floor(gridCol);
+                                    int gridColRight = gridColLeft + 1;
+                                    float deltaCol = gridCol - gridColLeft;
+
+                                    float a = GetGridValue(depth, gridRowBottom, gridColLeft, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float b = GetGridValue(depth, gridRowBottom, gridColRight, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float c = GetGridValue(depth, gridRowTop, gridColLeft, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float d = GetGridValue(depth, gridRowTop, gridColRight, _param.imageHeight, _param.imageWidth).m_Depth;
+                                    float bottomValue = a * (1 - deltaCol) + b * deltaCol;
+                                    float topValue = c * (1 - deltaCol) + d * deltaCol;
+                                    float depthValue = NormalizeToUShort(bottomValue * (1 - deltaRow) + topValue * deltaRow, bounds.y);
+                                    writer.Write(BitConverter.GetBytes(depthValue));
+                                }
+                            }
+                            break;
+                    }
+
+                    GeoTiff.WriteGridDataCommon(writer, _param.BytesPerStripNew(), _param.ScaledHeight());
                 });
                 writerThread.Wait();
             }

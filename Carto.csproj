@@ -5,9 +5,9 @@
 
 		<!-- Metadata -->
 		<Authors>Taipei Native</Authors>
-		<AssemblyVersion>1.0.16.0</AssemblyVersion> <!--4 digit -->
-		<FileVersion>1.0.16</FileVersion> <!--3 digit -->
-		<Version>1.0.16</Version> <!--3 digit -->
+		<AssemblyVersion>1.1.0.0</AssemblyVersion> <!--4 digit -->
+		<FileVersion>1.1.0</FileVersion> <!--3 digit -->
+		<Version>1.1.0</Version> <!--3 digit -->
 		
 		<!--The file where mod information which is required for publishing mod on PDX mods are stored-->
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>

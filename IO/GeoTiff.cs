@@ -234,7 +234,9 @@ namespace Carto.IO
             /// （目標投影法的 EPSG 代號。）
             /// </summary>
             public int projectionCode;
-            
+
+            public int rasterScale;
+
             /// <summary>
             /// The format of a sample.
             /// （樣本的格式。）
@@ -258,6 +260,12 @@ namespace Carto.IO
             /// （每個片段的位元組數。）
             /// </summary>
             public readonly short BytesPerStrip() => (short)(imageWidth * depth / 8);
+
+            public readonly short BytesPerStripNew() => (short)(ScaledWidth() * depth / 8);
+
+            public readonly int ScaledHeight() => imageHeight * rasterScale;
+
+            public readonly int ScaledWidth() => imageWidth * rasterScale;
         }
 
         /// <summary>
@@ -324,6 +332,7 @@ namespace Carto.IO
                 isUTM = options.TargetProjection == Geodata.CRS.UTM,
                 nodata = nodata,
                 projectionCode = Epsg.UserDefined,
+                rasterScale = options.RasterScale,
                 sampleFormat = sample,
             };
 
@@ -372,9 +381,9 @@ namespace Carto.IO
         /// <exception cref="ArgumentException"></exception>
         public static void WriteHeader(BinaryWriter writer, ref Parameter param)
         {
-            if ((param.depth == 0) || (param.imageHeight == 0) || (param.imageWidth == 0))
+            if ((param.depth == 0) || (param.imageHeight == 0) || (param.imageWidth == 0) || (param.rasterScale == 0))
             {
-                throw new ArgumentException("At least one of the parameter is unset: depth, imageHeight, or imageWidth. 至少一個參數未設定：depth，imageHeight，或是 imageWidth。");
+                throw new ArgumentException("At least one of the parameter is unset: depth, imageHeight, imageWidth, or rasterScale. 至少一個參數未設定：depth、imageHeight、imageWidth 或是 rasterScale。");
             }
 
             // A row is a strip. There are H strips in an image with height of H pixels.（一排是一個片段。在高度為 H 像素的影像中，共有 H 個影像片段。）
@@ -390,6 +399,31 @@ namespace Carto.IO
             param.offsetBytesPerStrip = 8 + (bps + 4) * param.imageHeight;
             param.offsetIFD = 8 + (bps + 6) * param.imageHeight;
             param.offsetStrips = 8 + bps * param.imageHeight;
+
+            if (BitConverter.IsLittleEndian)
+            {
+                writer.Write(Encoding.UTF8.GetBytes("II"));
+            }
+            else
+            {
+                writer.Write(Encoding.UTF8.GetBytes("MM"));
+            }
+
+            writer.Write(BitConverter.GetBytes((short)42));
+            writer.Write(BitConverter.GetBytes(param.offsetIFD));
+        }
+
+        public static void WriteHeaderNew(BinaryWriter writer, ref Parameter param)
+        {
+            if ((param.depth == 0) || (param.imageHeight == 0) || (param.imageWidth == 0) || (param.rasterScale == 0))
+            {
+                throw new ArgumentException("At least one of the parameter is unset: depth, imageHeight, imageWidth, or rasterScale. 至少一個參數未設定：depth、imageHeight、imageWidth 或是 rasterScale。");
+            }
+
+            int bps = param.BytesPerStripNew();
+            param.offsetBytesPerStrip = 8 + (bps + 4) * param.ScaledHeight();
+            param.offsetIFD = 8 + (bps + 6) * param.ScaledHeight();
+            param.offsetStrips = 8 + bps * param.ScaledHeight();
 
             if (BitConverter.IsLittleEndian)
             {

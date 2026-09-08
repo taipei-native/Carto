@@ -174,6 +174,7 @@ namespace Carto
             PlayCompletionSound = true;
             ShowCompletionDialog = true;
             GeometryInactiveRoute = false;
+            GeometryRasterScale = 1;
             GeometrySeparateServiceUpgrade = false;
             GeometryUnzoned = false;
             PropertyGeneralHomeless = true;
@@ -1609,12 +1610,46 @@ namespace Carto
         [SettingsUISection(MiscellaneousTab, MiscellaneousFileGroup)]
         public bool ShowCompletionDialog { get; set; } = true;
 
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGeometryGroup)]
+        public IO.ElevationOrigin GeometryElevationOrigin { get; set; } = IO.ElevationOrigin.SeaLevel;
+
         /// <summary>
         /// Whether to export inactive transportation routes.
         /// （是否輸出未啟用的運輸服務路線。）
         /// </summary>
         [SettingsUISection(MiscellaneousTab, MiscellaneousGeometryGroup)]
         public bool GeometryInactiveRoute { get; set; } = false;
+
+        [SettingsUISection(MiscellaneousTab, MiscellaneousGeometryGroup)]
+        [SettingsUIDropdown(typeof(Settings), nameof(GetRasterScales))]
+        public int GeometryRasterScale { get; set; } = 1;
+
+        public DropdownItem<int>[] GetRasterScales()
+        {
+            return new DropdownItem<int>[]
+            {
+                new()
+                {
+                    value = 1,
+                    displayName = GetOptionLabelLocaleID("GeometryRasterScale1X")
+                },
+                new()
+                {
+                    value = 2,
+                    displayName = GetOptionLabelLocaleID("GeometryRasterScale2X")
+                },
+                new()
+                {
+                    value = 3,
+                    displayName = GetOptionLabelLocaleID("GeometryRasterScale3X")
+                },
+                new()
+                {
+                    value = 4,
+                    displayName = GetOptionLabelLocaleID("GeometryRasterScale4X")
+                }
+            };
+        }
 
         /// <summary>
         /// Whether to export service upgrade buildings separately.
@@ -2000,6 +2035,7 @@ namespace Carto
                 Properties = properties,
                 RasterFormat = IO.FileFormat.GeoTIFF,
                 RasterKinds = rasterKinds,
+                RasterScale = GeometryRasterScale,
                 RoadClassification = PropertyCategoryRoadClassification,
                 SeparateResident = PropertyResidentSeparateBySex,
                 SeparateServiceUpgrade = GeometrySeparateServiceUpgrade,

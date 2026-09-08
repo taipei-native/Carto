@@ -175,8 +175,8 @@ namespace Carto.IO
                                              options.TargetProjection,
                                              options.SourceProjectionDefinition,
                                              options.TargetProjectionDefinition);
-            _transformBuffer.Add(new double[6] { param.imageWidth / 2d,
-                                                 param.imageHeight / 2d,
+            _transformBuffer.Add(new double[6] { param.ScaledWidth() / 2d,
+                                                 param.ScaledHeight() / 2d,
                                                  0d,
                                                  tiepoint.x,
                                                  tiepoint.y,
@@ -343,15 +343,15 @@ namespace Carto.IO
 
             // Write the IFDs.（寫入影像檔案目錄。）
             _writer.Write(BitConverter.GetBytes((ushort)tagCount));
-            WriteTag(256, 1, param.imageWidth);                                                         // Tag   256 [0x0100] ImageWidth（影像寬度）
-            WriteTag(257, 1, param.imageHeight);                                                        // Tag   257 [0x0101] ImageLength（影像高度）
+            WriteTag(256, 1, param.ScaledWidth());                                                      // Tag   256 [0x0100] ImageWidth（影像寬度）
+            WriteTag(257, 1, param.ScaledHeight());                                                     // Tag   257 [0x0101] ImageLength（影像高度）
             WriteTag(258, 1, param.depth);                                                              // Tag   258 [0x0102] BitsPerSample（每波段位元數）
             WriteTag(259, 1, 1);                                                                        // Tag   259 [0x0103] Compression（壓縮）
             WriteTag(262, 1, 1);                                                                        // Tag   262 [0x0106] PhotometricInterpretation（光度解讀）
-            WriteTag(273, param.imageHeight, param.offsetStrips);                                       // Tag   273 [0x0111] StripOffsets（影像片段偏移）
+            WriteTag(273, param.ScaledHeight(), param.offsetStrips);                                    // Tag   273 [0x0111] StripOffsets（影像片段偏移）
             WriteTag(277, 1, 1);                                                                        // Tag   277 [0x0115] SamplesPerPixel（每像素波段數）
             WriteTag(278, 1, 1);                                                                        // Tag   278 [0x0116] RowsPerStrip（每片段垂直列數）
-            WriteTag(279, param.imageHeight, param.offsetBytesPerStrip);                                // Tag   279 [0x0117] StripByteCounts（每片段位元組數）
+            WriteTag(279, param.ScaledHeight(), param.offsetBytesPerStrip);                             // Tag   279 [0x0117] StripByteCounts（每片段位元組數）
             WriteTag(284, 1, 1);                                                                        // Tag   284 [0x011C] PlanarConfiguration（像素儲存方式）
             WriteTag(305, 9, _tagOffsetTable[305] + nonInlineOffset);                                   // Tag   305 [0x0131] Software（軟體）
             WriteTag(306, 20, _tagOffsetTable[306] + nonInlineOffset);                                  // Tag   306 [0x0132] DateTime（日期與時間）

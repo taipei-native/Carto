@@ -80,6 +80,12 @@ namespace Carto.IO
 
         public NamingFormat FileNameFormat { get; set; } = NamingFormat.Feature;
 
+        /// <summary>
+        /// Whether to set elevation origin to the in-game world origin. If false, the elevation origin is set to the in-game sea level.<br/>
+        /// （是否將高程原點設置於遊戲內世界原點。若為否，則高程原點位於遊戲內海平面高度。）
+        /// </summary>
+        public bool GameElevation { get; set; } = false;
+
         public GeoTiffFormat GeoTiffFormat { get; set; } = GeoTiffFormat.Int16;
 
         /// <summary>
@@ -141,6 +147,8 @@ namespace Carto.IO
         /// （即將輸出的網格。）
         /// </summary>
         public RasterKind RasterKinds { get; set; } = RasterKind.Unknown;
+
+        public int RasterScale { get; set; } = 1;
 
         /// <summary>
         /// The method to classify road networks.

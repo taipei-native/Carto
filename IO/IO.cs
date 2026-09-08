@@ -817,6 +817,7 @@ namespace Carto.IO
             bool networkDisplay = options.Display.TryGetValue((Property.Category, System.Network), out bool nd) && nd;
             bool poiDisplay = options.Display.TryGetValue((Property.Category, System.POI), out bool pd) && pd;
             bool zoningDisplay = options.Display.TryGetValue((Property.Zoning, System.Unknown), out bool zd) && zd;
+            string elevationOrigin = options.GameElevation ? "Game" : "SeaLevel";
 
             PrintDoubleLine();
             _log.Info(GetAlignedText("Export Settings", Instance.Version, 38));
@@ -986,7 +987,9 @@ namespace Carto.IO
             _log.Info(GetIndentedText(GetAlignedText("COMPLETION_SOUND", $"{options.CompletionSound}", 34), 4));
             PrintEmptyLine();
             PrintH2("GEOMETRY");
+            _log.Info(GetIndentedText(GetAlignedText("ELEVATION_ORIGIN", elevationOrigin, 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("INACTIVE_ROUTE", $"{options.InactiveRoute}", 34), 4));
+            _log.Info(GetIndentedText(GetAlignedText("RASTER_SCALE", $"{options.RasterScale}", 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("SERVICE_UPGRADE", $"{options.SeparateServiceUpgrade}", 34), 4));
             _log.Info(GetIndentedText(GetAlignedText("UNZONED", $"{options.Unzoned}", 34), 4));
             PrintEmptyLine();
@@ -1221,7 +1224,7 @@ namespace Carto.IO
                         // ... then handle the grids using data independent from others later.（接著處理獨立的網格。）
                         if (options.RasterKinds.HasFlag(RasterKind.Depth))
                         {
-                            GeoTiff.Write(options, RasterKind.Depth, Instance.Raster.WriteDepth, OnReport, writtenFileList);
+                            GeoTiff.Write(options, RasterKind.Depth, Instance.Raster.WriteDepthNew, OnReport, writtenFileList);
                             filesCount++;
                         }
                         if (options.RasterKinds.HasFlag(RasterKind.Elevation))

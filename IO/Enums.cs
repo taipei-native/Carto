@@ -44,6 +44,13 @@ namespace Carto.IO
         Single
     }
 
+    public enum ElevationOrigin
+    {
+        Game,
+
+        SeaLevel
+    }
+
     /// <summary>
     /// The reference ellipsoids of popular datums.
     /// （受歡迎的大地基準的參考橢球體。）

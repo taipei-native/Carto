@@ -5,7 +5,7 @@
   },
   "projects": {
     "D:\\Documents\\source\\repos\\Carto\\Carto.csproj": {
-      "version": "1.0.16",
+      "version": "1.1.0",
       "restore": {
         "projectUniqueName": "D:\\Documents\\source\\repos\\Carto\\Carto.csproj",
         "projectName": "Carto",
@@ -49,7 +49,7 @@
       "frameworks": {
         "net48": {
           "targetAlias": "net48",
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.315\\RuntimeIdentifierGraph.json"
         }
       }
     }
