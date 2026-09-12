@@ -1,3 +1,4 @@
+using System;
 using Carto.Utils;
 
 namespace Carto.Geodata
@@ -97,6 +98,11 @@ namespace Carto.Geodata
             coefficientsGC = default;
             coefficientsRC = default;
         }
+
+        /// <summary>
+        /// The first eccentricity of the ellipsoid.（橢球體的第一偏心率。）
+        /// </summary>
+        public readonly double E => Math.Sqrt(f * (2 - f));
 
         /// <summary>
         /// The first eccentricity squared of the ellipsoid.（橢球體的第一偏心率平方。）

@@ -40,7 +40,7 @@ namespace Carto.Geodata
         /// <exception cref="NotSupportedException"></exception>
         public static Coord Apply(Coord coordinate, CRS sourceCRS, CRS targetCRS, ProjectionDefinition sourceProjection, ProjectionDefinition targetProjection)
         {
-            if ((sourceCRS == targetCRS) && (sourceCRS != CRS.TransverseMercator)) return coordinate;
+            if ((sourceCRS == targetCRS) && (sourceCRS != CRS.TransverseMercator) && (sourceCRS != CRS.LambertConformalConic)) return coordinate;
             if ((sourceCRS == CRS.Unknown) || (sourceCRS == CRS.Game) || (sourceCRS == CRS.PseudoMercator)) throw new NotSupportedException("No available conversion from sourceCRS to WGS84. 沒有自 sourceCRS 至 WGS84 的轉換。");
             if ((targetCRS == CRS.Unknown) || (targetCRS == CRS.Game)) throw new NotSupportedException("No available conversion from WGS84 to targetCRS. 沒有自 WGS84 至 targetCRS 的轉換。");
 
@@ -48,6 +48,10 @@ namespace Carto.Geodata
 
             switch (sourceCRS)
             {
+                case CRS.LambertConformalConic:
+                    intermediateCoordinate = LambertConformalConicToWGS84(coordinate, sourceProjection);
+                    break;
+                
                 case CRS.TransverseMercator:
                     intermediateCoordinate = TransverseMercatorToWGS84(coordinate, sourceProjection);
                     break;
@@ -64,11 +68,84 @@ namespace Carto.Geodata
 
             return targetCRS switch
             {
+                CRS.LambertConformalConic => WGS84ToLambertConformalConic(intermediateCoordinate, targetProjection),
                 CRS.PseudoMercator => WGS84ToPseudoMercator(intermediateCoordinate),
                 CRS.TransverseMercator => WGS84ToTransverseMercator(intermediateCoordinate, targetProjection),
                 CRS.UTM => WGS84ToUTM(intermediateCoordinate),
                 _ => coordinate,
             };
+        }
+
+        /// <summary>
+        /// Convert a Lambert conformal conic coordinate to a WGS84 coordinate.
+        /// （將蘭伯特等角圓錐投影坐標轉換為 WGS84 坐標。）
+        /// </summary>
+        /// <param name="lcc">The Lambert conformal conic coordinate.（蘭伯特等角圓錐投影坐標。）</param>
+        /// <param name="projection">The definition of the Lambert conformal conic projection.（蘭伯特等角圓錐投影的定義。）</param>
+        /// <returns>The converted WGS84 coordinate.（轉換後的 WGS84 坐標。）</returns>
+        public static Coord LambertConformalConicToWGS84(Coord lcc, ProjectionDefinition projection)
+        {
+            /*
+                # References: （資料來源：）
+
+                * PROJ contributors. (2026). lcc.cpp. lcc_e_inverse()
+                    https://github.com/OSGeo/PROJ/blob/master/src/projections/lcc.cpp#L44
+             */ 
+
+            if (projection.parallels.Count == 0) return new(double.MaxValue, double.MaxValue, lcc.z, CRS.WGS84);
+
+            // Intermediate values（中繼值）
+            double c = projection.coefficientsLCC.a;
+            double n = projection.coefficientsLCC.b;
+            double rho0 = projection.coefficientsLCC.c;
+            double x = (lcc.x - projection.shift.x) / projection.ellipsoid.a / projection.scaleFactor;
+            double y = rho0 - (lcc.y - projection.shift.y) / projection.ellipsoid.a / projection.scaleFactor;
+
+            double lat;
+            double lon;
+            double rho = MathUtils.Hypot(x, y);
+
+            if (rho == 0)
+            {
+                lon = 0.0;
+                lat = n > 0 ? Math.PI / 2 : -Math.PI / 2;
+            }
+            else
+            {
+                if (n < 0)
+                {
+                    rho = -rho;
+                    x = -x;
+                    y = -y;
+                }
+
+                lon = Math.Atan2(x, y) / n;
+
+                if (projection.ellipsoid.E1Square == 0)
+                {
+                    lat = 2 * Math.Atan(Math.Pow(c / rho, 1 / n)) - Math.PI / 2;
+                }
+                else
+                {
+                    lat = DatumUtils.Burst.Phi2(Math.Pow(rho / c, 1 / n), projection.ellipsoid.E);
+                    if (double.IsInfinity(lat)) return new(double.MaxValue, double.MaxValue, lcc.z, CRS.WGS84);
+                }
+            }
+
+            Coord wgs84 = new(math.degrees(lon) + projection.origin.x, math.degrees(lat), CRS.WGS84);
+
+            // Datum Transformation（大地基準轉換）
+            if (projection.HasTransform)
+            {
+                EllipsoidDefinition wgs84Ellipsoid = new(6378137, 298.257223563, true);
+                wgs84 = DatumUtils.Burst.ConvertToGeocentric(wgs84, projection.ellipsoid);
+                wgs84 = projection.transform.ConvertToWGS84(wgs84);
+                wgs84 = DatumUtils.Burst.ConvertFromGeocentric(wgs84, wgs84Ellipsoid);
+            }
+
+            wgs84.x = (wgs84.x + 180) % 360 - 180;
+            wgs84.z = lcc.z;
+            return wgs84;
         }
 
         /// <summary>
@@ -127,6 +204,7 @@ namespace Carto.Geodata
                     wgs84 = DatumUtils.Burst.ConvertFromGeocentric(wgs84, wgs84Ellipsoid);
                 }
 
+                wgs84.x = (wgs84.x + 180) % 360 - 180;
                 wgs84.z = tm.z;
                 return wgs84;
             }
@@ -195,6 +273,67 @@ namespace Carto.Geodata
             double Y = a * Math.Log(Math.Tan(Math.PI / 4 + LATr / 2));
 
             return new(X, Y, wgs84.z, CRS.PseudoMercator);
+        }
+
+        /// <summary>
+        /// Convert a WGS84 coordinate to a Lambert conformal conic coordinate.
+        /// （將 WGS84 坐標轉換為蘭伯特等角圓錐投影坐標。）
+        /// </summary>
+        /// <param name="wgs84">The WGS84 coordinate.（WGS84 坐標。）</param>
+        /// <param name="projection">The definition of the Lambert conformal conic projection.（蘭伯特等角圓錐投影的定義。）</param>
+        /// <returns>The converted Lambert conformal conic coordinate.（轉換後的蘭伯特等角圓錐投影坐標。）</returns>
+        public static Coord WGS84ToLambertConformalConic(Coord wgs84, ProjectionDefinition projection)
+        {
+            /*
+                # References: （資料來源：）
+
+                * PROJ contributors. (2026). lcc.cpp. lcc_e_forward()
+                    https://github.com/OSGeo/PROJ/blob/master/src/projections/lcc.cpp#L22
+             */
+
+            double z = wgs84.z;
+
+            if (projection.parallels.Count == 0) return new(double.MaxValue, double.MaxValue, z, CRS.LambertConformalConic);
+
+            // Datum Transformation（大地基準轉換）
+            if (projection.HasTransform)
+            {
+                EllipsoidDefinition wgs84Ellipsoid = new(6378137, 298.257223563, true);
+                wgs84 = DatumUtils.Burst.ConvertToGeocentric(wgs84, wgs84Ellipsoid);
+                wgs84 = projection.transform.ConvertFromWGS84(wgs84);
+                wgs84 = DatumUtils.Burst.ConvertFromGeocentric(wgs84, projection.ellipsoid);
+            }
+
+            // Initial values（初始值）
+            double lat = math.radians(wgs84.y);
+            double lon = math.radians(wgs84.x - projection.origin.x);
+
+            // Intermediate Values（中繼值）
+            double c = projection.coefficientsLCC.a;
+            double n = projection.coefficientsLCC.b;
+            double rho;
+            double rho0 = projection.coefficientsLCC.c;
+
+            if (Math.Abs(Math.Abs(lat) - Math.PI / 2) < 1E-10)
+            {
+                if ((lat * n) <= 0) return new(double.MaxValue, double.MaxValue, z, CRS.LambertConformalConic);
+                rho = 0.0;
+            }
+            else
+            {
+                if (projection.ellipsoid.E1Square == 0)
+                {
+                    rho = c * Math.Pow(Math.Tan(Math.PI / 4 + 0.5 * lat), -n);
+                }
+                else
+                {
+                    rho = c * Math.Pow(DatumUtils.Burst.SmallT(lat, projection.ellipsoid.E), n);
+                }
+            }
+
+            double x = projection.scaleFactor * rho * Math.Sin(lon * n) * projection.ellipsoid.a + projection.shift.x;
+            double y = projection.scaleFactor * (rho0 - rho * Math.Cos(lon * n)) * projection.ellipsoid.a + projection.shift.y;
+            return new(x, y, z, CRS.LambertConformalConic);
         }
 
         /// <summary>

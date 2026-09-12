@@ -256,6 +256,109 @@ namespace Carto.Utils
                 double rn = a / Math.Sqrt(1 - es * s2lat);
                 return new(rn * clat * Math.Cos(lon), rn * clat * Math.Sin(lon), rn * (1 - es) * slat, CRS.Unknown);
             }
+
+            /// <summary>
+            /// Calculate the phi-2 geographic latitude.
+            /// （計算 phi-2 地理緯度。）
+            /// </summary>
+            /// <param name="ts">The negative of the exponential of the isometric latitude.（等距緯度指數的負數。）</param>
+            /// <param name="e">The eccentricity of the ellipsoid.（橢球體偏心率。）</param>
+            public static double Phi2(double ts, double e)
+            {
+                /*
+                    #  References: （資料來源：）
+
+                    * PROJ contributors. (2026). phi2.cpp. pj_phi2()
+                        https://github.com/OSGeo/PROJ/blob/master/src/phi2.cpp#L124
+
+                    * PROJ contributors. (2026). phi2.cpp. pj_sinhpsi2tanphi()
+                        https://github.com/OSGeo/PROJ/blob/master/src/phi2.cpp#L10
+
+                    # The original notes:（原始註解：）
+
+                      Determine latitude angle phi-2.
+                      Inputs:
+                        ts = exp(-psi) where psi is the isometric latitude (dimensionless)
+                             this variable is defined in Snyder (1987), Eq. (7-10)
+                        e = eccentricity of the ellipsoid (dimensionless)
+                      Output:
+                        phi = geographic latitude (radians)
+                      Here isometric latitude is defined by
+                        psi = log( tan(pi/4 + phi/2) *
+                                   ( (1 - e*sin(phi)) / (1 + e*sin(phi)) )^(e/2) )
+                            = asinh(tan(phi)) - e * atanh(e * sin(phi))
+                            = asinh(tan(chi))
+                        chi = conformal latitude
+
+                      This routine converts t = exp(-psi) to
+
+                        tau' = tan(chi) = sinh(psi) = (1/t - t)/2
+
+                      returns atan(sinpsi2tanphi(tau'))
+                 */
+
+                double rootEpsilon = Math.Sqrt(2.22E-16);
+                double taup = (1d / ts - ts) / 2d;
+                double tolerance = rootEpsilon * Math.Max(1, Math.Abs(taup)) / 10d;
+                double e2m = 1d - e * e;
+                double tau = Math.Abs(taup) > 70 ? taup * Math.Exp(e * Math.Atanh(e)) : taup / e2m;
+
+                if (Math.Abs(tau) < 2d / rootEpsilon)
+                {
+                    for (int i = 0; i < 5; i--)
+                    {
+                        double tau1 = Math.Sqrt(1d + tau * tau);
+                        double sigma = Math.Sinh(e * Math.Atanh(e * tau / tau1));
+                        double taupa = Math.Sqrt(1d + sigma * sigma) * tau - sigma * tau1;
+                        double dtau = (taup - taupa) * (1d + e2m * tau * tau) / (e2m * tau1 * Math.Sqrt(1d + taupa * taupa));
+                        tau += dtau;
+
+                        if (Math.Abs(dtau) < tolerance) break;
+                    }
+                }
+
+                return Math.Atan(tau);
+            }
+
+            /// <summary>
+            /// Calculate the small m term.
+            /// （計算小 m。）
+            /// </summary>
+            /// <param name="phi">The latitude.（緯度。）</param>
+            /// <param name="es">The eccentricity squared of the ellipsoid.（橢球體的偏心率平方。）</param>
+            public static double SmallM(double phi, double es)
+            {
+                /*
+                    #  References: （資料來源：）
+
+                    * PROJ contributors. (2026). msfn.cpp. pj_msfn()
+                        https://github.com/OSGeo/PROJ/blob/master/src/msfn.cpp#L5
+                 */
+
+                double sphi = Math.Sin(phi);
+                return Math.Cos(phi) / Math.Sqrt(1d - es * sphi * sphi);
+            }
+
+            /// <summary>
+            /// Calculate the small t term.
+            /// （計算小 t。）
+            /// </summary>
+            /// <param name="phi">The latitude.（緯度。）</param>
+            /// <param name="e">The eccentricity of the ellipsoid.（橢球體偏心率。）</param>
+            public static double SmallT(double phi, double e)
+            {
+                /*
+                    #  References: （資料來源：）
+
+                    * PROJ contributors. (2026). tsfn.cpp. pj_tsfn()
+                        https://github.com/OSGeo/PROJ/blob/master/src/tsfn.cpp#L6
+                 */
+
+                double cphi = Math.Cos(phi);
+                double sphi = Math.Sin(phi);
+                double com = Math.Exp(e * Math.Atanh(e * sphi));
+                return sphi > 0 ? com * cphi / (1 + sphi) : com / cphi * (1 + sphi);
+            }
         }
 
         /// <summary>
@@ -438,6 +541,74 @@ namespace Carto.Utils
                 }
             }
 
+            return coeffs;
+        }
+
+        /// <summary>
+        /// Retrieve the latitude parameters of Lambert conformal conic projection.
+        /// （獲得蘭伯特圓錐投影的緯度參數。）
+        /// </summary>
+        /// <param name="ellipsoid">The reference datum's ellipsoid.（參考大地基準的橢球體。）</param>
+        /// <param name="paralles">The standard parallels of the projection.（投影法的標準平行線。）</param>
+        /// <param name="latitude">The projection origin's WGS84 latitude in radians.（以弳度表示之投影原點的 WGS84 緯度。）</param>
+        /// <returns>The coefficients with 3 values.（擁有 3 個數值的係數。）</returns>
+        public static Coefficients GetLambertConformalConicParams(EllipsoidDefinition ellipsoid, Parallels parallels, double latitude)
+        {
+            /*
+                # References: （資料來源：）
+                
+                * PROJ contributors. (2026). lcc.cpp. *PJ_PROJECTION()
+                    https://github.com/OSGeo/PROJ/blob/master/src/projections/lcc.cpp#L78
+             */
+
+            double lat1 = math.radians(parallels.first);
+            double lat2 = math.radians(parallels.Count == 2 ? parallels.second : parallels.first);
+            if (parallels.Count == 0) throw new ArgumentException("The input Parallels structure has no parallel. 輸入的 Parallels 結構未包含任何標準平行線。");
+            if (Math.Abs(lat1 + lat2) < 1E-10) throw new ArgumentOutOfRangeException("The absolute value of the sum of two standard parallels should be greater than 0. 兩標準平行線緯度之和的絕對值應大於 0。");
+
+            Coefficients coeffs = default;
+            double c;
+            double e = ellipsoid.E;
+            double n = Math.Sin(lat1);
+            double rho0;
+            bool usePoleRule = Math.Abs(Math.Abs(latitude) - Math.PI / 2) < 1E-10;
+            bool useSecant = Math.Abs(lat1 - lat2) >= 1E-10;
+            
+            if (e == 0)
+            {
+                double clat1 = Math.Cos(lat1);
+                double oneFourthPi = Math.PI / 4;
+
+                if (useSecant) n = Math.Log(clat1 / Math.Cos(lat2)) / Math.Log(Math.Tan(oneFourthPi + 0.5 * lat2) / Math.Tan(oneFourthPi + 0.5 * lat1));
+                if (n == 0) throw new ArgumentOutOfRangeException("The absolute value of the sum of two standard parallels should be greater than 0. 兩標準平行線緯度之和的絕對值應大於 0。");
+
+                c = clat1 / n * Math.Pow(Math.Tan(oneFourthPi + 0.5 * lat1), n);
+                rho0 = usePoleRule ? 0.0 : c * Math.Pow(Math.Tan(oneFourthPi + 0.5 * latitude), -n);
+            }
+            else
+            {
+                double es = ellipsoid.E1Square;
+                double m1 = Burst.SmallM(lat1, es);
+                double ml1 = Burst.SmallT(lat1, e);
+
+                if (useSecant)
+                {
+                    n = Math.Log(m1 / Burst.SmallM(lat2, es));
+                    if (n == 0) throw new ArgumentException("The eccentricity is invalid. 錯誤的偏心率。");
+
+                    double denom = Math.Log(ml1 / Burst.SmallT(lat2, e));
+                    if (denom == 0) throw new ArgumentException("The eccentricity is invalid. 錯誤的偏心率。");
+
+                    n /= denom;
+                }
+
+                c = m1 / n * Math.Pow(ml1, -n);
+                rho0 = usePoleRule ? 0.0 : c * Math.Pow(Burst.SmallT(latitude, e), n);
+            }
+
+            coeffs.a = c;
+            coeffs.b = n;
+            coeffs.c = rho0;
             return coeffs;
         }
 

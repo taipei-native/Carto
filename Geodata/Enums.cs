@@ -18,6 +18,13 @@ namespace Carto.Geodata
         Game,
 
         /// <summary>
+        /// A conformal conic projection developed by Johann H. Lambert, which is adopted by several countries for surveying and cadastre purposes.<br/>
+        /// （約翰‧蘭伯特開發的等角圓錐投影，多國將其用於測繪或地籍圖。）<br/>
+        /// See also: <seealso href="https://en.wikipedia.org/wiki/Lambert_conformal_conic_projection">Lambert conformal conic projection</seealso>
+        /// </summary>
+        LambertConformalConic,
+
+        /// <summary>
         /// A variant of Mercator projection also known as Web Mercator (EPSG: 3857), widely used in web applications.<br/>
         /// （偽麥卡托投影（或網路麥卡托投影，EPSG: 3857），經常被用於網路應用程式中。）<br/>
         /// See also: <seealso href="https://en.wikipedia.org/wiki/Web_Mercator_projection">Web Mercator projection</seealso>

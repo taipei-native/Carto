@@ -24,7 +24,13 @@ namespace Carto.IO
         /// See <see cref="Geodata.CRS.WGS84"/>.
         /// （請見 <see cref="Geodata.CRS.WGS84"/>。）
         /// </summary>
-        WGS84
+        WGS84,
+
+        /// <summary>
+        /// See <see cref="Geodata.CRS.LambertConformalConic"/>.
+        /// （請見 <see cref="Geodata.CRS.LambertConformalConic"/>。）
+        /// </summary>
+        LambertConformalConic
     }
     
     /// <summary>

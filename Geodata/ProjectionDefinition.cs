@@ -10,6 +10,12 @@ namespace Carto.Geodata
     public struct ProjectionDefinition
     {
         /// <summary>
+        /// The parameters to transform latitudes to/from the Lambert conformal conic projection.<br/>
+        /// （蘭伯特等角圓錐投影的緯度轉換參數。）
+        /// </summary>
+        public Coefficients coefficientsLCC;
+        
+        /// <summary>
         /// The reference ellipsoid of the projection.
         /// （投影法的參考橢球體。）
         /// </summary>
@@ -26,6 +32,12 @@ namespace Carto.Geodata
         /// （投影法坐標系的 WGS84 原點。）
         /// </summary>
         public double2 origin;
+
+		/// <summary>
+		/// The latitudes of standard parallels from the projection.
+		/// （投影法標準平行線的緯度。）
+		/// </summary>
+		public Parallels parallels;
 
         /// <summary>
         /// The shift of the coordinates, and it is also known as false easting (x axis) and false northing (y axis).
@@ -68,10 +80,12 @@ namespace Carto.Geodata
             shift = new(shiftX, shiftY);
             this.scaleFactor = scaleFactor;
             this.transform = transform;
+            parallels = Parallels.None;
 
             meridianQuadrant = scaleFactor * DatumUtils.GetRectifyingRadius(ellipsoid.F3);
             double gaussianLatitude = DatumUtils.Burst.ConvertAuxiliaryLatitude(math.radians(originY), ellipsoid.coefficientsGC);
             radiusVector = -meridianQuadrant * DatumUtils.Burst.ConvertAuxiliaryLatitude(gaussianLatitude, ellipsoid.coefficientsCR);
+            coefficientsLCC = default;
         }
 
         public ProjectionDefinition(EllipsoidDefinition ellipsoid, double originX, double originY, double shiftX, double shiftY, double scaleFactor, HelmertTransform transform, bool burst)
@@ -91,10 +105,26 @@ namespace Carto.Geodata
             shift = new(shiftX, shiftY);
             this.scaleFactor = scaleFactor;
             this.transform = transform;
+            parallels = Parallels.None;
 
             meridianQuadrant = 0.0;
             radiusVector = 0.0;
+            coefficientsLCC = default;
         }
+
+		public ProjectionDefinition(EllipsoidDefinition ellipsoid, double originX, double originY, double shiftX, double shiftY, double scaleFactor, HelmertTransform transform, Parallels parallels)
+		{
+			this.ellipsoid = ellipsoid;
+            origin = new(originX, originY);
+            shift = new(shiftX, shiftY);
+            this.scaleFactor = scaleFactor;
+            this.transform = transform;
+            this.parallels = parallels;
+
+            meridianQuadrant = 0.0;
+            radiusVector = 0.0;
+            coefficientsLCC = DatumUtils.GetLambertConformalConicParams(ellipsoid, parallels, math.radians(originY));
+		}	
 
         /// <summary>
         /// Check whether the projection has Helmert Transform parameters.
