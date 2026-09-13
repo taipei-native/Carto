@@ -549,7 +549,7 @@ namespace Carto.Utils
         /// （獲得蘭伯特圓錐投影的緯度參數。）
         /// </summary>
         /// <param name="ellipsoid">The reference datum's ellipsoid.（參考大地基準的橢球體。）</param>
-        /// <param name="paralles">The standard parallels of the projection.（投影法的標準平行線。）</param>
+        /// <param name="paralles">The standard parallels of the projection.（投影法的標準平行緯線。）</param>
         /// <param name="latitude">The projection origin's WGS84 latitude in radians.（以弳度表示之投影原點的 WGS84 緯度。）</param>
         /// <returns>The coefficients with 3 values.（擁有 3 個數值的係數。）</returns>
         public static Coefficients GetLambertConformalConicParams(EllipsoidDefinition ellipsoid, Parallels parallels, double latitude)
@@ -563,8 +563,8 @@ namespace Carto.Utils
 
             double lat1 = math.radians(parallels.first);
             double lat2 = math.radians(parallels.Count == 2 ? parallels.second : parallels.first);
-            if (parallels.Count == 0) throw new ArgumentException("The input Parallels structure has no parallel. 輸入的 Parallels 結構未包含任何標準平行線。");
-            if (Math.Abs(lat1 + lat2) < 1E-10) throw new ArgumentOutOfRangeException("The absolute value of the sum of two standard parallels should be greater than 0. 兩標準平行線緯度之和的絕對值應大於 0。");
+            if (parallels.Count == 0) throw new ArgumentException("The input Parallels structure has no parallel. 輸入的 Parallels 結構未包含任何標準平行緯線。");
+            if (Math.Abs(lat1 + lat2) < 1E-10) throw new ArgumentOutOfRangeException("The absolute value of the sum of two standard parallels should be greater than 0. 兩標準平行緯線之和的絕對值應大於 0。");
 
             Coefficients coeffs = default;
             double c;
@@ -580,7 +580,7 @@ namespace Carto.Utils
                 double oneFourthPi = Math.PI / 4;
 
                 if (useSecant) n = Math.Log(clat1 / Math.Cos(lat2)) / Math.Log(Math.Tan(oneFourthPi + 0.5 * lat2) / Math.Tan(oneFourthPi + 0.5 * lat1));
-                if (n == 0) throw new ArgumentOutOfRangeException("The absolute value of the sum of two standard parallels should be greater than 0. 兩標準平行線緯度之和的絕對值應大於 0。");
+                if (n == 0) throw new ArgumentOutOfRangeException("The absolute value of the sum of two standard parallels should be greater than 0. 兩標準平行緯線之和的絕對值應大於 0。");
 
                 c = clat1 / n * Math.Pow(Math.Tan(oneFourthPi + 0.5 * lat1), n);
                 rho0 = usePoleRule ? 0.0 : c * Math.Pow(Math.Tan(oneFourthPi + 0.5 * latitude), -n);

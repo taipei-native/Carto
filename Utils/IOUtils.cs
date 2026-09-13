@@ -51,6 +51,8 @@ namespace Carto.Utils
                 { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseNorthing)), $"{prefix}ProjectionDefinition.shift.y" },
                 { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSScaleFactor)), $"{prefix}ProjectionDefinition.scaleFactor" },
                 { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSTransform)), $"{prefix}ProjectionDefinition.transform" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSStandardParallel1)), $"{prefix}ProjectionDefinition.parallels.first" },
+                { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSStandardParallel2)), $"{prefix}ProjectionDefinition.parallels.second" },
                 { Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoid)), $"Ellipsoid" }
             };
         }
@@ -700,6 +702,38 @@ namespace Carto.Utils
         }
 
         /// <summary>
+        /// Try to retrieve the latitude of a standard parallel from the user input. <br/>
+        /// This is a variant of <see cref="TryGetLatitude(object, out double)"/> which supports <see cref="double.MinValue"/> as a valid input, indicating null value.<br/>
+        /// （嘗試從使用者輸入值中獲得標準平行緯線。這是支援 <see cref="double.MinValue"/> 的 <see cref="TryGetLatitude(object, out double)"/> 變種，用於表示空值。）
+        /// </summary>
+        /// <param name="value">The input value. Only <see cref="double"/> and <see cref="string"/> are evaluated, and other types will result in an NaN <see cref="Error"/>.<br/>
+        /// （輸入值。僅檢驗 <see cref="double"/> 和 <see cref="string"/>，其餘型別將導致非數字 <see cref="Error"/>。）</param>
+        /// <param name="latitude">The converted latitude.（轉換的緯度。）</param>
+        /// <returns>The error during the parsing process.（轉換過程中遇到的錯誤。）</returns>
+        public static Error TryGetStandardParallelLatitude(object value, out double latitude)
+        {
+            static Error Evaluate(double input, ref double output)
+            {
+                double absLatitude = Math.Abs(input);
+                if ((absLatitude > 90) && (input != double.MinValue)) return Error.Latitude;
+                output = input;
+                return Error.None;
+            }
+
+            latitude = 0;
+            if (value is double numberDouble) return Evaluate(numberDouble, ref latitude);
+            if (value is string text)
+            {
+                text = text.Trim();
+                if (string.IsNullOrEmpty(text)) return Evaluate(double.MinValue, ref latitude);
+                if (!double.TryParse(text, out double _latitude)) return Error.Nan;
+                return Evaluate(_latitude, ref latitude);
+            }
+
+            return Error.Nan;
+        }
+
+        /// <summary>
         /// Try to retrieve the Helmert Transform parameters from the user input.
         /// （嘗試從使用者輸入值中獲得赫爾默特轉換參數。）
         /// </summary>
@@ -859,14 +893,18 @@ namespace Carto.Utils
                                                      ellipsoidSemiMajorAxis: options.SourceProjectionDefinition.ellipsoid.a, ellipsoidInverseFlattening: options.SourceProjectionDefinition.ellipsoid.rf,
                                                      crsOriginLongitude: options.SourceProjectionDefinition.origin.x, crsOriginLatitude: options.SourceProjectionDefinition.origin.y,
                                                      crsFalseEasting: options.SourceProjectionDefinition.shift.x, crsFalseNorthing: options.SourceProjectionDefinition.shift.y,
-                                                     crsScaleFactor: options.SourceProjectionDefinition.scaleFactor, crsTransform: options.SourceProjectionDefinition.transform);
+                                                     crsScaleFactor: options.SourceProjectionDefinition.scaleFactor, crsTransform: options.SourceProjectionDefinition.transform,
+                                                     crsStandardParallel1: options.SourceProjectionDefinition.parallels.first,
+                                                     crsStandardParallel2: options.SourceProjectionDefinition.parallels.second);
 
             bool isTargetValid = ValidateProjections(0d, 0d, targetProjection, errors, BuildProjectionParameterTitleMapper("Target"), out _,
                                                      Ellipsoid.Custom, utmZone: 31, northHemisphere: true,
                                                      ellipsoidSemiMajorAxis: options.TargetProjectionDefinition.ellipsoid.a, ellipsoidInverseFlattening: options.TargetProjectionDefinition.ellipsoid.rf,
                                                      crsOriginLongitude: options.TargetProjectionDefinition.origin.x, crsOriginLatitude: options.TargetProjectionDefinition.origin.y,
                                                      crsFalseEasting: options.TargetProjectionDefinition.shift.x, crsFalseNorthing: options.TargetProjectionDefinition.shift.y,
-                                                     crsScaleFactor: options.TargetProjectionDefinition.scaleFactor, crsTransform: options.TargetProjectionDefinition.transform);
+                                                     crsScaleFactor: options.TargetProjectionDefinition.scaleFactor, crsTransform: options.TargetProjectionDefinition.transform,
+                                                     crsStandardParallel1: options.TargetProjectionDefinition.parallels.first,
+                                                     crsStandardParallel2: options.TargetProjectionDefinition.parallels.second);
 
             return isSourceValid && isTargetValid;
         }
@@ -884,7 +922,8 @@ namespace Carto.Utils
                                                object ellipsoidSemiMajorAxis = null, object ellipsoidInverseFlattening = null,
                                                object crsOriginLongitude = null, object crsOriginLatitude = null,
                                                object crsFalseEasting = null, object crsFalseNorthing = null,
-                                               object crsScaleFactor = null, object crsTransform = null)
+                                               object crsScaleFactor = null, object crsTransform = null,
+                                               object crsStandardParallel1 = null, object crsStandardParallel2 = null)
         {
             bool isMapperNull = titleMapper == null;
             errors ??= new();
@@ -892,6 +931,7 @@ namespace Carto.Utils
 
             Geodata.Coord center;
             Geodata.CRS geodataCRS;
+            Geodata.EllipsoidDefinition ellipsoidDefinition;
             Geodata.ProjectionDefinition projectionDefinition = default;
             projectionDefinition.transform = new(new double[0]);
 
@@ -900,38 +940,84 @@ namespace Carto.Utils
                 if (error != Error.None) errors.Add(isMapperNull ? title : (titleMapper.TryGetValue(title, out string mappedTitle) ? mappedTitle : title), error);
             }
 
+            bool CheckDatumError(out Geodata.EllipsoidDefinition ellipsoidDef)
+            {
+                if (ellipsoid != Ellipsoid.Custom)
+                {
+                    if (!IO.IO.EllipsoidTable.TryGetValue(ellipsoid, out ellipsoidDef))
+                    {
+                        Instance.Log.Warn($"The ellipsoid `{ellipsoid}` is not defined. 橢球體 `{ellipsoid}` 並未被定義。");
+                        errors.Add(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoid)), Error.General);
+                        return false;
+                    }
+                }
+                else
+                {
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoidSemiMajorAxis)), TryGetLength(ellipsoidSemiMajorAxis, out double doubleSemiMajorAxis));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoidInverseFlattening)), TryGetNumber(ellipsoidInverseFlattening, out double doubleInverseFlattening));
+                    ellipsoidDef = new(doubleSemiMajorAxis, doubleInverseFlattening);
+                }
+
+                return true;
+            }
+
             AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceXCoord)), TryGetNumber(x, out double doubleX));
             AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceYCoord)), TryGetNumber(y, out double doubleY));
 
             switch (crs)
             {
-                case CRS.TransverseMercator:
-                    geodataCRS = Geodata.CRS.TransverseMercator;
-                    Geodata.EllipsoidDefinition ellipsoidDefinition;
+                case CRS.LambertConformalConic:
+                    geodataCRS = Geodata.CRS.LambertConformalConic;
+                    if (!CheckDatumError(out ellipsoidDefinition)) return false;
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLongitude)), TryGetLongitude(crsOriginLongitude, out double doubleOriginLongitudeLCC));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLatitude)), TryGetLatitude(crsOriginLatitude, out double doubleOriginLatitudeLCC));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseEasting)), TryGetNumber(crsFalseEasting, out double doubleFalseEastingLCC));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseNorthing)), TryGetNumber(crsFalseNorthing, out double doubleFalseNorthingLCC));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSScaleFactor)), TryGetNumber(crsScaleFactor, out double doubleScaleFactorLCC));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSTransform)), TryGetTransform(crsTransform, out double[] doubleArrayLCC));
 
-                    if (ellipsoid != Ellipsoid.Custom)
+                    Error sp1Error = TryGetStandardParallelLatitude(crsStandardParallel1, out double doubleSP1LCC);
+                    Error sp2Error = TryGetStandardParallelLatitude(crsStandardParallel2, out double doubleSP2LCC);
+                    bool isSP1Empty = doubleSP1LCC == double.MinValue;
+                    bool isSP2Empty = doubleSP2LCC == double.MinValue;
+
+                    // At least one SP should be set.（應設定至少一條標準平行緯線。）
+                    if (isSP1Empty && isSP2Empty)
                     {
-                        if (!IO.IO.EllipsoidTable.TryGetValue(ellipsoid, out ellipsoidDefinition))
-                        {
-                            Instance.Log.Warn($"The ellipsoid `{ellipsoid}` is not defined. 橢球體 `{ellipsoid}` 並未被定義。");
-                            errors.Add(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoid)), Error.General);
-                            return false;
-                        }
+                        AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSStandardParallel1)), Error.Nan);
                     }
                     else
                     {
-                        AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoidSemiMajorAxis)), TryGetLength(ellipsoidSemiMajorAxis, out double doubleSemiMajorAxis));
-                        AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceEllipsoidInverseFlattening)), TryGetNumber(ellipsoidInverseFlattening, out double doubleInverseFlattening));
-                        ellipsoidDefinition = new(doubleSemiMajorAxis, doubleInverseFlattening);
+                        AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSStandardParallel1)), sp1Error);
+                        AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSStandardParallel2)), sp2Error);
                     }
-                    
-                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLongitude)), TryGetLongitude(crsOriginLongitude, out double doubleOriginLongitude));
-                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLatitude)), TryGetLatitude(crsOriginLatitude, out double doubleOriginLatitude));
-                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseEasting)), TryGetNumber(crsFalseEasting, out double doubleFalseEasting));
-                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseNorthing)), TryGetNumber(crsFalseNorthing, out double doubleFalseNorthing));
-                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSScaleFactor)), TryGetNumber(crsScaleFactor, out double doubleScaleFactor));
-                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSTransform)), TryGetTransform(crsTransform, out double[] doubleArray));
-                    projectionDefinition = new(ellipsoidDefinition, doubleOriginLongitude, doubleOriginLatitude, doubleFalseEasting, doubleFalseNorthing, doubleScaleFactor, new(doubleArray));
+
+                    Geodata.Parallels parallels = Geodata.Parallels.None;
+
+                    if (isSP1Empty ^ isSP2Empty)
+                    {
+                        parallels.first = isSP2Empty ? doubleSP1LCC : doubleSP2LCC;
+                    }
+                    else if (!isSP1Empty && !isSP2Empty)
+                    {
+                        parallels.first = doubleSP1LCC;
+                        parallels.second = doubleSP2LCC;
+                    }
+
+                    projectionDefinition = new(ellipsoidDefinition, doubleOriginLongitudeLCC, doubleOriginLatitudeLCC, doubleFalseEastingLCC, doubleFalseNorthingLCC, doubleScaleFactorLCC, new(doubleArrayLCC), parallels);
+                    center = new(doubleX, doubleY, geodataCRS);
+                    break;
+                
+                case CRS.TransverseMercator:
+                    geodataCRS = Geodata.CRS.TransverseMercator;
+                    if (!CheckDatumError(out ellipsoidDefinition)) return false;
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLongitude)), TryGetLongitude(crsOriginLongitude, out double doubleOriginLongitudeTM));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSOriginLatitude)), TryGetLatitude(crsOriginLatitude, out double doubleOriginLatitudeTM));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseEasting)), TryGetNumber(crsFalseEasting, out double doubleFalseEastingTM));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSFalseNorthing)), TryGetNumber(crsFalseNorthing, out double doubleFalseNorthingTM));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSScaleFactor)), TryGetNumber(crsScaleFactor, out double doubleScaleFactorTM));
+                    AddToErrors(Instance.Settings.GetOptionLabelLocaleID(nameof(Instance.Settings.SourceCRSTransform)), TryGetTransform(crsTransform, out double[] doubleArrayTM));
+                    projectionDefinition = new(ellipsoidDefinition, doubleOriginLongitudeTM, doubleOriginLatitudeTM, doubleFalseEastingTM, doubleFalseNorthingTM, doubleScaleFactorTM, new(doubleArrayTM));
                     center = new(doubleX, doubleY, geodataCRS);
                     break;
 

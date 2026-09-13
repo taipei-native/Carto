@@ -4,19 +4,19 @@ namespace Carto.Geodata
 {
     /// <summary>
     /// The definition of standard parallels.
-    /// （標準平行線的定義。）
+    /// （標準平行緯線的定義。）
     /// </summary>
     public struct Parallels
     {
         /// <summary>
         /// The latitude of the first standard parallel.
-        ///（第一標準平行線的緯度。）
+        ///（第一標準平行緯線。）
         /// </summary>
         public double first;
 
         /// <summary>
         /// The latitude of the second standard parallel.
-        /// （第二標準平行線的緯度。）
+        /// （第二標準平行緯線。）
         /// </summary>
         public double second;
 
@@ -28,7 +28,7 @@ namespace Carto.Geodata
 
             if (paramCount > 2)
             {
-                throw new ArgumentException("The number of standard parallels should be either 0, 1, or 2. 標準平行線數量應為 0、1 或 2。");
+                throw new ArgumentException("The number of standard parallels should be either 0, 1, or 2. 標準平行緯線數量應為 0、1 或 2。");
             }
 
             if (paramCount >= 1)
@@ -50,7 +50,7 @@ namespace Carto.Geodata
                 {
                     0 => first,
                     1 => second,
-                    _ => throw new IndexOutOfRangeException("Only the first and the second standard parallels are supported. 僅支援第一和第二標準平行線。")
+                    _ => throw new IndexOutOfRangeException("Only the first and the second standard parallels are supported. 僅支援第一和第二標準平行緯線。")
                 };
             }
             set
@@ -59,20 +59,20 @@ namespace Carto.Geodata
                     case 0: first = value; break;
                     case 1: second = value; break;
                     default:
-                        throw new IndexOutOfRangeException("Only the first and the second standard parallels are supported. 僅支援第一和第二標準平行線。");
+                        throw new IndexOutOfRangeException("Only the first and the second standard parallels are supported. 僅支援第一和第二標準平行緯線。");
                 }
             }
         }
 
         /// <summary>
         /// The number of standard parallels included in the structure.
-        /// （結構內包含的標準平行線數量。）
+        /// （結構內包含的標準平行緯線數量。）
         /// </summary>
         public readonly int Count => (first != double.MinValue ? 1 : 0) + (second != double.MinValue ? 1 : 0);
 
         /// <summary>
         /// Obtain a Parallels struct with no parallels.
-        /// （取得無標準平行線的 Parallels 結構。）
+        /// （取得無緯線的 Parallels 結構。）
         /// </summary>
         public static Parallels None => new()
         {

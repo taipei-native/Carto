@@ -980,48 +980,88 @@ namespace Carto.IO
         /// <param name="options">The export options.（輸出設定。）</param>
         private static void WritePRJ(StreamWriter writer, Options options)
         {
+            void WriteDatumWKT(Ellipsoid ellipsoid, ProjectionDefinition projection, CultureInfo culture, string numericalFormat)
+            {
+                EllipsoidDefinition ellipsoidDefinition = projection.ellipsoid;
+                HelmertTransform transform = projection.transform;
+                
+                writer.Write(ellipsoid == Ellipsoid.Custom ? "User Defined Ellipsoid" : Epsg.Ellipsoid.GetName(ellipsoid));
+                writer.Write("\",");
+                writer.Write(ellipsoidDefinition.a.ToString(numericalFormat, culture));
+                writer.Write(",");
+                writer.Write(ellipsoidDefinition.rf.ToString(numericalFormat, culture));
+                writer.Write("],TOWGS84[");
+
+                switch (transform.paramCount)
+                {
+                    case 3:
+                        for (int i = 0; i < 3; i++)
+                        {
+                            writer.Write(transform[i].ToString(culture));
+                            writer.Write(",");
+                        }
+                        writer.Write("0,0,0,0");
+                        break;
+
+                    case 7:
+                        for (int i = 0; i < 7; i++)
+                        {
+                            writer.Write(transform[i].ToString(culture));
+                            if (i != 6) writer.Write(",");
+                        }
+                        break;
+
+                    default:
+                        writer.Write("0,0,0,0,0,0,0");
+                        break;
+                }
+
+                writer.Write($"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"{Epsg.Meridian.Greenwich}\"]],UNIT[\"Degree\",0.0174532925199433,");
+                writer.Write($"AUTHORITY[\"EPSG\",\"{Epsg.Uom.Degree}\"]],AUTHORITY[\"EPSG\",\"{Epsg.UserDefined}\"]],");
+            }
+            
             CultureInfo invariant = CultureInfo.InvariantCulture;
             string format = "0.0######";
-            Coord center = Transform.Apply(options.SourceCoordinates, options.SourceProjection, options.TargetProjection, options.SourceProjectionDefinition, options.TargetProjectionDefinition);
+            ProjectionDefinition projection = options.TargetProjectionDefinition;
+            Coord center = Transform.Apply(options.SourceCoordinates, options.SourceProjection, options.TargetProjection, options.SourceProjectionDefinition, projection);
+
             switch (options.TargetProjection)
             {
-                case Geodata.CRS.TransverseMercator:
-                    ProjectionDefinition projection = options.TargetProjectionDefinition;
-                    EllipsoidDefinition ellipsoid = projection.ellipsoid;
-                    writer.Write("PROJCS[\"User Defined Transverse Mercator\",GEOGCS[\"User Defined GCS\",DATUM[\"User Defined Datum\",SPHEROID[\"");
-                    writer.Write(options.TargetEllipsoid == Ellipsoid.Custom ? "User Defined Ellipsoid" : Epsg.Ellipsoid.GetName(options.TargetEllipsoid));
-                    writer.Write("\",");
-                    writer.Write(ellipsoid.a.ToString(format, invariant));
-                    writer.Write(",");
-                    writer.Write(ellipsoid.rf.ToString(format, invariant));
-                    writer.Write("],TOWGS84[");
-                    
-                    switch (projection.transform.paramCount)
+                case Geodata.CRS.LambertConformalConic:
+                    writer.Write("PROJCS[\"User Defined Lambert Conformal Conic\",GEOGCS[\"User Defined GCS\",DATUM[\"User Defined Datum\",SPHEROID[\"");
+                    WriteDatumWKT(options.TargetEllipsoid, projection, invariant, format);
+                    writer.Write("PROJECTION[\"Lambert_Conformal_Conic\"],PARAMETER[\"Latitude_Of_Origin\",");
+                    writer.Write(projection.origin.y.ToString(format, invariant));
+                    writer.Write("],PARAMETER[\"Central_Meridian\",");
+                    writer.Write(projection.origin.x.ToString(format, invariant));
+                    writer.Write("],PARAMETER[\"False_Easting\",");
+                    writer.Write(projection.shift.x.ToString(format, invariant));
+                    writer.Write("],PARAMETER[\"False_Northing\",");
+                    writer.Write(projection.shift.y.ToString(format, invariant));
+                    writer.Write("],PARAMETER[\"Standard_Parallel_1\",");
+                    writer.Write(projection.parallels.first.ToString(format, invariant));
+
+                    if (projection.parallels.Count == 2)
                     {
-                        case 3:
-                            for (int i = 0; i < 3; i++)
-                            {
-                                writer.Write(projection.transform[i].ToString(invariant));
-                                writer.Write(",");
-                            }
-                            writer.Write("0,0,0,0");
-                            break;
-
-                        case 7:
-                            for (int i = 0; i < 7; i++)
-                            {
-                                writer.Write(projection.transform[i].ToString(invariant));
-                                if (i != 6) writer.Write(",");
-                            }
-                            break;
-
-                        default:
-                            writer.Write("0,0,0,0,0,0,0");
-                            break;
+                        writer.Write("],PARAMETER[\"Standard_Parallel_2\",");
+                        writer.Write(projection.parallels.second.ToString(format, invariant));
                     }
 
-                    writer.Write($"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"{Epsg.Meridian.Greenwich}\"]],UNIT[\"Degree\",0.0174532925199433,");
-                    writer.Write($"AUTHORITY[\"EPSG\",\"{Epsg.Uom.Degree}\"]],AUTHORITY[\"EPSG\",\"{Epsg.UserDefined}\"]],");
+                    // Sometimes LCC 1SP variants would use non-unity scale factor.
+                    // （有時 LCC 的 1SP 變種會使用非 1 的尺度係數。）
+                    if ((projection.scaleFactor is double k0) && (k0 != 1d))
+                    {
+                        writer.Write("],PARAMETER[\"Scale_Factor\",");
+                        writer.Write(k0.ToString(format, invariant));
+                    }
+
+                    writer.Write($"],UNIT[\"Metre\",1.0,AUTHORITY[\"EPSG\",\"{Epsg.Uom.Metre}\"]],");
+                    writer.Write($"AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"{Epsg.UserDefined}\"]]");
+                    break;
+                
+                case Geodata.CRS.TransverseMercator:
+                    writer.Write("PROJCS[\"User Defined Transverse Mercator\",GEOGCS[\"User Defined GCS\",DATUM[\"User Defined Datum\",SPHEROID[\"");
+                    WriteDatumWKT(options.TargetEllipsoid, projection, invariant, format);
                     writer.Write("PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"Latitude_Of_Origin\",");
                     writer.Write(projection.origin.y.ToString(format, invariant));
                     writer.Write("],PARAMETER[\"Central_Meridian\",");

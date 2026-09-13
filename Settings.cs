@@ -168,6 +168,8 @@ namespace Carto
             SourceCRSFalseEasting = "0";
             SourceCRSFalseNorthing = "0";
             SourceCRSScaleFactor = "0.9996";
+            SourceCRSStandardParallel1 = string.Empty;
+            SourceCRSStandardParallel2 = string.Empty;
             SourceCRSTransform = "0 0 0 0 0 0 0";
             OutputElevation = false;
             OutputMinimizedGeoJSON = false;
@@ -348,7 +350,7 @@ namespace Carto
                     value = 0,
                     displayName = "Options.Carto.Carto.Mod.FILEFORMAT[GeoJSON]"
                 },
-                // TODO: Uncomment when the GeoPackage the export function is implemented.
+                // TODO: Uncomment when the GeoPackage export function is implemented.
                 /*new()
                 {
                     value = 1,
@@ -1507,7 +1509,7 @@ namespace Carto
         /// （投影法使用的橢球體。）
         /// </summary>
         [SettingsUISection(ProjectionTab, ProjectionEllipsoidGroup)]
-        [SettingsUIHideByCondition(typeof(Settings), nameof(IsTransverseMercator), invert: true)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsCustomizableCRS), invert: true)]
         public IO.Ellipsoid SourceEllipsoid { get; set; } = IO.Ellipsoid.GRS80;
 
         /// <summary>
@@ -1534,7 +1536,7 @@ namespace Carto
         /// </summary>
         [SettingsUISection(ProjectionTab, ProjectionProjectionGroup)]
         [SettingsUITextInput]
-        [SettingsUIHideByCondition(typeof(Settings), nameof(IsTransverseMercator), invert: true)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsCustomizableCRS), invert: true)]
         public string SourceCRSOriginLongitude { get; set; } = "0";
 
         /// <summary>
@@ -1543,7 +1545,7 @@ namespace Carto
         /// </summary>
         [SettingsUISection(ProjectionTab, ProjectionProjectionGroup)]
         [SettingsUITextInput]
-        [SettingsUIHideByCondition(typeof(Settings), nameof(IsTransverseMercator), invert: true)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsCustomizableCRS), invert: true)]
         public string SourceCRSOriginLatitude { get; set; } = "0";
 
         /// <summary>
@@ -1552,7 +1554,7 @@ namespace Carto
         /// </summary>
         [SettingsUISection(ProjectionTab, ProjectionProjectionGroup)]
         [SettingsUITextInput]
-        [SettingsUIHideByCondition(typeof(Settings), nameof(IsTransverseMercator), invert: true)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsCustomizableCRS), invert: true)]
         public string SourceCRSFalseEasting { get; set; } = "0";
 
         /// <summary>
@@ -1561,7 +1563,7 @@ namespace Carto
         /// </summary>
         [SettingsUISection(ProjectionTab, ProjectionProjectionGroup)]
         [SettingsUITextInput]
-        [SettingsUIHideByCondition(typeof(Settings), nameof(IsTransverseMercator), invert: true)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsCustomizableCRS), invert: true)]
         public string SourceCRSFalseNorthing { get; set; } = "0";
 
         /// <summary>
@@ -1570,8 +1572,26 @@ namespace Carto
         /// </summary>
         [SettingsUISection(ProjectionTab, ProjectionProjectionGroup)]
         [SettingsUITextInput]
-        [SettingsUIHideByCondition(typeof(Settings), nameof(IsTransverseMercator), invert: true)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsCustomizableCRS), invert: true)]
         public string SourceCRSScaleFactor { get; set; } = "0.9996";
+
+        /// <summary>
+        /// The line of latitude that the tangent conic projection surface touches the globe. For secant conic projection, it's one of the two lines.<br/>
+        /// （正切圓錐投影面與球體接觸的緯線。在正割圓錐投影中，這是兩條緯線中的其中一條。）
+        /// </summary>
+        [SettingsUISection(ProjectionTab, ProjectionProjectionGroup)]
+        [SettingsUITextInput]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsConicProjection), invert: true)]
+        public string SourceCRSStandardParallel1 { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The second standard parallel, used by secant conic projection.<br/>
+        /// （正割圓錐投影中第二條標準平行緯線。）
+        /// </summary>
+        [SettingsUISection(ProjectionTab, ProjectionProjectionGroup)]
+        [SettingsUITextInput]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsConicProjection), invert: true)]
+        public string SourceCRSStandardParallel2 { get; set; } = string.Empty;
 
         /// <summary>
         /// The Helmert Transform parameters to transform the datum to WGS84.
@@ -1579,7 +1599,7 @@ namespace Carto
         /// </summary>
         [SettingsUISection(ProjectionTab, ProjectionProjectionGroup)]
         [SettingsUITextInput]
-        [SettingsUIHideByCondition(typeof(Settings), nameof(IsTransverseMercator), invert: true)]
+        [SettingsUIHideByCondition(typeof(Settings), nameof(IsCustomizableCRS), invert: true)]
         public string SourceCRSTransform { get; set; } = "0 0 0 0 0 0 0";
 
         /// <summary>
@@ -1795,16 +1815,19 @@ namespace Carto
         public bool DoesUserSelectWind => PropertiesSystemSelector == SelectorValueWind;
 
         [SettingsUIHidden]
-        public bool IsCustomEllipsoid => IsTransverseMercator && (SourceEllipsoid == IO.Ellipsoid.Custom);
+        public bool IsConicProjection => SourceCRS == IO.CRS.LambertConformalConic;
+
+        [SettingsUIHidden]
+        public bool IsCustomEllipsoid => IsCustomizableCRS && (SourceEllipsoid == IO.Ellipsoid.Custom);
+
+        [SettingsUIHidden]
+        public bool IsCustomizableCRS => (SourceCRS == IO.CRS.TransverseMercator) || (SourceCRS == IO.CRS.LambertConformalConic);
 
         [SettingsUIHidden]
         public bool IsCustomNamingFormat => ExportNamingFormat == IO.NamingFormat.Custom;
 
         [SettingsUIHidden]
         public bool IsInGameOrEditor => GameMode.GameOrEditor.HasFlag(Instance.GameMode);
-
-        [SettingsUIHidden]
-        public bool IsTransverseMercator => SourceCRS == IO.CRS.TransverseMercator;
 
         [SettingsUIHidden]
         public bool IsUTM => SourceCRS == IO.CRS.UTM;
@@ -2000,7 +2023,8 @@ namespace Carto
                                               SourceEllipsoidSemiMajorAxis, SourceEllipsoidInverseFlattening,
                                               SourceCRSOriginLongitude, SourceCRSOriginLatitude,
                                               SourceCRSFalseEasting, SourceCRSFalseNorthing,
-                                              SourceCRSScaleFactor, SourceCRSTransform);
+                                              SourceCRSScaleFactor, SourceCRSTransform,
+                                              SourceCRSStandardParallel1, SourceCRSStandardParallel2);
 
             Geodata.Coord sourceCoordinates = parsedResult.center;
             Geodata.CRS sourceCRS = parsedResult.projection;

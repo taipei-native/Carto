@@ -35,7 +35,7 @@ namespace Carto.Geodata
 
 		/// <summary>
 		/// The latitudes of standard parallels from the projection.
-		/// （投影法標準平行線的緯度。）
+		/// （投影法的標準平行緯線。）
 		/// </summary>
 		public Parallels parallels;
 

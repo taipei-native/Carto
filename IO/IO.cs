@@ -109,6 +109,7 @@ namespace Carto.IO
         /// </summary>
         public static readonly Dictionary<Geodata.CRS, CRS> CRSTable = new()
         {
+            { Geodata.CRS.LambertConformalConic, CRS.LambertConformalConic },
             { Geodata.CRS.TransverseMercator, CRS.TransverseMercator },
             { Geodata.CRS.UTM, CRS.UTM },
             { Geodata.CRS.WGS84, CRS.WGS84 }
@@ -942,6 +943,30 @@ namespace Carto.IO
 
             switch (options.SourceProjection)
             {
+                case Geodata.CRS.LambertConformalConic:
+                    _log.Info(GetIndentedText(GetAlignedText("PROJECTION", "Lambert Conformal Conic", 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("X", options.SourceCoordinates.x.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("Y", options.SourceCoordinates.y.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("ELLIPSOID", $"EPSG:{Epsg.Ellipsoid.GetCode(options.TargetEllipsoid)}", 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("SEMI_MAJOR", options.TargetProjectionDefinition.ellipsoid.a.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("INV_F", options.TargetProjectionDefinition.ellipsoid.rf.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("ORIGIN_LONG", options.TargetProjectionDefinition.origin.x.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("ORIGIN_LAT", options.TargetProjectionDefinition.origin.y.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("FALSE_EASTING", options.TargetProjectionDefinition.shift.x.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("FALSE_NORTHING", options.TargetProjectionDefinition.shift.y.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("SP_FIRST", options.TargetProjectionDefinition.parallels.first.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("SP_SECOND", options.TargetProjectionDefinition.parallels.second.ToString(numericFormat, culture), 36), 2));
+                    _log.Info(GetIndentedText(GetAlignedText("SCALE_FACTOR", options.TargetProjectionDefinition.scaleFactor.ToString(numericFormat, culture), 36), 2));
+                    if (transformText.Length <= 18)
+                    {
+                        _log.Info(GetIndentedText(GetAlignedText("TRANSFORM", transformText, 36), 2));
+                    }
+                    else
+                    {
+                        _log.Info(GetIndentedText($"{GetAlignedText("TRANSFORM", " ", 17)}{transformText}", 2));
+                    }
+                    break;
+
                 case Geodata.CRS.TransverseMercator:
                     _log.Info(GetIndentedText(GetAlignedText("PROJECTION", "Transverse Mercator", 36), 2));
                     _log.Info(GetIndentedText(GetAlignedText("X", options.SourceCoordinates.x.ToString(numericFormat, culture), 36), 2));
