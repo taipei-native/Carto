@@ -56,7 +56,7 @@ Finally, sincere thanks to everyone who contributed translations on [Crowdin](ht
 
 You can reach out via:
 
-* [Paradox Forum](https://forum.paradoxplaza.com/forum/threads/carto.1699089/) (English / Chinese)
+* [Paradox Forum](https://forum.paradoxplaza.com/forum/threads/carto.1699089/) (English)
 * [Cities: Skylines Modding Discord](https://discord.gg/HTav7ARPs2) (English)
 * [Cities: Skylines Taiwan Assets Discord](https://discord.gg/Gz4K66jT64) (Chinese preferred)
 

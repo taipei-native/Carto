@@ -148,14 +148,19 @@ namespace Carto.Systems
                             }
                             break;
 
+                        // Version 1.0.18: Fix the Norm16 export haven't been working since 1.0 (sigh)
+                        // （1.0.18 版本：修正輸出 Norm16 選項似乎自 1.0 版本以來都沒有正確運作的問題（唉）。）
+
                         case GeoTiffFormat.Norm16:
-                            Bounds3 bounds = new(-data.offset, (data.resolution - 1) / data.scale - data.offset);
+                            TerrainHeightData terrainData = _terrain.GetHeightData();
+                            Bounds1 bounds = TerrainUtils.GetBounds(ref terrainData).y;
+
                             for (int i = _param.imageHeight - 1; i > -1; i--)
                             {
                                 for (int j = 0; j < _param.imageWidth; j++)
                                 {
-                                    float depthInPlace = NormalizeToUShort(depth[i * _param.imageWidth + j].m_Depth, bounds.y);
-                                    writer.Write(BitConverter.GetBytes(depthInPlace));
+                                    ushort depthInPlace = NormalizeToUShort(depth[i * _param.imageWidth + j].m_Depth, bounds);
+                                    writer.Write(BitConverter.GetBytes(depthInPlace <= 0 ? (ushort)_param.nodata : depthInPlace));
                                 }
                             }
                             break;

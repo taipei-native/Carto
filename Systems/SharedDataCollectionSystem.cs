@@ -18,6 +18,7 @@ using Game.Tools;
 using Game.Zones;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Text.RegularExpressions;
 using Unity.Burst;
 using Unity.Collections;
@@ -1308,9 +1309,16 @@ namespace Carto.Systems
                         }
                     }
 
+                    // Version 1.0.18: Initialize the NativeText using UTF-8 byte length.
+                    // （1.0.18 版本：使用 UTF-8 位元組長度初始化 NativeText。）
+
+                    string zoningTypeLabel = Utils.LocaleUtils.TryTranslate($"Assets.NAME[{zoningTypeName}]", out string zoningTypeUiName) ? zoningTypeUiName : zoningTypeName;
+                    NativeText zoningTypeText = new(Encoding.UTF8.GetByteCount(zoningTypeLabel), Allocator.Persistent);
+                    zoningTypeText.Append(zoningTypeLabel);
+
                     entityMap.TryAdd(zoningType.entity, index);
                     idMap.TryAdd(zoningType.id, index);
-                    names.Add(new(Utils.LocaleUtils.TryTranslate($"Assets.NAME[{zoningTypeName}]", out string zoningTypeUiName) ? zoningTypeUiName : zoningTypeName, Allocator.Persistent));
+                    names.Add(zoningTypeText);
                 }
             }
             catch (Exception ex)
